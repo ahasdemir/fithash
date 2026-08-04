@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -14,7 +14,8 @@ import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types/fitness';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
-import { getWorkouts } from '../services/storage';
+import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
+import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/geminiService';
 import { getAppSettings } from '../services/settings';
 
@@ -24,6 +25,7 @@ interface ActiveWorkoutModalProps {
   onUpdateSession: (session: WorkoutSession) => void;
   onFinishSession: (session: WorkoutSession) => void;
   onCancelSession: () => void;
+  onBackgroundSession?: () => void;
 }
 
 export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
@@ -32,6 +34,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   onUpdateSession,
   onFinishSession,
   onCancelSession,
+  onBackgroundSession,
 }) => {
   const [session, setSession] = useState<WorkoutSession | null>(activeSession);
   const [pastWorkouts, setPastWorkouts] = useState<WorkoutSession[]>([]);
@@ -46,6 +49,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     autoStartRestTimer: true,
   });
 
+  const restoredTimerRef = useRef(false);
+
   useEffect(() => {
     setSession(activeSession);
     if (activeSession) {
@@ -56,6 +61,11 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      restoredTimerRef.current = false;
+      if (activeSession) {
+        const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
+        setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+      }
       getWorkouts().then(data => setPastWorkouts(data));
       getAppSettings().then(s => {
         setUserSettings({
@@ -65,6 +75,43 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       });
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (visible && session && !session.completed && !restoredTimerRef.current) {
+      restoredTimerRef.current = true;
+      restoreRestTimer();
+    }
+  }, [visible, session]);
+
+  const restoreRestTimer = async () => {
+    const endTime = await getActiveRestTimerEnd();
+    if (endTime === null) return;
+
+    if (endTime > Date.now()) {
+      const remaining = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+      setRestTimerSeconds(remaining);
+      setRestTimerKey(Date.now());
+      setShowRestTimer(true);
+      scheduleRestTimerNotification(endTime);
+    } else {
+      saveActiveRestTimerEnd(null);
+      cancelRestTimerNotification();
+    }
+  };
+
+  const handleRestDeadlineChange = (endTime: number | null) => {
+    saveActiveRestTimerEnd(endTime);
+    if (endTime !== null) {
+      scheduleRestTimerNotification(endTime);
+    } else {
+      cancelRestTimerNotification();
+    }
+  };
+
+  const handleBackground = () => {
+    setShowRestTimer(false);
+    onBackgroundSession?.();
+  };
 
   useEffect(() => {
     let timer: any = null;
@@ -323,6 +370,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     };
 
     onFinishSession(finalSession);
+    saveActiveRestTimerEnd(null);
+    cancelRestTimerNotification();
 
     Alert.alert(
       'Tebrikler! 🎉',
@@ -342,7 +391,26 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       <View style={styles.container}>
         {/* Header Bar */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onCancelSession} style={styles.cancelBtn} activeOpacity={0.7}>
+          {onBackgroundSession && (
+            <TouchableOpacity
+              onPress={handleBackground}
+              style={styles.minimizeBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-down" size={22} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={() => {
+              saveActiveRestTimerEnd(null);
+              cancelRestTimerNotification();
+              onCancelSession();
+            }}
+            style={styles.cancelBtn}
+            activeOpacity={0.7}
+          >
             <Text style={styles.cancelText}>Vazgeç</Text>
           </TouchableOpacity>
 
@@ -372,7 +440,12 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             <RestTimerBar
               key={restTimerKey}
               initialSeconds={restTimerSeconds}
-              onClose={() => setShowRestTimer(false)}
+              onClose={() => {
+                saveActiveRestTimerEnd(null);
+                cancelRestTimerNotification();
+                setShowRestTimer(false);
+              }}
+              onDeadlineChange={handleRestDeadlineChange}
             />
           </View>
         )}
@@ -616,10 +689,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   cancelBtn: {
+    flexShrink: 0,
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderRadius: 100,
+  },
+  minimizeBtn: {
+    flexShrink: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelText: {
     color: COLORS.danger,
@@ -627,13 +712,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerTitleBox: {
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   sessionTitleInput: {
     fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
     textAlign: 'center',
+    width: '100%',
+    paddingVertical: 0,
   },
   timerBadge: {
     flexDirection: 'row',
@@ -652,6 +741,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   finishBtn: {
+    flexShrink: 0,
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,

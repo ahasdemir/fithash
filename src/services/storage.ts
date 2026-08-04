@@ -7,6 +7,8 @@ const STORAGE_KEYS = {
   WORKOUTS: '@fitness_workouts_v1',
   ROUTINES: '@fitness_routines_v1',
   PRS: '@fitness_prs_v1',
+  ACTIVE_SESSION: '@fitness_active_session_v1',
+  ACTIVE_REST_TIMER: '@fitness_active_rest_timer_v1',
 };
 
 // --- EXERCISES ---
@@ -157,6 +159,56 @@ export const deleteWorkout = async (id: string): Promise<WorkoutSession[]> => {
   } catch (error) {
     console.error('Error deleting workout:', error);
     throw error;
+  }
+};
+
+// --- ACTIVE SESSION (persisted across app restarts) ---
+export const getActiveSession = async (): Promise<WorkoutSession | null> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SESSION);
+    return json ? JSON.parse(json) : null;
+  } catch (error) {
+    console.error('Error fetching active session:', error);
+    return null;
+  }
+};
+
+export const saveActiveSession = async (session: WorkoutSession): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_SESSION, JSON.stringify(session));
+  } catch (error) {
+    console.error('Error saving active session:', error);
+  }
+};
+
+export const clearActiveSession = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
+  } catch (error) {
+    console.error('Error clearing active session:', error);
+  }
+};
+
+// --- ACTIVE REST TIMER (persisted deadline, survives app restart) ---
+export const getActiveRestTimerEnd = async (): Promise<number | null> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_REST_TIMER);
+    return json ? Number(JSON.parse(json)) : null;
+  } catch (error) {
+    console.error('Error fetching rest timer:', error);
+    return null;
+  }
+};
+
+export const saveActiveRestTimerEnd = async (endTime: number | null): Promise<void> => {
+  try {
+    if (endTime === null) {
+      await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_REST_TIMER);
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_REST_TIMER, JSON.stringify(endTime));
+    }
+  } catch (error) {
+    console.error('Error saving rest timer:', error);
   }
 };
 
@@ -411,6 +463,8 @@ export const clearAllData = async (): Promise<void> => {
     STORAGE_KEYS.WORKOUTS,
     STORAGE_KEYS.PRS,
     STORAGE_KEYS.ROUTINES,
-    STORAGE_KEYS.EXERCISES
+    STORAGE_KEYS.EXERCISES,
+    STORAGE_KEYS.ACTIVE_SESSION,
+    STORAGE_KEYS.ACTIVE_REST_TIMER,
   ]);
 };

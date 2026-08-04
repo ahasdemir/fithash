@@ -26,7 +26,15 @@ import {
   deleteRoutine,
   getPersonalRecords,
   calculateUserStats,
+  getActiveSession,
+  saveActiveSession,
+  clearActiveSession,
 } from './src/services/storage';
+import {
+  configureNotifications,
+  scheduleSessionReminder,
+  cancelSessionReminder,
+} from './src/services/notifications';
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 
 export default function App() {
@@ -40,7 +48,18 @@ export default function App() {
 
   useEffect(() => {
     loadAllData();
+    restoreActiveSession();
   }, []);
+
+  const restoreActiveSession = async () => {
+    configureNotifications();
+    const saved = await getActiveSession();
+    if (saved && !saved.completed) {
+      setActiveSession(saved);
+      setShowActiveModal(true);
+      scheduleSessionReminder(saved.name);
+    }
+  };
 
   const loadAllData = async () => {
     const wData = await getWorkouts();
@@ -54,15 +73,20 @@ export default function App() {
   const handleStartSession = (session: WorkoutSession) => {
     setActiveSession(session);
     setShowActiveModal(true);
+    saveActiveSession(session);
+    scheduleSessionReminder(session.name);
   };
 
   const handleUpdateActiveSession = (session: WorkoutSession) => {
     setActiveSession(session);
+    saveActiveSession(session);
   };
 
   const handleFinishActiveSession = async (completedSession: WorkoutSession) => {
     setShowActiveModal(false);
     setActiveSession(null);
+    await clearActiveSession();
+    cancelSessionReminder();
     const updated = await saveWorkout(completedSession);
     setWorkouts(updated);
     const updatedPrs = await getPersonalRecords();
@@ -77,6 +101,12 @@ export default function App() {
   const handleCancelActiveSession = () => {
     setShowActiveModal(false);
     setActiveSession(null);
+    clearActiveSession();
+    cancelSessionReminder();
+  };
+
+  const handleBackgroundSession = () => {
+    setShowActiveModal(false);
   };
 
   const handleSaveRoutine = async (routine: Routine) => {
@@ -225,6 +255,7 @@ export default function App() {
         onUpdateSession={handleUpdateActiveSession}
         onFinishSession={handleFinishActiveSession}
         onCancelSession={handleCancelActiveSession}
+        onBackgroundSession={handleBackgroundSession}
       />
 
       {/* Settings Modal */}

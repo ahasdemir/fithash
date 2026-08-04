@@ -44,7 +44,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header Row */}
       <View style={styles.headerRow}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.title}>Geçmiş Antrenmanlar</Text>
           <Text style={styles.subtitle}>Tarihsel saklanan antrenman ve kardiyo kayıtları</Text>
         </View>
@@ -82,7 +82,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   activeOpacity={0.85}
                   onPress={() => setSelectedWorkout(session)}
                 >
-                  <Text style={styles.sessionName}>{session.name}</Text>
+                  <Text style={styles.sessionName} numberOfLines={2} ellipsizeMode="tail">{session.name}</Text>
 
                   {/* Dynamic Metric Badges */}
                   <View style={styles.statsRow}>
@@ -250,7 +250,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   return (
                     <View key={ex.id} style={styles.modalExCard}>
                       <View style={styles.modalExHeader}>
-                        <Text style={styles.modalExName}>{idx + 1}. {ex.exerciseName}</Text>
+                        <Text style={styles.modalExName} numberOfLines={2} ellipsizeMode="tail">{idx + 1}. {ex.exerciseName}</Text>
                         <View style={[styles.modalCatBadge, { backgroundColor: catColor + '15' }]}>
                           <Text style={[styles.modalCatText, { color: catColor }]}>{ex.category}</Text>
                         </View>
@@ -357,6 +357,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  headerLeft: {
+    flexShrink: 1,
   },
   title: {
     fontSize: 20,
@@ -368,6 +372,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   countBadge: {
+    flexShrink: 0,
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -411,6 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sessionName: {
+    flexShrink: 1,
     fontSize: 17,
     fontWeight: '800',
     color: COLORS.textPrimary,
@@ -610,13 +616,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+    gap: 8,
   },
   modalExName: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   modalCatBadge: {
+    flexShrink: 0,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 100,

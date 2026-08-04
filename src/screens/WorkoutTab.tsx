@@ -181,7 +181,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           <View key={routine.id} style={styles.routineCard}>
             <View style={styles.routineHeader}>
               <View style={styles.routineTitleLeft}>
-                <Text style={styles.routineName}>{routine.name}</Text>
+                <Text style={styles.routineName} numberOfLines={2} ellipsizeMode="tail">{routine.name}</Text>
                 <View style={styles.routineTag}>
                   <Text style={styles.routineTagText}>{routine.category}</Text>
                 </View>
@@ -355,6 +355,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   activeBannerRight: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -472,6 +473,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   routineName: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
@@ -492,6 +494,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dotsMenuBtn: {
+    flexShrink: 0,
     padding: 6,
     borderRadius: 100,
   },

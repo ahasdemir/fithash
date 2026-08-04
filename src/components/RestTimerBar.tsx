@@ -7,12 +7,15 @@ interface RestTimerProps {
   initialSeconds?: number;
   onFinish?: () => void;
   onClose?: () => void;
+  /** Reports the absolute deadline (ms) when the timer is active, or null when paused/dismissed. */
+  onDeadlineChange?: (endTime: number | null) => void;
 }
 
 export const RestTimerBar: React.FC<RestTimerProps> = ({
   initialSeconds = 90,
   onFinish,
   onClose,
+  onDeadlineChange,
 }) => {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
   const [isActive, setIsActive] = useState(true);
@@ -21,6 +24,9 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
   useEffect(() => {
     setSecondsLeft(initialSeconds);
     setIsActive(true);
+    if (initialSeconds > 0) {
+      onDeadlineChange?.(Date.now() + initialSeconds * 1000);
+    }
   }, [initialSeconds]);
 
   useEffect(() => {
@@ -31,17 +37,22 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
       }, 1000);
     } else if (secondsLeft === 0 && isActive) {
       setIsActive(false);
+      onDeadlineChange?.(null);
       if (onFinish) onFinish();
     }
     return () => clearInterval(interval);
-  }, [isActive, secondsLeft, onFinish]);
+  }, [isActive, secondsLeft, onFinish, onDeadlineChange]);
 
   const addTime = (secs: number) => {
-    setSecondsLeft(prev => Math.max(0, prev + secs));
+    const next = Math.max(0, secondsLeft + secs);
+    setSecondsLeft(next);
+    onDeadlineChange?.(isActive && next > 0 ? Date.now() + next * 1000 : null);
   };
 
   const toggleTimer = () => {
-    setIsActive(!isActive);
+    const nextActive = !isActive;
+    setIsActive(nextActive);
+    onDeadlineChange?.(nextActive && secondsLeft > 0 ? Date.now() + secondsLeft * 1000 : null);
   };
 
   const formatTime = (secs: number) => {
