@@ -1,0 +1,372 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../theme';
+import { Exercise, MuscleCategory } from '../types/fitness';
+import { getExercises } from '../services/storage';
+import { AddExerciseModal } from './AddExerciseModal';
+
+interface ExercisePickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelectExercise: (exercise: Exercise) => void;
+}
+
+const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
+  'Hepsi',
+  'Göğüs',
+  'Sırt',
+  'Bacak',
+  'Omuz',
+  'Ön Kol',
+  'Arka Kol',
+  'Karın',
+  'Kardiyo',
+];
+
+export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
+  visible,
+  onClose,
+  onSelectExercise,
+}) => {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      loadExercises();
+    }
+  }, [visible]);
+
+  const loadExercises = async () => {
+    const data = await getExercises();
+    setExercises(data);
+  };
+
+  const filteredExercises = exercises.filter(ex => {
+    const matchesCategory = selectedCategory === 'Hepsi' || ex.category === selectedCategory;
+    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (ex.targetMuscle && ex.targetMuscle.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesCategory && matchesSearch;
+  });
+
+  const handleCustomExerciseSaved = (newEx: Exercise) => {
+    setExercises(prev => [newEx, ...prev]);
+    onSelectExercise(newEx);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Hareket Seç</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Search bar & Add Custom button */}
+          <View style={styles.topActions}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={18} color={COLORS.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Egzersiz ara..."
+                placeholderTextColor={COLORS.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery ? (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-outline" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
+              <Ionicons name="add" size={20} color="#111111" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Category Chips */}
+          <View style={styles.categoriesWrapper}>
+            <FlatList
+              horizontal
+              data={CATEGORIES}
+              keyExtractor={item => item}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = selectedCategory === item;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryChip,
+                      isSelected && styles.categoryChipSelected,
+                    ]}
+                    onPress={() => setSelectedCategory(item)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextSelected,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+
+          {/* Exercise List */}
+          <FlatList
+            data={filteredExercises}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContainer}
+            renderItem={({ item }) => {
+              const catColor = COLORS.category[item.category] || COLORS.textPrimary;
+              return (
+                <TouchableOpacity
+                  style={styles.exerciseCard}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    onSelectExercise(item);
+                    onClose();
+                  }}
+                >
+                  <View style={styles.exerciseInfo}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.exerciseName}>{item.name}</Text>
+                      {item.isCustom && (
+                        <View style={styles.customTag}>
+                          <Text style={styles.customTagText}>Özel</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.tagsRow}>
+                      <View style={[styles.badge, { backgroundColor: catColor + '15' }]}>
+                        <Text style={[styles.badgeText, { color: catColor }]}>{item.category}</Text>
+                      </View>
+                      <View style={styles.badgeEquipment}>
+                        <Text style={styles.badgeEquipmentText}>{item.equipment}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <Ionicons name="add-circle" size={26} color="#111111" />
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="barbell-outline" size={40} color={COLORS.textMuted} />
+                <Text style={styles.emptyText}>Aradığınız egzersiz bulunamadı</Text>
+                <TouchableOpacity
+                  style={styles.createBtnInline}
+                  onPress={() => setShowAddModal(true)}
+                >
+                  <Text style={styles.createBtnInlineText}>+ Yeni Hareket Ekle</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        </View>
+      </View>
+
+      <AddExerciseModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleCustomExerciseSaved}
+      />
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '88%',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 100,
+    paddingHorizontal: 16,
+    height: 42,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: 14,
+  },
+  addBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoriesWrapper: {
+    marginVertical: 12,
+  },
+  categoryChip: {
+    backgroundColor: COLORS.surfaceSubtle,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 8,
+  },
+  categoryChipSelected: {
+    backgroundColor: '#111111',
+    borderColor: '#111111',
+  },
+  categoryChipText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  categoryChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  listContainer: {
+    paddingBottom: 20,
+  },
+  exerciseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceSubtle,
+    padding: 14,
+    borderRadius: 18,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  exerciseInfo: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  exerciseName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  customTag: {
+    backgroundColor: COLORS.primaryGlow,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 100,
+  },
+  customTagText: {
+    color: '#111111',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  badgeEquipment: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  badgeEquipmentText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 10,
+  },
+  emptyText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+  },
+  createBtnInline: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 100,
+    marginTop: 8,
+  },
+  createBtnInlineText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+});

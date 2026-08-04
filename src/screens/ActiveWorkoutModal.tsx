@@ -1,0 +1,861 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SHADOWS } from '../theme';
+import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types/fitness';
+import { RestTimerBar } from '../components/RestTimerBar';
+import { ExercisePickerModal } from '../components/ExercisePickerModal';
+import { getWorkouts } from '../services/storage';
+import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/geminiService';
+import { getAppSettings } from '../services/settings';
+
+interface ActiveWorkoutModalProps {
+  visible: boolean;
+  activeSession: WorkoutSession | null;
+  onUpdateSession: (session: WorkoutSession) => void;
+  onFinishSession: (session: WorkoutSession) => void;
+  onCancelSession: () => void;
+}
+
+export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
+  visible,
+  activeSession,
+  onUpdateSession,
+  onFinishSession,
+  onCancelSession,
+}) => {
+  const [session, setSession] = useState<WorkoutSession | null>(activeSession);
+  const [pastWorkouts, setPastWorkouts] = useState<WorkoutSession[]>([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showRestTimer, setShowRestTimer] = useState(false);
+  const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [restTimerSeconds, setRestTimerSeconds] = useState(90);
+  const [restTimerKey, setRestTimerKey] = useState(Date.now());
+
+  const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
+    defaultRestSeconds: 90,
+    autoStartRestTimer: true,
+  });
+
+  useEffect(() => {
+    setSession(activeSession);
+    if (activeSession) {
+      const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
+      setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+    }
+  }, [activeSession]);
+
+  useEffect(() => {
+    if (visible) {
+      getWorkouts().then(data => setPastWorkouts(data));
+      getAppSettings().then(s => {
+        setUserSettings({
+          defaultRestSeconds: s.defaultRestSeconds ?? 90,
+          autoStartRestTimer: s.autoStartRestTimer ?? true,
+        });
+      });
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    let timer: any = null;
+    if (visible && session && session.completed === false) {
+      timer = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [visible, session]);
+
+  if (!session) return null;
+
+  const formatTimer = (totalSecs: number) => {
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+  };
+
+  // Progressive Overload weight recommendation engine (Sports Science Autoregulated)
+  const calculateRecommendation = (exName: string, exId: string, equipment: string): SmartOverloadRecommendation | null => {
+    for (const past of pastWorkouts) {
+      if (past.id === session.id) continue;
+
+      const match = past.exercises.find(e => e.exerciseId === exId || e.exerciseName.toLowerCase() === exName.toLowerCase());
+      if (match) {
+        const validSets = match.sets.filter(s => s.completed && s.weight > 0);
+        if (validSets.length > 0) {
+          return calculateSmartAutoregulatedOverload(exName, equipment, validSets, 10, 1);
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      const copySets = ex.sets.map(s => ({
+        ...s,
+        weight: rec.recWeight > 0 ? rec.recWeight : s.weight,
+        reps: rec.recReps > 0 ? rec.recReps : s.reps,
+      }));
+      return { ...ex, sets: copySets };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+
+    Alert.alert('AI Önerisi Uygulandı ✨', rec.reason);
+  };
+
+  const handleAddExercise = (ex: Exercise) => {
+    const rec = calculateRecommendation(ex.name, ex.id, ex.equipment);
+    const defaultWeight = rec ? rec.recWeight : 0;
+    const isCardio = ex.category === 'Kardiyo';
+
+    const newWorkoutEx: WorkoutExercise = {
+      id: `wex_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      exerciseId: ex.id,
+      exerciseName: ex.name,
+      category: ex.category,
+      equipment: ex.equipment,
+      sets: [
+        {
+          id: `set_1_${Date.now()}`,
+          setNumber: 1,
+          weight: isCardio ? 0 : defaultWeight,
+          reps: isCardio ? 0 : 10,
+          rir: isCardio ? undefined : 1,
+          durationMinutes: isCardio ? 15 : undefined,
+          distanceKm: isCardio ? 2.5 : undefined,
+          completed: false,
+        },
+      ],
+    };
+
+    const updated = {
+      ...session,
+      exercises: [...session.exercises, newWorkoutEx],
+    };
+
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
+  const handleSetChange = (exId: string, setIdx: number, field: keyof ExerciseSet, val: any) => {
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      const copySets = [...ex.sets];
+      const parsedVal = typeof val === 'number' ? val : (parseFloat(val) || 0);
+
+      const updatedSet = {
+        ...copySets[setIdx],
+        [field]: parsedVal,
+      };
+
+      // Recalculate average speed for cardio sets
+      if (field === 'durationMinutes' || field === 'distanceKm') {
+        const mins = field === 'durationMinutes' ? parsedVal : (updatedSet.durationMinutes || 0);
+        const dist = field === 'distanceKm' ? parsedVal : (updatedSet.distanceKm || 0);
+        if (mins > 0 && dist > 0) {
+          updatedSet.avgSpeedKmh = parseFloat(((dist / mins) * 60).toFixed(1));
+        }
+      }
+
+      copySets[setIdx] = updatedSet;
+      return { ...ex, sets: copySets };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
+  const handleCycleRir = (exId: string, setIdx: number) => {
+    const currentRir = session.exercises.find(e => e.id === exId)?.sets[setIdx]?.rir ?? 1;
+    const nextRir = (currentRir + 1) % 4; // 0 -> 1 -> 2 -> 3 -> 0
+    handleSetChange(exId, setIdx, 'rir', nextRir);
+  };
+
+  const handleToggleSetComplete = (exId: string, setIdx: number) => {
+    let isNowCompleted = false;
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      const copySets = [...ex.sets];
+      const currentState = copySets[setIdx].completed;
+      isNowCompleted = !currentState;
+      copySets[setIdx] = {
+        ...copySets[setIdx],
+        completed: isNowCompleted,
+      };
+      return { ...ex, sets: copySets };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+
+    if (isNowCompleted && userSettings.autoStartRestTimer) {
+      setRestTimerKey(Date.now());
+      setShowRestTimer(true);
+      setRestTimerSeconds(userSettings.defaultRestSeconds || 90);
+    }
+  };
+
+  const handleAddSet = (exId: string) => {
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      const lastSet = ex.sets[ex.sets.length - 1];
+      const newSetNumber = ex.sets.length + 1;
+      const isCardio = ex.category === 'Kardiyo';
+
+      const newSet: ExerciseSet = {
+        id: `set_${newSetNumber}_${Date.now()}`,
+        setNumber: newSetNumber,
+        weight: lastSet ? lastSet.weight : 0,
+        reps: lastSet ? lastSet.reps : 10,
+        rir: lastSet ? lastSet.rir : 1,
+        durationMinutes: lastSet?.durationMinutes ?? (isCardio ? 15 : undefined),
+        distanceKm: lastSet?.distanceKm ?? (isCardio ? 2.5 : undefined),
+        completed: false,
+      };
+      return { ...ex, sets: [...ex.sets, newSet] };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
+  const handleRemoveSet = (exId: string, setIdx: number) => {
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      if (ex.sets.length <= 1) {
+        Alert.alert('Uyarı', 'Bir harekette en az 1 set bulunmalıdır.');
+        return ex;
+      }
+      const copySets = ex.sets.filter((_, i) => i !== setIdx).map((s, i) => ({
+        ...s,
+        setNumber: i + 1,
+      }));
+      return { ...ex, sets: copySets };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
+  const handleRemoveExercise = (exId: string) => {
+    const updatedExercises = session.exercises.filter(ex => ex.id !== exId);
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
+  const handleFinish = () => {
+    let totalVolume = 0;
+    let totalSetsCount = 0;
+    let rirSum = 0;
+    let rirCount = 0;
+    let totalCaloriesBurned = 0;
+    let totalCardioDistance = 0;
+    let totalCardioMins = 0;
+
+    session.exercises.forEach(ex => {
+      const isCardio = ex.category === 'Kardiyo';
+
+      ex.sets.forEach(s => {
+        if (s.completed) {
+          totalSetsCount++;
+          if (!isCardio && s.weight > 0) {
+            totalVolume += s.weight * s.reps;
+            if (s.rir !== undefined) {
+              rirSum += s.rir;
+              rirCount++;
+            }
+            // Resistance training calorie estimation
+            totalCaloriesBurned += Math.round(s.reps * (1 + s.weight / 60) * 0.4);
+          } else if (isCardio) {
+            const mins = s.durationMinutes || 15;
+            const dist = s.distanceKm || 0;
+            totalCardioDistance += dist;
+            totalCardioMins += mins;
+
+            let met = 7.0;
+            const name = ex.exerciseName.toLowerCase();
+            if (name.includes('yürüyüş') || name.includes('walk')) met = 3.8;
+            else if (name.includes('koşu') || name.includes('treadmill')) met = 9.8;
+            else if (name.includes('bisiklet') || name.includes('cycle')) met = 7.5;
+            else if (name.includes('eliptik')) met = 7.0;
+            else if (name.includes('kürek') || name.includes('row')) met = 7.0;
+
+            const kcal = Math.round(met * 75 * (mins / 60));
+            totalCaloriesBurned += kcal;
+          }
+        }
+      });
+    });
+
+    const finalSession: WorkoutSession = {
+      ...session,
+      endTime: Date.now(),
+      durationSeconds: elapsedSeconds,
+      totalVolume,
+      totalSets: totalSetsCount,
+      avgRir: rirCount > 0 ? Math.round((rirSum / rirCount) * 10) / 10 : undefined,
+      totalCaloriesBurned,
+      totalCardioDistanceKm: Math.round(totalCardioDistance * 10) / 10,
+      totalCardioMinutes: totalCardioMins,
+      completed: true,
+    };
+
+    onFinishSession(finalSession);
+
+    Alert.alert(
+      'Tebrikler! 🎉',
+      `Antrenman başarıyla tamamlandı!\n\n⏱️ Süre: ${Math.round(elapsedSeconds / 60)} dakika\n🔥 Yakılan Kalori: ~${totalCaloriesBurned} kcal\n🏋️ Kaldırılan Hacim: ${totalVolume.toLocaleString('tr-TR')} kg`
+    );
+  };
+
+  const getRirColor = (rir?: number) => {
+    if (rir === 0) return '#EF4444'; // Failure / Crimson Red
+    if (rir === 1) return '#F59E0B'; // Amber
+    if (rir === 2) return '#10B981'; // Emerald
+    return '#3B82F6';                // Muted Blue
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide">
+      <View style={styles.container}>
+        {/* Header Bar */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onCancelSession} style={styles.cancelBtn} activeOpacity={0.7}>
+            <Text style={styles.cancelText}>Vazgeç</Text>
+          </TouchableOpacity>
+
+          <View style={styles.headerTitleBox}>
+            <TextInput
+              style={styles.sessionTitleInput}
+              value={session.name}
+              onChangeText={txt => {
+                const updated = { ...session, name: txt };
+                setSession(updated);
+                onUpdateSession(updated);
+              }}
+            />
+            <View style={styles.timerBadge}>
+              <Ionicons name="time" size={12} color="#111111" />
+              <Text style={styles.timerText}>{formatTimer(elapsedSeconds)}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity style={styles.finishBtn} onPress={handleFinish} activeOpacity={0.8}>
+            <Text style={styles.finishText}>Bitir</Text>
+          </TouchableOpacity>
+        </View>
+
+        {showRestTimer && (
+          <View style={{ paddingHorizontal: 16 }}>
+            <RestTimerBar
+              key={restTimerKey}
+              initialSeconds={restTimerSeconds}
+              onClose={() => setShowRestTimer(false)}
+            />
+          </View>
+        )}
+
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {session.exercises.map((ex, exIndex) => {
+            const catColor = COLORS.category[ex.category] || COLORS.textPrimary;
+            const isCardio = ex.category === 'Kardiyo';
+            const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
+            const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment) : null;
+
+            return (
+              <View key={ex.id} style={styles.exCard}>
+                <View style={styles.exCardHeader}>
+                  <View style={styles.exTitleLeft}>
+                    <Text style={styles.exName}>{exIndex + 1}. {ex.exerciseName}</Text>
+                    <View style={styles.exMetaRow}>
+                      <View style={[styles.catBadge, { backgroundColor: catColor + '15' }]}>
+                        <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
+                      </View>
+
+                      {recommendation && (
+                        <TouchableOpacity
+                          style={styles.recBadgePill}
+                          activeOpacity={0.8}
+                          onPress={() => handleApplyRecommendation(ex.id, recommendation)}
+                        >
+                          <Ionicons name="sparkles" size={12} color="#111111" />
+                          <Text style={styles.recBadgeText}>
+                            {recommendation.badgeLabel}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {!isCardio && <Text style={styles.exVolumeText}>Toplam: {exVolume} kg</Text>}
+                    </View>
+                  </View>
+
+                  <TouchableOpacity onPress={() => handleRemoveExercise(ex.id)} style={{ padding: 4 }}>
+                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Table Header */}
+                {isCardio ? (
+                  <View style={styles.tableHeader}>
+                    <Text style={[styles.th, { width: 28 }]}>SET</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>SÜRE (DK)</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>MESAFE (KM)</Text>
+                    <Text style={[styles.th, { width: 68, textAlign: 'center' }]}>ORT. HIZ</Text>
+                    <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
+                    <Text style={[styles.th, { width: 28, textAlign: 'center' }]}></Text>
+                  </View>
+                ) : (
+                  <View style={styles.tableHeader}>
+                    <Text style={[styles.th, { width: 28 }]}>SET</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>KG</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>TEKRAR</Text>
+                    <Text style={[styles.th, { width: 58, textAlign: 'center' }]}>RIR</Text>
+                    <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
+                    <Text style={[styles.th, { width: 28, textAlign: 'center' }]}></Text>
+                  </View>
+                )}
+
+                {/* Sets Rows */}
+                {ex.sets.map((set, setIdx) => {
+                  if (isCardio) {
+                    const mins = set.durationMinutes || 0;
+                    const dist = set.distanceKm || 0;
+                    const speed = mins > 0 && dist > 0 ? ((dist / mins) * 60).toFixed(1) : '-';
+
+                    return (
+                      <View key={set.id} style={[styles.tableRow, set.completed && styles.tableRowCompleted]}>
+                        <Text style={styles.setNumberText}>{set.setNumber}</Text>
+
+                        {/* Duration Minutes Input */}
+                        <View style={styles.inputCell}>
+                          <TextInput
+                            style={[styles.setNumInput, set.completed && styles.inputCompleted]}
+                            keyboardType="number-pad"
+                            placeholder="15"
+                            placeholderTextColor={COLORS.textMuted}
+                            value={mins > 0 ? mins.toString() : ''}
+                            onChangeText={v => handleSetChange(ex.id, setIdx, 'durationMinutes', v)}
+                          />
+                        </View>
+
+                        {/* Distance KM Input */}
+                        <View style={styles.inputCell}>
+                          <TextInput
+                            style={[styles.setNumInput, set.completed && styles.inputCompleted]}
+                            keyboardType="decimal-pad"
+                            placeholder="2.5"
+                            placeholderTextColor={COLORS.textMuted}
+                            value={dist > 0 ? dist.toString() : ''}
+                            onChangeText={v => handleSetChange(ex.id, setIdx, 'distanceKm', v)}
+                          />
+                        </View>
+
+                        {/* Speed Pill Display */}
+                        <View style={styles.speedPill}>
+                          <Text style={styles.speedPillText}>{speed} km/h</Text>
+                        </View>
+
+                        {/* Checkmark Button */}
+                        <TouchableOpacity
+                          style={[styles.checkBtn, set.completed && styles.checkBtnCompleted]}
+                          onPress={() => handleToggleSetComplete(ex.id, setIdx)}
+                        >
+                          <Ionicons name="checkmark" size={14} color={set.completed ? '#111111' : COLORS.textMuted} />
+                        </TouchableOpacity>
+
+                        {/* Delete Set */}
+                        <TouchableOpacity style={styles.deleteSetBtn} onPress={() => handleRemoveSet(ex.id, setIdx)}>
+                          <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+
+                  const rirVal = set.rir ?? 1;
+                  const rirColor = getRirColor(rirVal);
+
+                  return (
+                    <View
+                      key={set.id}
+                      style={[
+                        styles.tableRow,
+                        set.completed && styles.tableRowCompleted,
+                      ]}
+                    >
+                      <Text style={styles.setNumberText}>{set.setNumber}</Text>
+
+                      {/* Weight input */}
+                      <View style={styles.inputCell}>
+                        <TextInput
+                          style={[styles.setNumInput, set.completed && styles.inputCompleted]}
+                          keyboardType="decimal-pad"
+                          placeholder={recommendation ? `${recommendation.recWeight}` : "0"}
+                          placeholderTextColor={COLORS.textMuted}
+                          value={set.weight > 0 ? set.weight.toString() : ''}
+                          onChangeText={v => handleSetChange(ex.id, setIdx, 'weight', v)}
+                        />
+                      </View>
+
+                      {/* Reps input */}
+                      <View style={styles.inputCell}>
+                        <TextInput
+                          style={[styles.setNumInput, set.completed && styles.inputCompleted]}
+                          keyboardType="number-pad"
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                          value={set.reps > 0 ? set.reps.toString() : ''}
+                          onChangeText={v => handleSetChange(ex.id, setIdx, 'reps', v)}
+                        />
+                      </View>
+
+                      {/* RIR pill selector button */}
+                      <TouchableOpacity
+                        style={[
+                          styles.rirPill,
+                          { backgroundColor: rirColor + '20', borderColor: rirColor },
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => handleCycleRir(ex.id, setIdx)}
+                      >
+                        <Text style={[styles.rirPillText, { color: rirColor }]}>
+                          RIR {rirVal}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Checkmark Button */}
+                      <TouchableOpacity
+                        style={[
+                          styles.checkBtn,
+                          set.completed && styles.checkBtnCompleted,
+                        ]}
+                        onPress={() => handleToggleSetComplete(ex.id, setIdx)}
+                      >
+                        <Ionicons
+                          name="checkmark"
+                          size={14}
+                          color={set.completed ? '#111111' : COLORS.textMuted}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Delete Set Icon Button */}
+                      <TouchableOpacity
+                        style={styles.deleteSetBtn}
+                        onPress={() => handleRemoveSet(ex.id, setIdx)}
+                      >
+                        <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                <View style={styles.exCardFooter}>
+                  <TouchableOpacity style={styles.addSetBtn} onPress={() => handleAddSet(ex.id)}>
+                    <Ionicons name="add" size={14} color="#111111" />
+                    <Text style={styles.addSetBtnText}>Set Ekle</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+
+          <TouchableOpacity
+            style={styles.bigAddExBtn}
+            onPress={() => setShowExercisePicker(true)}
+          >
+            <Ionicons name="add-circle" size={22} color="#111111" />
+            <Text style={styles.bigAddExBtnText}>Antrenmana Egzersiz Ekle</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <ExercisePickerModal
+          visible={showExercisePicker}
+          onClose={() => setShowExercisePicker(false)}
+          onSelectExercise={handleAddExercise}
+        />
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  cancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 100,
+  },
+  cancelText: {
+    color: COLORS.danger,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  headerTitleBox: {
+    alignItems: 'center',
+  },
+  sessionTitleInput: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 100,
+    marginTop: 2,
+  },
+  timerText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  finishBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 100,
+  },
+  finishText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+    gap: 14,
+  },
+  exCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
+  },
+  exCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  exTitleLeft: {
+    flex: 1,
+    gap: 6,
+  },
+  exName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  exMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  catBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  catBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 100,
+  },
+  recBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#111111',
+  },
+  exVolumeText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginBottom: 6,
+  },
+  th: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 4,
+    borderRadius: 12,
+    paddingHorizontal: 2,
+    marginBottom: 4,
+  },
+  tableRowCompleted: {
+    backgroundColor: COLORS.primaryGlow,
+  },
+  setNumberText: {
+    width: 24,
+    textAlign: 'center',
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  inputCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  setNumInput: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 100,
+    width: '92%',
+    height: 36,
+    textAlign: 'center',
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inputCompleted: {
+    borderColor: '#111111',
+    color: '#111111',
+  },
+  rirPill: {
+    width: 56,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rirPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  speedPill: {
+    width: 68,
+    paddingVertical: 6,
+    borderRadius: 100,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  checkBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBtnCompleted: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  deleteSetBtn: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exCardFooter: {
+    marginTop: 10,
+    alignItems: 'flex-start',
+  },
+  addSetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  addSetBtnText: {
+    color: '#111111',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  bigAddExBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 100,
+    marginTop: 6,
+    ...SHADOWS.soft,
+  },
+  bigAddExBtnText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+});
