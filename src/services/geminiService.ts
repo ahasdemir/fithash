@@ -40,10 +40,16 @@ export const generateGeminiAnalysis = async (
     ? 'gemini-2.0-flash'
     : modelName;
 
-  // If user provided a custom Gemini API Key, attempt live API call
+  // If user provided a custom Gemini API Key, attempt live API call with fallback model cascade
   if (apiKey && apiKey.trim().length > 10) {
-    try {
-      const prompt = `Sen FitHash uygulamasının uzman spor, hipertrofi ve kondisyon koçusun (RP / Dr. Mike Israetel bilimsel modelini esas alırsın).
+    const candidateModels = Array.from(new Set([
+      normalizedModel,
+      'gemini-1.5-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-pro',
+    ]));
+
+    const prompt = `Sen FitHash uygulamasının uzman spor, hipertrofi ve kondisyon koçusun (RP / Dr. Mike Israetel bilimsel modelini esas alırsın).
 Aşağıdaki kullanıcı antrenman, kardiyo ve hipertrofi istatistiklerini analiz et ve Türkçe olarak değerlendir:
 
 [ANA HİPERTROFİ VE PERFORMANS METRİKLERİ]
@@ -76,56 +82,72 @@ Lütfen yanıtını tam olarak aşağıdaki JSON formatında döndür (JSON hari
   "score": 88
 }`;
 
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${normalizedModel}:generateContent`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey.trim(),
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            // Gemini v1beta'nin desteklediği JSON yanıt seçeneği. Şema alanı,
-            // bazı 2.5 API hesaplarında uyumsuz olduğundan yanıtı uygulamada doğruluyoruz.
-            responseMimeType: 'application/json',
+    let lastErrorMsg = '';
+
+    for (const mName of candidateModels) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey.trim(),
           },
-        }),
-      });
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+            },
+          }),
+        });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error?.message || `Gemini isteği HTTP ${response.status} ile başarısız oldu.`);
+        const data = await response.json();
+        if (!response.ok) {
+          const errMsg = data?.error?.message || `HTTP ${response.status}`;
+          lastErrorMsg = errMsg;
+          // If quota or not found error, try next model candidate in loop
+          if (response.status === 429 || response.status === 404 || errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('limit')) {
+            console.warn(`Model ${mName} failed with quota/availability issue, trying next fallback...`);
+            continue;
+          }
+          throw new Error(errMsg);
+        }
+
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) {
+          throw new Error('Gemini yanıtı boş döndü.');
+        }
+
+        const parsed = JSON.parse(rawText);
+        if (!Array.isArray(parsed.recommendations)) {
+          throw new Error('Gemini yanıtı beklenen formatta değil.');
+        }
+
+        return {
+          summary: parsed.summary || 'Antrenman ve sert set verileriniz başarıyla analiz edildi.',
+          recommendations: parsed.recommendations,
+          muscleBalanceComment: parsed.muscleBalanceComment || 'Kas grubu sert set dağılımınız dengeli seyrediyor.',
+          overloadTip: parsed.overloadTip || 'RIR 1-2 aralığında +2.5kg artışı veya +1 tekrar hedefleyin.',
+          score: Math.min(100, Math.max(50, Number(parsed.score) || 85)),
+          isCustomKeyUsed: true,
+          timestamp: nowTime,
+        };
+      } catch (err) {
+        lastErrorMsg = err instanceof Error ? err.message : 'Bağlantı hatası.';
       }
-
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) {
-        throw new Error('Gemini boş veya engellenmiş bir yanıt döndürdü.');
-      }
-
-      const parsed = JSON.parse(rawText);
-      if (!Array.isArray(parsed.recommendations)) {
-        throw new Error('Gemini yanıtı beklenen analiz formatında değil.');
-      }
-
-      return {
-        summary: parsed.summary || 'Antrenman ve sert set verileriniz başarıyla analiz edildi.',
-        recommendations: parsed.recommendations,
-        muscleBalanceComment: parsed.muscleBalanceComment || 'Kas grubu sert set dağılımınız dengeli seyrediyor.',
-        overloadTip: parsed.overloadTip || 'RIR 1-2 aralığında +2.5kg artışı veya +1 tekrar hedefleyin.',
-        score: Math.min(100, Math.max(50, Number(parsed.score) || 85)),
-        isCustomKeyUsed: true,
-        timestamp: nowTime,
-      };
-    } catch (error) {
-      console.warn('Gemini API call failed, falling back to local engine:', error);
-      const fallback = generateLocalFallbackAnalysis(workouts, prs, stats, nowTime);
-      const message = error instanceof Error ? error.message : 'Bilinmeyen bağlantı hatası.';
-      return {
-        ...fallback,
-        liveError: `Gemini yanıt vermedi: ${message}`,
-      };
     }
+
+    // If all model candidates failed, return local fallback with clean error message
+    const fallback = generateLocalFallbackAnalysis(workouts, prs, stats, nowTime);
+    let friendlyError = lastErrorMsg;
+    if (lastErrorMsg.toLowerCase().includes('quota') || lastErrorMsg.toLowerCase().includes('limit')) {
+      friendlyError = 'Gemini Ücretsiz Tier Kota Sınırı: Lütfen ~1 dakika bekleyip yenileyin veya Ayarlar\'dan "Gemini 1.5 Flash" seçin.';
+    }
+
+    return {
+      ...fallback,
+      liveError: friendlyError,
+    };
   }
 
   // --- RULE-BASED FALLBACK ENGINE (If no key or network offline) ---
