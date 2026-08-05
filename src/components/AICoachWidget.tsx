@@ -135,7 +135,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
           {/* Refresh Button */}
           <TouchableOpacity
             style={[styles.refreshBtn, justRefreshed && styles.refreshBtnSuccess]}
-            onPress={runAnalysis}
+            onPress={() => runAnalysis(true)}
             activeOpacity={0.8}
           >
             <Ionicons
