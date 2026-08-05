@@ -35,9 +35,10 @@ interface SettingsModalProps {
 }
 
 const AVAILABLE_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Hızlı & Önerilen' },
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Gelişmiş Mantık' },
-  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite', tag: 'Ekonomik & Hızlı' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Ücretsiz Tier • Hızlı & Önerilen' },
+  { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite', tag: 'Ücretsiz Tier • Ultra Hızlı' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Ücretsiz Tier • Kararlı Standart' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Ücretsiz Tier • Gelişmiş Mantık' },
 ];
 
 const REST_TIME_OPTIONS = [30, 60, 90, 120, 180];
@@ -50,20 +51,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [apiKey, setApiKey] = useState('');
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [defaultRir, setDefaultRir] = useState(1);
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
   const [healthConnectEnabled, setHealthConnectEnabled] = useState(false);
   const [isSyncingHC, setIsSyncingHC] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Export / Import Modals State
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportContent, setExportContent] = useState('');
   const [exportType, setExportType] = useState<'JSON' | 'CSV'>('JSON');
+  const [exportContent, setExportContent] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -74,7 +76,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const loadSettings = async () => {
     const s = await getAppSettings();
     setApiKey(s.geminiApiKey || '');
-    setSelectedModel(s.selectedModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : (s.selectedModel || 'gemini-2.5-flash'));
+    let model = s.selectedModel || 'gemini-2.0-flash';
+    if (model.includes('2.5')) {
+      model = 'gemini-2.0-flash';
+    }
+    setSelectedModel(model);
     setDefaultRestSeconds(s.defaultRestSeconds ?? 90);
     setAutoStartRestTimer(s.autoStartRestTimer ?? true);
     setDefaultRir(s.defaultRir ?? 1);

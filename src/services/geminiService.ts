@@ -26,15 +26,19 @@ export interface SmartOverloadRecommendation {
   isDoubleProgression: boolean;
 }
 
+const VALID_FREE_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+
 export const generateGeminiAnalysis = async (
   workouts: WorkoutSession[],
   prs: Record<string, PersonalRecord>,
   apiKey: string,
-  modelName: string = 'gemini-2.5-flash'
+  modelName: string = 'gemini-2.0-flash'
 ): Promise<AIAnalysisResult> => {
   const stats = calculateUserStats(workouts);
   const nowTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const normalizedModel = modelName === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : modelName;
+  const normalizedModel = (!modelName || modelName.includes('2.5') || !VALID_FREE_MODELS.includes(modelName))
+    ? 'gemini-2.0-flash'
+    : modelName;
 
   // If user provided a custom Gemini API Key, attempt live API call
   if (apiKey && apiKey.trim().length > 10) {
