@@ -5,6 +5,7 @@ import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, PersonalRecord } from '../types/fitness';
 import { getAppSettings } from '../services/settings';
 import { generateGeminiAnalysis, AIAnalysisResult } from '../services/geminiService';
+import { getCachedAIAnalysis, saveCachedAIAnalysis } from '../services/storage';
 
 interface AICoachWidgetProps {
   workouts: WorkoutSession[];
@@ -17,15 +18,23 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
   const [justRefreshed, setJustRefreshed] = useState(false);
 
   useEffect(() => {
-    runAnalysis();
-  }, [workouts]);
+    initAnalysis();
+  }, []);
 
-  const runAnalysis = async () => {
+  const initAnalysis = async () => {
+    const cached = await getCachedAIAnalysis();
+    if (cached) {
+      setAnalysis(cached);
+    } else {
+      runAnalysis(false);
+    }
+  };
+
+  const runAnalysis = async (isManualRefresh: boolean = true) => {
     setLoading(true);
     setJustRefreshed(false);
 
-    // Minimum delay for visible smooth loading UX
-    const minDelay = new Promise(resolve => setTimeout(resolve, 600));
+    const minDelay = isManualRefresh ? new Promise(resolve => setTimeout(resolve, 500)) : Promise.resolve();
 
     try {
       const settings = await getAppSettings();
@@ -40,8 +49,12 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
       ]);
 
       setAnalysis(result);
-      setJustRefreshed(true);
-      setTimeout(() => setJustRefreshed(false), 2500);
+      await saveCachedAIAnalysis(result);
+
+      if (isManualRefresh) {
+        setJustRefreshed(true);
+        setTimeout(() => setJustRefreshed(false), 2500);
+      }
     } catch (error) {
       console.error('Error running AI analysis:', error);
     } finally {

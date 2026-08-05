@@ -9,6 +9,24 @@ const STORAGE_KEYS = {
   PRS: '@fitness_prs_v1',
   ACTIVE_SESSION: '@fitness_active_session_v1',
   ACTIVE_REST_TIMER: '@fitness_active_rest_timer_v1',
+  CACHED_AI_ANALYSIS: '@fitness_cached_ai_analysis_v1',
+};
+
+export const getCachedAIAnalysis = async (): Promise<any | null> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.CACHED_AI_ANALYSIS);
+    return json ? JSON.parse(json) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const saveCachedAIAnalysis = async (analysis: any): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.CACHED_AI_ANALYSIS, JSON.stringify(analysis));
+  } catch (e) {
+    console.error('Error caching AI analysis:', e);
+  }
 };
 
 // --- EXERCISES ---
