@@ -19,7 +19,6 @@ import { ActiveWorkoutModal } from './src/screens/ActiveWorkoutModal';
 import { SettingsModal } from './src/screens/SettingsModal';
 import { WorkoutSummaryModal } from './src/components/WorkoutSummaryModal';
 import { StreakModal } from './src/components/StreakModal';
-import { TabTransition } from './src/components/TabTransition';
 import {
   getWorkouts,
   saveWorkout,
@@ -187,33 +186,31 @@ export default function App() {
 
       {/* Tab Screen Content */}
       <View style={styles.mainContent}>
-        <TabTransition tabKey={currentTab}>
-          {currentTab === 'workout' && (
-            <WorkoutTab
-              routines={routines}
-              activeSession={activeSession}
-              onStartSession={handleStartSession}
-              onOpenActiveSession={() => setShowActiveModal(true)}
-              onSaveRoutine={handleSaveRoutine}
-              onDeleteRoutine={handleDeleteRoutine}
-            />
-          )}
+        {currentTab === 'workout' && (
+          <WorkoutTab
+            routines={routines}
+            activeSession={activeSession}
+            onStartSession={handleStartSession}
+            onOpenActiveSession={() => setShowActiveModal(true)}
+            onSaveRoutine={handleSaveRoutine}
+            onDeleteRoutine={handleDeleteRoutine}
+          />
+        )}
 
-          {currentTab === 'analytics' && (
-            <AnalyticsTab workouts={workouts} prs={prs} />
-          )}
+        {currentTab === 'analytics' && (
+          <AnalyticsTab workouts={workouts} prs={prs} />
+        )}
 
-          {currentTab === 'history' && (
-            <HistoryTab
-              workouts={workouts}
-              routines={routines}
-              onDeleteWorkout={handleDeleteWorkout}
-              onReuseWorkout={handleReuseWorkout}
-            />
-          )}
+        {currentTab === 'history' && (
+          <HistoryTab
+            workouts={workouts}
+            routines={routines}
+            onDeleteWorkout={handleDeleteWorkout}
+            onReuseWorkout={handleReuseWorkout}
+          />
+        )}
 
-          {currentTab === 'library' && <LibraryTab />}
-        </TabTransition>
+        {currentTab === 'library' && <LibraryTab />}
       </View>
 
       {/* Floating Capsule Bottom Navigation Bar */}
