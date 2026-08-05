@@ -42,6 +42,19 @@ export const saveCustomExercise = async (exercise: Exercise): Promise<Exercise[]
   }
 };
 
+export const deleteCustomExercise = async (id: string): Promise<Exercise[]> => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEYS.EXERCISES);
+    const existing: Exercise[] = json ? JSON.parse(json) : [];
+    const updated = existing.filter(e => e.id !== id);
+    await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(updated));
+    return getExercises();
+  } catch (error) {
+    console.error('Error deleting custom exercise:', error);
+    throw error;
+  }
+};
+
 // --- ROUTINES ---
 const DELETED_ROUTINES_KEY = '@fitness_deleted_routines_v1';
 

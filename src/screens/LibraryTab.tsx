@@ -12,8 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { Exercise, MuscleCategory } from '../types/fitness';
-import { getExercises, saveCustomExercise } from '../services/storage';
+import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { AddExerciseModal } from '../components/AddExerciseModal';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
   'Hepsi',
@@ -33,6 +34,7 @@ export const LibraryTab: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   useEffect(() => {
     loadData();
@@ -46,6 +48,26 @@ export const LibraryTab: React.FC = () => {
   const handleSaveCustom = async (newEx: Exercise) => {
     const updated = await saveCustomExercise(newEx);
     setExercises(updated);
+  };
+
+  const handlePromptDeleteCustom = (exercise: Exercise) => {
+    setCustomAlert({
+      visible: true,
+      type: 'danger',
+      title: 'Özel Egzersiz Silinsin mi?',
+      message: `"${exercise.name}" egzersizi kütüphaneden kalıcı olarak silinecektir. Emin misiniz?`,
+      confirmText: 'Evet, Sil',
+      cancelText: 'Vazgeç',
+      onConfirm: async () => {
+        setCustomAlert(null);
+        const updated = await deleteCustomExercise(exercise.id);
+        setExercises(updated);
+        if (selectedExercise && selectedExercise.id === exercise.id) {
+          setSelectedExercise(null);
+        }
+      },
+      onCancel: () => setCustomAlert(null),
+    });
   };
 
   const filteredExercises = exercises.filter(ex => {
@@ -155,7 +177,18 @@ export const LibraryTab: React.FC = () => {
                 </View>
               </View>
 
-              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+              <View style={styles.cardRight}>
+                {item.isCustom && (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => handlePromptDeleteCustom(item)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                  </TouchableOpacity>
+                )}
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+              </View>
             </TouchableOpacity>
           );
         }}
@@ -183,6 +216,11 @@ export const LibraryTab: React.FC = () => {
                   <View style={styles.eqBadge}>
                     <Text style={styles.eqBadgeText}>{selectedExercise.equipment}</Text>
                   </View>
+                  {selectedExercise.isCustom && (
+                    <View style={styles.customBadge}>
+                      <Text style={styles.customBadgeText}>Özel Egzersiz</Text>
+                    </View>
+                  )}
                 </View>
 
                 {selectedExercise.targetMuscle && (
@@ -198,6 +236,16 @@ export const LibraryTab: React.FC = () => {
                     <Text style={styles.infoBoxText}>{selectedExercise.instructions}</Text>
                   </View>
                 )}
+
+                {selectedExercise.isCustom && (
+                  <TouchableOpacity
+                    style={styles.deleteModalBtn}
+                    onPress={() => handlePromptDeleteCustom(selectedExercise)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                    <Text style={styles.deleteModalBtnText}>Bu Özel Egzersizi Sil</Text>
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -209,6 +257,12 @@ export const LibraryTab: React.FC = () => {
         onClose={() => setShowAddModal(false)}
         onSave={handleSaveCustom}
       />
+
+      {customAlert && (
+        <CustomAlertModal
+          {...customAlert}
+        />
+      )}
     </View>
   );
 };
@@ -424,5 +478,30 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  cardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deleteBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  deleteModalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingVertical: 12,
+    borderRadius: 100,
+    marginTop: 16,
+  },
+  deleteModalBtnText: {
+    color: COLORS.danger,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

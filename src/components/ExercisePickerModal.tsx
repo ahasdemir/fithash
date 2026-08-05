@@ -11,8 +11,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { Exercise, MuscleCategory } from '../types/fitness';
-import { getExercises } from '../services/storage';
+import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { AddExerciseModal } from './AddExerciseModal';
+import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
 
 interface ExercisePickerModalProps {
   visible: boolean;
@@ -41,6 +42,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -51,6 +53,23 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   const loadExercises = async () => {
     const data = await getExercises();
     setExercises(data);
+  };
+
+  const handlePromptDeleteCustom = (exercise: Exercise) => {
+    setCustomAlert({
+      visible: true,
+      type: 'danger',
+      title: 'Özel Egzersiz Silinsin mi?',
+      message: `"${exercise.name}" egzersizi kütüphaneden kalıcı olarak silinecektir. Emin misiniz?`,
+      confirmText: 'Evet, Sil',
+      cancelText: 'Vazgeç',
+      onConfirm: async () => {
+        setCustomAlert(null);
+        const updated = await deleteCustomExercise(exercise.id);
+        setExercises(updated);
+      },
+      onCancel: () => setCustomAlert(null),
+    });
   };
 
   const filteredExercises = exercises.filter(ex => {
@@ -169,7 +188,21 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                     </View>
                   </View>
 
-                  <Ionicons name="add-circle" size={26} color="#111111" />
+                  <View style={styles.cardActions}>
+                    {item.isCustom && (
+                      <TouchableOpacity
+                        style={styles.deleteBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handlePromptDeleteCustom(item);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                      </TouchableOpacity>
+                    )}
+                    <Ionicons name="add-circle" size={26} color="#111111" />
+                  </View>
                 </TouchableOpacity>
               );
             }}
@@ -194,6 +227,12 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
         onClose={() => setShowAddModal(false)}
         onSave={handleCustomExerciseSaved}
       />
+
+      {customAlert && (
+        <CustomAlertModal
+          {...customAlert}
+        />
+      )}
     </Modal>
   );
 };
@@ -377,5 +416,15 @@ const styles = StyleSheet.create({
     color: '#111111',
     fontWeight: '800',
     fontSize: 13,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deleteBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
 });
