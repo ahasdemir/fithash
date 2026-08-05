@@ -1,50 +1,54 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet, Easing } from 'react-native';
 
 interface TabTransitionProps {
   tabKey: string;
   children: React.ReactNode;
 }
 
+const TAB_ORDER = ['workout', 'analytics', 'history', 'library'];
+
 export const TabTransition: React.FC<TabTransitionProps> = ({ tabKey, children }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.985)).current;
-  const translateYAnim = useRef(new Animated.Value(4)).current;
+  const prevTabRef = useRef<string>(tabKey);
+  const animValue = useRef(new Animated.Value(1)).current;
+  const slideDirectionRef = useRef<number>(1); // 1 = slide from right (+X), -1 = slide from left (-X)
 
   useEffect(() => {
-    fadeAnim.setValue(0);
-    scaleAnim.setValue(0.985);
-    translateYAnim.setValue(4);
+    const prevIndex = TAB_ORDER.indexOf(prevTabRef.current);
+    const newIndex = TAB_ORDER.indexOf(tabKey);
 
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateYAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    if (prevIndex !== -1 && newIndex !== -1 && prevIndex !== newIndex) {
+      slideDirectionRef.current = newIndex > prevIndex ? 1 : -1;
+    }
+    prevTabRef.current = tabKey;
+
+    animValue.setValue(0);
+
+    Animated.timing(animValue, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   }, [tabKey]);
+
+  const translateX = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [slideDirectionRef.current * 70, 0],
+  });
+
+  const opacity = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 1],
+  });
 
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          opacity: fadeAnim,
-          transform: [
-            { scale: scaleAnim },
-            { translateY: translateYAnim },
-          ],
+          opacity,
+          transform: [{ translateX }],
         },
       ]}
     >
