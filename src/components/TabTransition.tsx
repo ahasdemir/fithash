@@ -26,20 +26,20 @@ export const TabTransition: React.FC<TabTransitionProps> = ({ tabKey, children }
 
     Animated.timing(animValue, {
       toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
+      duration: 280,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
       useNativeDriver: true,
     }).start();
   }, [tabKey]);
 
   const translateX = animValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [slideDirectionRef.current * 70, 0],
+    outputRange: [slideDirectionRef.current * 36, 0],
   });
 
   const opacity = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.1, 0.7, 1],
   });
 
   return (
