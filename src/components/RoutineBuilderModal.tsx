@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { Routine, RoutineExercise, Exercise } from '../types/fitness';
 import { ExercisePickerModal } from './ExercisePickerModal';
+import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
 
 interface RoutineBuilderModalProps {
   visible: boolean;
@@ -31,6 +32,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
   const [category, setCategory] = useState('Özel Program');
   const [selectedExercises, setSelectedExercises] = useState<RoutineExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   useEffect(() => {
     if (initialRoutine) {
@@ -45,6 +47,53 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       setSelectedExercises([]);
     }
   }, [initialRoutine, visible]);
+
+  const isFormDirty = () => {
+    if (!initialRoutine) {
+      return name.trim() !== '' || description.trim() !== '' || selectedExercises.length > 0;
+    } else {
+      const initialExs = initialRoutine.exercises || [];
+      const nameChanged = name.trim() !== initialRoutine.name;
+      const descChanged = (description.trim() || '') !== (initialRoutine.description || '');
+      const catChanged = (category.trim() || '') !== (initialRoutine.category || '');
+      const exercisesChanged = JSON.stringify(selectedExercises) !== JSON.stringify(initialExs);
+      return nameChanged || descChanged || catChanged || exercisesChanged;
+    }
+  };
+
+  const handleCloseAttempt = () => {
+    if (!isFormDirty()) {
+      onClose();
+      return;
+    }
+
+    setCustomAlert({
+      visible: true,
+      type: 'warning',
+      title: 'Değişiklikler Kaydedilmedi!',
+      message: 'Programda yaptığınız değişiklikler henüz kaydedilmedi. Düzenlemeden çıkmak istediğinize emin misiniz?',
+      confirmText: 'Çıkmak İstiyorum',
+      cancelText: 'Düzenlemeye Devam Et',
+      onConfirm: () => {
+        setTimeout(() => {
+          setCustomAlert({
+            visible: true,
+            type: 'danger',
+            title: 'Son Kontrol: Emin misiniz?',
+            message: 'Tüm eklenen hareketler ve değişiklikler silinecektir. Bu işlem geri alınamaz!',
+            confirmText: 'Evet, Kaydetmeden Çık',
+            cancelText: 'Forma Geri Dön',
+            onConfirm: () => {
+              setCustomAlert(null);
+              onClose();
+            },
+            onCancel: () => setCustomAlert(null),
+          });
+        }, 150);
+      },
+      onCancel: () => setCustomAlert(null),
+    });
+  };
 
   const handleAddExercise = (ex: Exercise) => {
     const isCardio = ex.category === 'Kardiyo';
@@ -117,7 +166,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
             <Text style={styles.title}>
               {initialRoutine ? 'Programı Düzenle' : 'Yeni Program Oluştur'}
             </Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={handleCloseAttempt}>
               <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
@@ -271,6 +320,12 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
         onClose={() => setShowPicker(false)}
         onSelectExercise={handleAddExercise}
       />
+
+      {customAlert && (
+        <CustomAlertModal
+          {...customAlert}
+        />
+      )}
     </Modal>
   );
 };
