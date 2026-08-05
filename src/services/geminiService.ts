@@ -316,7 +316,7 @@ export const calculateSmartAutoregulatedOverload = (
       lastRir: avgRir,
       increment: 0,
       actionType: 'MAINTAIN',
-      badgeLabel: `🛡️ ${lastMaxWeight} kg (Form Sabit)`,
+      badgeLabel: `${lastMaxWeight} kg (Form Sabit)`,
       reason: `Son seans tükenişte geçti (RIR 0). Formu ve kilosunu koruyarak toparlanmayı hedefleyin.`,
       isDoubleProgression: false,
     };

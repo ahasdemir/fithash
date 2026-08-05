@@ -17,6 +17,8 @@ import { HistoryTab } from './src/screens/HistoryTab';
 import { LibraryTab } from './src/screens/LibraryTab';
 import { ActiveWorkoutModal } from './src/screens/ActiveWorkoutModal';
 import { SettingsModal } from './src/screens/SettingsModal';
+import { WorkoutSummaryModal } from './src/components/WorkoutSummaryModal';
+import { StreakModal } from './src/components/StreakModal';
 import {
   getWorkouts,
   saveWorkout,
@@ -30,6 +32,8 @@ import {
   saveActiveSession,
   clearActiveSession,
 } from './src/services/storage';
+import { getAppSettings, saveAppSettings } from './src/services/settings';
+import { syncWorkoutToHealthConnect } from './src/services/healthConnectService';
 import {
   configureNotifications,
   scheduleSessionReminder,
@@ -45,6 +49,10 @@ export default function App() {
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [showActiveModal, setShowActiveModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const [workoutDays, setWorkoutDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [summarySession, setSummarySession] = useState<WorkoutSession | null>(null);
 
   useEffect(() => {
     loadAllData();
@@ -65,9 +73,13 @@ export default function App() {
     const wData = await getWorkouts();
     const rData = await getRoutines();
     const prData = await getPersonalRecords();
+    const appSettings = await getAppSettings();
     setWorkouts(wData);
     setRoutines(rData);
     setPrs(prData);
+    if (appSettings.workoutDays) {
+      setWorkoutDays(appSettings.workoutDays);
+    }
   };
 
   const handleStartSession = (session: WorkoutSession) => {
@@ -92,10 +104,18 @@ export default function App() {
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
 
-    Alert.alert(
-      'Tebrikler! 💪',
-      `Antrenman tamamlandı!\n\nToplam Hacim: ${completedSession.totalVolume} kg\nToplam Set: ${completedSession.totalSets}`
-    );
+    // Health Connect Senkronizasyonu
+    try {
+      const settings = await getAppSettings();
+      if (settings.healthConnectEnabled) {
+        await syncWorkoutToHealthConnect(completedSession);
+      }
+    } catch (e) {
+      console.warn('Health Connect senkronizasyon hatası:', e);
+    }
+
+    setSummarySession(completedSession);
+    setShowSummaryModal(true);
   };
 
   const handleCancelActiveSession = () => {
@@ -149,7 +169,7 @@ export default function App() {
     handleStartSession(newSession);
   };
 
-  const stats = calculateUserStats(workouts);
+  const stats = calculateUserStats(workouts, workoutDays);
 
   return (
     <SafeAreaProvider>
@@ -161,6 +181,7 @@ export default function App() {
         title="FitHash"
         streakDays={stats.streakDays}
         onOpenSettings={() => setShowSettingsModal(true)}
+        onOpenStreak={() => setShowStreakModal(true)}
       />
 
       {/* Tab Screen Content */}
@@ -183,6 +204,7 @@ export default function App() {
         {currentTab === 'history' && (
           <HistoryTab
             workouts={workouts}
+            routines={routines}
             onDeleteWorkout={handleDeleteWorkout}
             onReuseWorkout={handleReuseWorkout}
           />
@@ -263,6 +285,25 @@ export default function App() {
         visible={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         onDataReload={loadAllData}
+      />
+
+      {/* Streak & Workout Days Modal */}
+      <StreakModal
+        visible={showStreakModal}
+        onClose={() => setShowStreakModal(false)}
+        workouts={workouts}
+        workoutDays={workoutDays}
+        onUpdateWorkoutDays={async (newDays) => {
+          setWorkoutDays(newDays);
+          await saveAppSettings({ workoutDays: newDays });
+        }}
+      />
+
+      {/* Workout Summary Celebration Modal */}
+      <WorkoutSummaryModal
+        visible={showSummaryModal}
+        session={summarySession}
+        onClose={() => setShowSummaryModal(false)}
       />
       </SafeAreaView>
     </SafeAreaProvider>

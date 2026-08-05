@@ -18,6 +18,8 @@ export interface AppSettings {
   autoStartRestTimer: boolean;
   defaultRir: number; // 0, 1, 2, 3
   weightUnit: 'kg' | 'lbs';
+  healthConnectEnabled: boolean;
+  workoutDays: number[]; // 0=Pazar, 1=Pazartesi, 2=Salı, 3=Çarşamba, 4=Perşembe, 5=Cuma, 6=Cumartesi
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -27,6 +29,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoStartRestTimer: true,
   defaultRir: 1,
   weightUnit: 'kg',
+  healthConnectEnabled: false,
+  workoutDays: [1, 2, 3, 4, 5, 6], // Pazartesi - Cumartesi
 };
 
 export const getAppSettings = async (): Promise<AppSettings> => {

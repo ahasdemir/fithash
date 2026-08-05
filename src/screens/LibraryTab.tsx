@@ -94,6 +94,7 @@ export const LibraryTab: React.FC = () => {
           data={CATEGORIES}
           keyExtractor={item => item}
           showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryListContent}
           renderItem={({ item }) => {
             const isSelected = selectedCategory === item;
             return (
@@ -172,7 +173,7 @@ export const LibraryTab: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody}>
+              <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 24 }}>
                 <View style={styles.modalBadgeRow}>
                   <View style={[styles.catBadge, { backgroundColor: (COLORS.category[selectedExercise.category] || '#111111') + '20' }]}>
                     <Text style={[styles.catBadgeText, { color: COLORS.category[selectedExercise.category] || '#111111' }]}>
@@ -254,28 +255,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 100,
-    paddingHorizontal: 16,
-    height: 44,
+    paddingHorizontal: 14,
+    height: 40,
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     ...SHADOWS.soft,
   },
   searchInput: {
     flex: 1,
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
   },
   categoriesWrapper: {
-    marginBottom: 14,
+    marginBottom: 8,
+    marginHorizontal: -4,
+  },
+  categoryListContent: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   categoryChip: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginRight: 8,
+    marginRight: 6,
     ...SHADOWS.soft,
   },
   categoryChipSelected: {
@@ -284,8 +290,8 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
   },
   categoryChipTextSelected: {
     color: '#FFFFFF',
@@ -293,15 +299,18 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 140,
-    gap: 10,
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    gap: 8,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
-    padding: 16,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,

@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import {
   getAppSettings,
@@ -19,6 +20,13 @@ import {
   importFullDataJSON,
   AppSettings,
 } from '../services/settings';
+import {
+  requestHealthConnectPermissions,
+  syncAllWorkoutsToHealthConnect,
+  checkHealthConnectPermissions,
+} from '../services/healthConnectService';
+import { getWorkouts } from '../services/storage';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -41,11 +49,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDataReload,
 }) => {
   const [apiKey, setApiKey] = useState('');
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [defaultRir, setDefaultRir] = useState(1);
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const [healthConnectEnabled, setHealthConnectEnabled] = useState(false);
+  const [isSyncingHC, setIsSyncingHC] = useState(false);
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportContent, setExportContent] = useState('');
@@ -68,6 +79,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAutoStartRestTimer(s.autoStartRestTimer ?? true);
     setDefaultRir(s.defaultRir ?? 1);
     setWeightUnit(s.weightUnit || 'kg');
+    setHealthConnectEnabled(s.healthConnectEnabled ?? false);
+  };
+
+  const handleToggleHealthConnect = async () => {
+    if (!healthConnectEnabled) {
+      const granted = await requestHealthConnectPermissions();
+      if (granted) {
+        setHealthConnectEnabled(true);
+        await saveAppSettings({ healthConnectEnabled: true });
+        setCustomAlert({
+          visible: true,
+          type: 'success',
+          title: 'Başarılı',
+          message: 'Health Connect entegrasyonu aktif edildi.',
+          onConfirm: () => setCustomAlert(null),
+        });
+      } else {
+        setCustomAlert({
+          visible: true,
+          type: 'warning',
+          title: 'İzin Verilmedi',
+          message: 'Health Connect entegrasyonu için gerekli izinler onaylanmadı.',
+          onConfirm: () => setCustomAlert(null),
+        });
+      }
+    } else {
+      setHealthConnectEnabled(false);
+      await saveAppSettings({ healthConnectEnabled: false });
+    }
+  };
+
+  const handleSyncAllHealthConnect = async () => {
+    const hasPerm = await checkHealthConnectPermissions();
+    if (!hasPerm) {
+      const granted = await requestHealthConnectPermissions();
+      if (!granted) {
+        setCustomAlert({
+          visible: true,
+          type: 'danger',
+          title: 'Hata',
+          message: 'Health Connect izinleri onaylanmadı.',
+          onConfirm: () => setCustomAlert(null),
+        });
+        return;
+      }
+    }
+
+    setIsSyncingHC(true);
+    try {
+      const workouts = await getWorkouts();
+      const res = await syncAllWorkoutsToHealthConnect(workouts);
+      setCustomAlert({
+        visible: true,
+        type: 'success',
+        title: 'Senkronizasyon Tamamlandı',
+        message: `${res.success} antrenman ve yakılan kalori kaydı Health Connect'e başarıyla aktarıldı.`,
+        onConfirm: () => setCustomAlert(null),
+      });
+    } catch (e) {
+      setCustomAlert({
+        visible: true,
+        type: 'danger',
+        title: 'Hata',
+        message: 'Senkronizasyon sırasında bir hata oluştu.',
+        onConfirm: () => setCustomAlert(null),
+      });
+    } finally {
+      setIsSyncingHC(false);
+    }
   };
 
   const handleSaveAllSettings = async () => {
@@ -78,6 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       autoStartRestTimer,
       defaultRir,
       weightUnit,
+      healthConnectEnabled,
     });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
@@ -109,9 +190,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      Alert.alert('Kopyalandı! 📋', `${exportType} verisi panoya kopyalandı.`);
+      setCustomAlert({
+        visible: true,
+        type: 'success',
+        title: 'Kopyalandı!',
+        message: `${exportType} verisi panoya kopyalandı.`,
+        onConfirm: () => setCustomAlert(null),
+      });
     } catch (err) {
-      Alert.alert('Başarılı! 📋', 'Metni aşağıdaki kutudan kopyalayabilirsiniz.');
+      setCustomAlert({
+        visible: true,
+        type: 'info',
+        title: 'Başarılı!',
+        message: 'Metni aşağıdaki kutudan kopyalayabilirsiniz.',
+        onConfirm: () => setCustomAlert(null),
+      });
     }
   };
 
@@ -132,7 +225,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        Alert.alert('Bilgi', 'İndirme web tarayıcısında desteklenmektedir.');
+        setCustomAlert({
+          visible: true,
+          type: 'info',
+          title: 'Bilgi',
+          message: 'İndirme web tarayıcısında desteklenmektedir.',
+          onConfirm: () => setCustomAlert(null),
+        });
       }
     } catch (error) {
       console.error('Download error:', error);
@@ -146,18 +245,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setShowImportModal(false);
       setImportText('');
       onDataReload();
-      Alert.alert(
-        'Başarılı! 🎉',
-        'Antrenman geçmişi, ana sayfa programları, ek hareketler ve rekorlar geri yüklendi.'
-      );
+      setCustomAlert({
+        visible: true,
+        type: 'success',
+        title: 'Başarılı!',
+        message: 'Antrenman geçmişi, ana sayfa programları, ek hareketler ve rekorlar geri yüklendi.',
+        onConfirm: () => setCustomAlert(null),
+      });
     } catch (error) {
-      Alert.alert('Hata', 'Yedek metni okunamadı! Geçerli bir JSON verisi yapıştırdığınızdan emin olun.');
+      setCustomAlert({
+        visible: true,
+        type: 'danger',
+        title: 'Hata',
+        message: 'Yedek metni okunamadı! Geçerli bir JSON verisi yapıştırdığınızdan emin olun.',
+        onConfirm: () => setCustomAlert(null),
+      });
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={styles.container}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
@@ -169,7 +277,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
           {/* SECTION 1: WORKOUT & TIMER PREFERENCES */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
@@ -343,6 +457,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </Text>
           </TouchableOpacity>
 
+          {/* SECTION: HEALTH CONNECT */}
+          <View style={styles.bentoSection}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#10B981' }]}>
+                <Ionicons name="fitness" size={18} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Health Connect Entegrasyonu</Text>
+                <Text style={styles.sectionSub}>Yakılan kalori ve antrenman geçmişini senkronize et</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.modelCard,
+                healthConnectEnabled && styles.modelCardSelected,
+                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }
+              ]}
+              onPress={handleToggleHealthConnect}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Ionicons
+                  name={healthConnectEnabled ? "checkmark-circle" : "ellipse-outline"}
+                  size={22}
+                  color={healthConnectEnabled ? COLORS.primary : COLORS.textMuted}
+                />
+                <View>
+                  <Text style={[styles.modelName, healthConnectEnabled && styles.modelNameSelected]}>
+                    Health Connect {healthConnectEnabled ? 'Aktif' : 'Pasif'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textMuted }}>
+                    {healthConnectEnabled ? 'Otomatik senkronize edilir' : 'Dokunarak izin verin'}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="logo-android" size={22} color={healthConnectEnabled ? COLORS.primary : COLORS.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.importBtn, { marginTop: 12, backgroundColor: '#10B981' }]}
+              onPress={handleSyncAllHealthConnect}
+              disabled={isSyncingHC}
+            >
+              <Ionicons name="sync" size={18} color="#FFFFFF" />
+              <Text style={[styles.importBtnText, { color: '#FFFFFF' }]}>
+                {isSyncingHC ? 'Aktarılıyor...' : 'Tüm Geçmişi Health Connect\'e Aktar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* SECTION 3: DATA BACKUP & EXPORT / IMPORT */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
@@ -470,7 +634,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
           </Modal>
         )}
-      </View>
+        {customAlert && (
+          <CustomAlertModal
+            {...customAlert}
+          />
+        )}
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -479,7 +648,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingTop: 10,
   },
   header: {
     flexDirection: 'row',
@@ -509,8 +677,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 60,
     gap: 16,
+    flexGrow: 1,
   },
   bentoSection: {
     backgroundColor: COLORS.surface,

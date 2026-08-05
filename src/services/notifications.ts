@@ -19,9 +19,12 @@ export const configureNotifications = async (): Promise<void> => {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
         name: 'FitHash Hatırlatmaları',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
+        enableVibrate: true,
+        enableLights: true,
         lightColor: '#C6F035',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
   } catch (error) {
@@ -31,7 +34,8 @@ export const configureNotifications = async (): Promise<void> => {
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowBanner: true,
+    shouldShowAlert: false,
+    shouldShowBanner: false,
     shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
@@ -53,7 +57,9 @@ const scheduleNotification = async (
     await Notifications.scheduleNotificationAsync({
       identifier,
       content: {
-        sound: 'default',
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 250, 250, 250],
         ...content,
       },
       trigger,
@@ -65,17 +71,30 @@ const scheduleNotification = async (
 
 export const scheduleRestTimerNotification = async (endTime: number): Promise<void> => {
   if (endTime <= Date.now()) return;
+  const diffSeconds = Math.max(1, Math.round((endTime - Date.now()) / 1000));
 
-  await scheduleNotification(
-    REST_TIMER_ID,
-    {
-      title: '⏱️ Dinlenme Süresi Doldu',
-      body: 'Dinlenmeniz bitti. Bir sonraki setinizi yapmaya hazır mısınız?',
-      data: { type: 'rest_timer' },
-      priority: Notifications.AndroidNotificationPriority.HIGH,
-    },
-    { type: Notifications.SchedulableTriggerInputTypes.DATE, date: endTime, channelId: CHANNEL_ID }
-  );
+  try {
+    await Notifications.cancelScheduledNotificationAsync(REST_TIMER_ID);
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_TIMER_ID,
+      content: {
+        title: 'Dinlenme Süresi Doldu!',
+        body: 'Dinlenmeniz bitti. Bir sonraki setinizi yapmaya hazır mısınız?',
+        data: { type: 'rest_timer_finish' },
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 500, 200, 500],
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: diffSeconds,
+        repeats: false,
+        channelId: CHANNEL_ID,
+      },
+    });
+  } catch (error) {
+    console.warn('Failed to schedule finish notification:', error);
+  }
 };
 
 export const cancelRestTimerNotification = async (): Promise<void> => {
@@ -90,7 +109,7 @@ export const scheduleSessionReminder = async (sessionName: string): Promise<void
   await scheduleNotification(
     SESSION_REMINDER_ID,
     {
-      title: '🏋️ Antrenman Devam Ediyor',
+      title: 'Antrenman Devam Ediyor',
       body: `"${sessionName}" hala devam ediyor. Tamamlamak için uygulamayı aç.`,
       data: { type: 'session_reminder' },
     },

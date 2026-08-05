@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -14,6 +14,7 @@ import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types/fitness';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
+import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/geminiService';
@@ -43,6 +44,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerKey, setRestTimerKey] = useState(Date.now());
+  const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -99,14 +101,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     }
   };
 
-  const handleRestDeadlineChange = (endTime: number | null) => {
+  const handleRestDeadlineChange = useCallback((endTime: number | null) => {
     saveActiveRestTimerEnd(endTime);
     if (endTime !== null) {
       scheduleRestTimerNotification(endTime);
     } else {
       cancelRestTimerNotification();
     }
-  };
+  }, []);
 
   const handleBackground = () => {
     setShowRestTimer(false);
@@ -116,12 +118,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   useEffect(() => {
     let timer: any = null;
     if (visible && session && session.completed === false) {
-      timer = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
-      }, 1000);
+      const updateElapsed = () => {
+        const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
+        setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+      };
+      updateElapsed();
+      timer = setInterval(updateElapsed, 1000);
     }
     return () => clearInterval(timer);
-  }, [visible, session]);
+  }, [visible, session?.startTime, session?.completed]);
 
   if (!session) return null;
 
@@ -164,7 +169,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     setSession(updated);
     onUpdateSession(updated);
 
-    Alert.alert('AI Önerisi Uygulandı ✨', rec.reason);
+    setCustomAlert({
+      visible: true,
+      type: 'info',
+      title: 'AI Önerisi Uygulandı',
+      message: rec.reason,
+      onConfirm: () => setCustomAlert(null),
+    });
   };
 
   const handleAddExercise = (ex: Exercise) => {
@@ -290,7 +301,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       if (ex.sets.length <= 1) {
-        Alert.alert('Uyarı', 'Bir harekette en az 1 set bulunmalıdır.');
+        setCustomAlert({
+          visible: true,
+          type: 'warning',
+          title: 'Uyarı',
+          message: 'Bir harekette en az 1 set bulunmalıdır.',
+          onConfirm: () => setCustomAlert(null),
+        });
         return ex;
       }
       const copySets = ex.sets.filter((_, i) => i !== setIdx).map((s, i) => ({
@@ -372,11 +389,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onFinishSession(finalSession);
     saveActiveRestTimerEnd(null);
     cancelRestTimerNotification();
-
-    Alert.alert(
-      'Tebrikler! 🎉',
-      `Antrenman başarıyla tamamlandı!\n\n⏱️ Süre: ${Math.round(elapsedSeconds / 60)} dakika\n🔥 Yakılan Kalori: ~${totalCaloriesBurned} kcal\n🏋️ Kaldırılan Hacim: ${totalVolume.toLocaleString('tr-TR')} kg`
-    );
   };
 
   const getRirColor = (rir?: number) => {
@@ -384,6 +396,24 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     if (rir === 1) return '#F59E0B'; // Amber
     if (rir === 2) return '#10B981'; // Emerald
     return '#3B82F6';                // Muted Blue
+  };
+
+  const handleCancelSession = () => {
+    setCustomAlert({
+      visible: true,
+      type: 'danger',
+      title: 'Antrenman İptal Edilsin mi?',
+      message: 'Mevcut antrenman kaydedilmeden sonlandırılacaktır. Emin misiniz?',
+      confirmText: 'Evet, İptal Et',
+      cancelText: 'Vazgeç',
+      onConfirm: () => {
+        setCustomAlert(null);
+        saveActiveRestTimerEnd(null);
+        cancelRestTimerNotification();
+        onCancelSession();
+      },
+      onCancel: () => setCustomAlert(null),
+    });
   };
 
   return (
@@ -403,11 +433,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           )}
 
           <TouchableOpacity
-            onPress={() => {
-              saveActiveRestTimerEnd(null);
-              cancelRestTimerNotification();
-              onCancelSession();
-            }}
+            onPress={handleCancelSession}
             style={styles.cancelBtn}
             activeOpacity={0.7}
           >
@@ -667,6 +693,12 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           onClose={() => setShowExercisePicker(false)}
           onSelectExercise={handleAddExercise}
         />
+
+        {customAlert && (
+          <CustomAlertModal
+            {...customAlert}
+          />
+        )}
       </View>
     </Modal>
   );

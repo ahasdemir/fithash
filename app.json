@@ -34,7 +34,8 @@
           "color": "#C6F035",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "react-native-health-connect"
     ]
   }
 }

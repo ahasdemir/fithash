@@ -108,6 +108,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
               data={CATEGORIES}
               keyExtractor={item => item}
               showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryListContent}
               renderItem={({ item }) => {
                 const isSelected = selectedCategory === item;
                 return (
@@ -257,16 +258,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   categoriesWrapper: {
-    marginVertical: 12,
+    marginVertical: 8,
+    marginHorizontal: -4,
+  },
+  categoryListContent: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   categoryChip: {
     backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginRight: 8,
+    marginRight: 6,
   },
   categoryChipSelected: {
     backgroundColor: '#111111',
@@ -274,8 +280,8 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
   },
   categoryChipTextSelected: {
     color: '#FFFFFF',
@@ -283,14 +289,17 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: 20,
+    paddingHorizontal: 2,
+    paddingTop: 2,
   },
   exerciseCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 14,
-    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 
@@ -17,42 +17,67 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
   onClose,
   onDeadlineChange,
 }) => {
-  const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
-  const [isActive, setIsActive] = useState(true);
+  const [targetEndTime, setTargetEndTime] = useState<number>(() => Date.now() + initialSeconds * 1000);
+  const [secondsLeft, setSecondsLeft] = useState<number>(initialSeconds);
+  const [isActive, setIsActive] = useState<boolean>(true);
+
+  const onDeadlineChangeRef = useRef(onDeadlineChange);
+  const onFinishRef = useRef(onFinish);
+
+  useEffect(() => {
+    onDeadlineChangeRef.current = onDeadlineChange;
+    onFinishRef.current = onFinish;
+  });
 
   // Reset timer whenever initialSeconds prop changes or component remounts
   useEffect(() => {
+    const end = Date.now() + initialSeconds * 1000;
+    setTargetEndTime(end);
     setSecondsLeft(initialSeconds);
     setIsActive(true);
-    if (initialSeconds > 0) {
-      onDeadlineChange?.(Date.now() + initialSeconds * 1000);
-    }
+    onDeadlineChangeRef.current?.(end);
   }, [initialSeconds]);
 
   useEffect(() => {
     let interval: any = null;
-    if (isActive && secondsLeft > 0) {
-      interval = setInterval(() => {
-        setSecondsLeft(prev => prev - 1);
-      }, 1000);
-    } else if (secondsLeft === 0 && isActive) {
-      setIsActive(false);
-      onDeadlineChange?.(null);
-      if (onFinish) onFinish();
+    if (isActive) {
+      const updateTimer = () => {
+        const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
+        if (remaining <= 0) {
+          setSecondsLeft(0);
+          setIsActive(false);
+          onDeadlineChangeRef.current?.(null);
+          Vibration.vibrate([0, 500, 200, 500]);
+          if (onFinishRef.current) onFinishRef.current();
+        } else {
+          setSecondsLeft(remaining);
+        }
+      };
+
+      updateTimer();
+      interval = setInterval(updateTimer, 500);
     }
     return () => clearInterval(interval);
-  }, [isActive, secondsLeft, onFinish, onDeadlineChange]);
+  }, [isActive, targetEndTime]);
 
   const addTime = (secs: number) => {
-    const next = Math.max(0, secondsLeft + secs);
-    setSecondsLeft(next);
-    onDeadlineChange?.(isActive && next > 0 ? Date.now() + next * 1000 : null);
+    const newTarget = targetEndTime + secs * 1000;
+    const remaining = Math.max(0, Math.ceil((newTarget - Date.now()) / 1000));
+    setTargetEndTime(newTarget);
+    setSecondsLeft(remaining);
+    onDeadlineChange?.(isActive && remaining > 0 ? newTarget : null);
   };
 
   const toggleTimer = () => {
     const nextActive = !isActive;
     setIsActive(nextActive);
-    onDeadlineChange?.(nextActive && secondsLeft > 0 ? Date.now() + secondsLeft * 1000 : null);
+    if (nextActive) {
+      const newTarget = Date.now() + secondsLeft * 1000;
+      setTargetEndTime(newTarget);
+      onDeadlineChange?.(newTarget);
+    } else {
+      onDeadlineChange?.(null);
+    }
   };
 
   const formatTime = (secs: number) => {

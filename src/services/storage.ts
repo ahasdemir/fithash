@@ -268,7 +268,10 @@ const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
 };
 
 // --- USER STATS CALCULATION ---
-export const calculateUserStats = (workouts: WorkoutSession[]): UserStats => {
+export const calculateUserStats = (
+  workouts: WorkoutSession[],
+  workoutDays: number[] = [1, 2, 3, 4, 5, 6]
+): UserStats => {
   let totalVolumeKg = 0;
   let totalSets = 0;
   let totalHardSets = 0;
@@ -276,27 +279,26 @@ export const calculateUserStats = (workouts: WorkoutSession[]): UserStats => {
   let totalCaloriesBurned = 0;
   let totalCardioDistanceKm = 0;
 
+  let totalPlannedSetsCount = 0;
+  let completedSetsCount = 0;
+  let totalActiveSeconds = 0;
   let totalRirSum = 0;
   let totalRirCount = 0;
 
-  let completedSetsCount = 0;
-  let totalPlannedSetsCount = 0;
-  let totalActiveSeconds = 0;
+  workouts.forEach(workout => {
+    totalTimeSeconds += workout.durationSeconds || 0;
+    totalCaloriesBurned += workout.totalCaloriesBurned || 0;
+    totalCardioDistanceKm += workout.totalCardioDistanceKm || 0;
 
-  workouts.forEach(w => {
-    totalVolumeKg += w.totalVolume || 0;
-    totalSets += w.totalSets || 0;
-    totalTimeSeconds += w.durationSeconds || 0;
-    totalCaloriesBurned += w.totalCaloriesBurned || 0;
-    totalCardioDistanceKm += w.totalCardioDistanceKm || 0;
-
-    w.exercises.forEach(ex => {
-      const isCardio = ex.category === 'Kardiyo';
+    workout.exercises.forEach(ex => {
+      totalPlannedSetsCount += ex.sets.length;
       ex.sets.forEach(s => {
-        totalPlannedSetsCount++;
         if (s.completed) {
           completedSetsCount++;
-          if (isCardio) {
+          totalSets++;
+          totalVolumeKg += (s.weight || 0) * (s.reps || 0);
+
+          if (ex.category === 'Kardiyo') {
             totalActiveSeconds += (s.durationMinutes || 0) * 60;
           } else {
             totalActiveSeconds += 45; // 45s TUT per completed weight set
@@ -329,32 +331,57 @@ export const calculateUserStats = (workouts: WorkoutSession[]): UserStats => {
     activeWorkTimeMinutes,
     avgRir,
     totalTimeMinutes: Math.round(totalTimeSeconds / 60),
-    streakDays: calculateStreakDays(workouts),
+    streakDays: calculateStreakDays(workouts, workoutDays),
     totalCaloriesBurned: Math.round(totalCaloriesBurned),
     totalCardioDistanceKm: Math.round(totalCardioDistanceKm * 10) / 10,
   };
 };
 
-const calculateStreakDays = (workouts: WorkoutSession[]): number => {
+export const calculateStreakDays = (
+  workouts: WorkoutSession[],
+  workoutDays: number[] = [1, 2, 3, 4, 5, 6]
+): number => {
   if (!workouts.length) return 0;
-  const dates = Array.from(new Set(workouts.map(w => w.date))).sort().reverse();
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  
-  if (dates[0] !== today && dates[0] !== yesterday) return 0;
 
+  const activeWorkoutDaysSet = new Set(workoutDays.length > 0 ? workoutDays : [1, 2, 3, 4, 5, 6]);
+
+  const completedDates = new Set(
+    workouts
+      .filter(w => w.completed !== false)
+      .map(w => w.date)
+  );
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let streak = 0;
-  let checkDate = new Date(dates[0]);
 
-  for (let i = 0; i < dates.length; i++) {
-    const currentDate = new Date(dates[i]);
-    const diffDays = Math.round((checkDate.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
-    if (diffDays <= 1) {
+  for (let i = 0; i < 365; i++) {
+    const year = checkDate.getFullYear();
+    const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+    const day = String(checkDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const dayOfWeek = checkDate.getDay();
+
+    const isScheduledWorkoutDay = activeWorkoutDaysSet.has(dayOfWeek);
+    const hasWorkout = completedDates.has(dateStr);
+
+    if (hasWorkout) {
+      // Completed workout on this date -> Always counts toward streak!
       streak++;
-      checkDate = currentDate;
+    } else if (isScheduledWorkoutDay) {
+      // Scheduled workout day, but no workout done
+      if (dateStr === todayStr) {
+        // Today is still ongoing
+      } else {
+        // Missed a past scheduled workout day -> Streak breaks here
+        break;
+      }
     } else {
-      break;
+      // Rest Day without workout -> Streak continues unbroken
     }
+
+    checkDate.setDate(checkDate.getDate() - 1);
   }
 
   return streak;

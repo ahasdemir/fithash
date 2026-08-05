@@ -8,12 +8,14 @@ interface HeaderProps {
   title: string;
   streakDays?: number;
   onOpenSettings?: () => void;
+  onOpenStreak?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   title,
   streakDays = 0,
   onOpenSettings,
+  onOpenStreak,
 }) => {
   const insets = useSafeAreaInsets();
 
@@ -27,12 +29,16 @@ export const Header: React.FC<HeaderProps> = ({
       </View>
 
       <View style={styles.rightSection}>
-        {streakDays > 0 && (
-          <View style={styles.streakBadge}>
-            <Ionicons name="flame" size={14} color="#111111" />
-            <Text style={styles.streakText}>{streakDays} Gün</Text>
-          </View>
-        )}
+        <TouchableOpacity
+          style={styles.streakBadge}
+          onPress={onOpenStreak}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="flame" size={14} color="#111111" />
+          <Text style={styles.streakText}>
+            {streakDays > 0 ? `${streakDays} Gün` : 'Streak'}
+          </Text>
+        </TouchableOpacity>
 
         {onOpenSettings && (
           <TouchableOpacity style={styles.iconButton} onPress={onOpenSettings}>
