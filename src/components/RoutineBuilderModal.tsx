@@ -71,25 +71,12 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       visible: true,
       type: 'warning',
       title: 'Değişiklikler Kaydedilmedi!',
-      message: 'Programda yaptığınız değişiklikler henüz kaydedilmedi. Düzenlemeden çıkmak istediğinize emin misiniz?',
-      confirmText: 'Çıkmak İstiyorum',
+      message: 'Programda yaptığınız değişiklikler kaydedilmedi. Kaydetmeden çıkmak istediğinize emin misiniz?',
+      confirmText: 'Evet, Çık',
       cancelText: 'Düzenlemeye Devam Et',
       onConfirm: () => {
-        setTimeout(() => {
-          setCustomAlert({
-            visible: true,
-            type: 'danger',
-            title: 'Son Kontrol: Emin misiniz?',
-            message: 'Tüm eklenen hareketler ve değişiklikler silinecektir. Bu işlem geri alınamaz!',
-            confirmText: 'Evet, Kaydetmeden Çık',
-            cancelText: 'Forma Geri Dön',
-            onConfirm: () => {
-              setCustomAlert(null);
-              onClose();
-            },
-            onCancel: () => setCustomAlert(null),
-          });
-        }, 150);
+        setCustomAlert(null);
+        onClose();
       },
       onCancel: () => setCustomAlert(null),
     });
