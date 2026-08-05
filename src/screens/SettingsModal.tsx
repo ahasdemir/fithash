@@ -27,6 +27,8 @@ import {
 } from '../services/healthConnectService';
 import { getWorkouts } from '../services/storage';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -214,13 +216,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  const handleDownloadFile = () => {
+  const handleDownloadFile = async () => {
     try {
       const mimeType = exportType === 'JSON' ? 'application/json' : 'text/csv';
       const extension = exportType === 'JSON' ? 'json' : 'csv';
       const filename = `fithash_backup_${new Date().toISOString().split('T')[0]}.${extension}`;
 
       if (typeof document !== 'undefined') {
+        // Web Platform Download
         const blob = new Blob([exportContent], { type: `${mimeType};charset=utf-8;` });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -231,16 +234,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        setCustomAlert({
-          visible: true,
-          type: 'info',
-          title: 'Bilgi',
-          message: 'İndirme web tarayıcısında desteklenmektedir.',
-          onConfirm: () => setCustomAlert(null),
-        });
+        // Mobile Native (Android & iOS) Export & Sharing
+        const file = new File(Paths.document, filename);
+        if (!file.exists) {
+          file.create();
+        }
+        file.write(exportContent);
+        const fileUri = file.uri;
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType,
+            dialogTitle: `${exportType} Yedeğini Kaydet veya Paylaş`,
+            UTI: exportType === 'JSON' ? 'public.json' : 'public.comma-separated-values-text',
+          });
+        } else {
+          setCustomAlert({
+            visible: true,
+            type: 'success',
+            title: 'Dosya Kaydedildi',
+            message: `Yedek dosyası cihaza kaydedildi:\n${fileUri}`,
+            onConfirm: () => setCustomAlert(null),
+          });
+        }
       }
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('Download/Share error:', error);
+      setCustomAlert({
+        visible: true,
+        type: 'danger',
+        title: 'Hata',
+        message: 'Yedek dosyası indirilirken bir sorun oluştu.',
+        onConfirm: () => setCustomAlert(null),
+      });
     }
   };
 
