@@ -44,10 +44,13 @@ export const generateGeminiAnalysis = async (
   if (apiKey && apiKey.trim().length > 10) {
     const candidateModels = Array.from(new Set([
       normalizedModel,
-      'gemini-1.5-flash',
+      'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
-      'gemini-1.5-pro',
+      'gemini-1.5-flash',
     ]));
+
+    let primaryModelError = '';
+    let lastErrorMsg = '';
 
     const prompt = `Sen FitHash uygulamasının uzman spor, hipertrofi ve kondisyon koçusun (RP / Dr. Mike Israetel bilimsel modelini esas alırsın).
 Aşağıdaki kullanıcı antrenman, kardiyo ve hipertrofi istatistiklerini analiz et ve Türkçe olarak değerlendir:
@@ -82,8 +85,6 @@ Lütfen yanıtını tam olarak aşağıdaki JSON formatında döndür (JSON hari
   "score": 88
 }`;
 
-    let lastErrorMsg = '';
-
     for (const mName of candidateModels) {
       try {
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
@@ -104,13 +105,12 @@ Lütfen yanıtını tam olarak aşağıdaki JSON formatında döndür (JSON hari
         const data = await response.json();
         if (!response.ok) {
           const errMsg = data?.error?.message || `HTTP ${response.status}`;
-          lastErrorMsg = errMsg;
-          // If quota or not found error, try next model candidate in loop
-          if (response.status === 429 || response.status === 404 || errMsg.toLowerCase().includes('quota') || errMsg.toLowerCase().includes('limit')) {
-            console.warn(`Model ${mName} failed with quota/availability issue, trying next fallback...`);
-            continue;
+          if (mName === normalizedModel || !primaryModelError) {
+            primaryModelError = errMsg;
           }
-          throw new Error(errMsg);
+          lastErrorMsg = errMsg;
+          console.warn(`Model ${mName} failed (${response.status}): ${errMsg}`);
+          continue;
         }
 
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -133,15 +133,26 @@ Lütfen yanıtını tam olarak aşağıdaki JSON formatında döndür (JSON hari
           timestamp: nowTime,
         };
       } catch (err) {
-        lastErrorMsg = err instanceof Error ? err.message : 'Bağlantı hatası.';
+        const errMsg = err instanceof Error ? err.message : 'Bağlantı hatası.';
+        if (mName === normalizedModel || !primaryModelError) {
+          primaryModelError = errMsg;
+        }
+        lastErrorMsg = errMsg;
       }
     }
 
-    // If all model candidates failed, return local fallback with clean error message
+    // If all model candidates failed, return local fallback with clean user-friendly error message
     const fallback = generateLocalFallbackAnalysis(workouts, prs, stats, nowTime);
-    let friendlyError = lastErrorMsg;
-    if (lastErrorMsg.toLowerCase().includes('quota') || lastErrorMsg.toLowerCase().includes('limit')) {
-      friendlyError = 'Gemini Ücretsiz Tier Kota Sınırı: Lütfen ~1 dakika bekleyip yenileyin veya Ayarlar\'dan "Gemini 1.5 Flash" seçin.';
+    const errToCheck = primaryModelError || lastErrorMsg;
+    let friendlyError = errToCheck;
+
+    const lowerErr = errToCheck.toLowerCase();
+    if (lowerErr.includes('quota') || lowerErr.includes('limit') || lowerErr.includes('429') || lowerErr.includes('resource_exhausted')) {
+      friendlyError = 'Gemini Ücretsiz Tier Kota Sınırı: API anahtarınızın dakikalık/günlük sınırı doldu. Lütfen ~1 dakika bekleyip tekrar "Analizi Yenile" yapın.';
+    } else if (lowerErr.includes('key_invalid') || lowerErr.includes('api_key') || lowerErr.includes('unauthorized') || lowerErr.includes('401') || lowerErr.includes('403')) {
+      friendlyError = 'Geçersiz Gemini API Anahtarı: Lütfen Ayarlar menüsünden API anahtarınızı kontrol edin.';
+    } else if (lowerErr.includes('not found') || lowerErr.includes('not supported')) {
+      friendlyError = `Seçilen AI Modeli (${normalizedModel}) Desteklenmiyor: Google bu modeli ücretsiz hesabınız için açmamış olabilir. Lütfen Ayarlar'dan Gemini 2.0 Flash seçin.`;
     }
 
     return {

@@ -40,7 +40,7 @@ const AVAILABLE_MODELS = [
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Ücretsiz Tier • Hızlı & Önerilen' },
   { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite', tag: 'Ücretsiz Tier • Ultra Hızlı' },
   { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Ücretsiz Tier • Kararlı Standart' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Ücretsiz Tier • Gelişmiş Mantık' },
+  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Özel/Ücretli Tier • Gelişmiş Mantık' },
 ];
 
 const REST_TIME_OPTIONS = [30, 60, 90, 120, 180];
