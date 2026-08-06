@@ -792,14 +792,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    paddingTop: 10,
+    backgroundColor: COLORS.surface,
+    paddingTop: 0,
   },
   topDragHandleBarContainer: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 6,
     backgroundColor: COLORS.surface,
   },
@@ -874,6 +874,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     padding: 16,
