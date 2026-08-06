@@ -101,12 +101,32 @@ export const exportFullDataJSON = async (): Promise<string> => {
 
 export const exportWorkoutsCSV = async (): Promise<string> => {
   const workouts = await getWorkouts();
-  let csv = 'Antrenman,Tarih,Hareket,Set,Tekrar,Ağırlık (kg),RIR\n';
+  // UTF-8 BOM for Excel compatibility with Turkish characters
+  let csv = '\uFEFF';
+  csv += 'Antrenman,Tarih,Süre (dk),Hareket,Kategori,Ekipman,Set No,Durum,Set Tipi,Ağırlık (kg),Tekrar,RIR,Mesafe (km),Kardiyo Süresi (dk),Yakılan Kalori (kcal),Notlar\n';
 
   workouts.forEach(w => {
+    const durationMins = Math.round((w.durationSeconds || 0) / 60);
+    const workoutNotes = (w.notes || '').replace(/"/g, '""');
+
     w.exercises.forEach(ex => {
+      const exNotes = (ex.notes || '').replace(/"/g, '""');
+      const combinedNotes = [workoutNotes, exNotes].filter(Boolean).join(' | ');
+
       ex.sets.forEach(set => {
-        csv += `"${w.name}","${w.date}","${ex.exerciseName}",${set.setNumber},${set.reps},${set.weight},${set.rir ?? ''}\n`;
+        const status = set.completed ? 'Tamamlandı' : 'Atlandı';
+        let setType = 'Normal';
+        if (set.isWarmup) setType = 'Isınma';
+        if (set.isPR) setType = 'PR';
+
+        const weight = set.weight ?? 0;
+        const reps = set.reps ?? 0;
+        const rir = set.rir !== undefined && set.rir !== null ? set.rir : '';
+        const distance = set.distanceKm ?? '';
+        const cardioDuration = set.durationMinutes ?? '';
+        const calories = set.caloriesBurned ?? '';
+
+        csv += `"${w.name}","${w.date}",${durationMins},"${ex.exerciseName}","${ex.category || ''}","${ex.equipment || ''}",${set.setNumber},"${status}","${setType}",${weight},${reps},${rir},${distance},${cardioDuration},${calories},"${combinedNotes}"\n`;
       });
     });
   });
