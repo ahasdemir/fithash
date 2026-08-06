@@ -434,19 +434,20 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide">
       <View style={styles.container}>
+        {/* Top Sheet Drag Handle Bar for Minimizing */}
+        {onBackgroundSession && (
+          <TouchableOpacity
+            style={styles.topDragHandleBarContainer}
+            activeOpacity={0.7}
+            onPress={handleBackground}
+            hitSlop={{ top: 20, bottom: 20, left: 120, right: 120 }}
+          >
+            <View style={styles.topDragHandleBar} />
+          </TouchableOpacity>
+        )}
+
         {/* Header Bar */}
         <View style={styles.header}>
-          {onBackgroundSession && (
-            <TouchableOpacity
-              onPress={handleBackground}
-              style={styles.minimizeBtn}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-down" size={22} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity
             onPress={handleCancelSession}
             style={styles.cancelBtn}
@@ -749,12 +750,26 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     paddingTop: 10,
   },
+  topDragHandleBarContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: COLORS.surface,
+  },
+  topDragHandleBar: {
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: COLORS.border,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     backgroundColor: COLORS.surface,
@@ -765,17 +780,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderRadius: 100,
-  },
-  minimizeBtn: {
-    flexShrink: 0,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   cancelText: {
     color: COLORS.danger,
