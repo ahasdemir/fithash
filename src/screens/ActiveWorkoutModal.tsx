@@ -9,7 +9,11 @@ import {
   TextInput,
   Alert,
   PanResponder,
+  Animated,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types/fitness';
@@ -111,23 +115,48 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     }
   }, []);
 
+  const translateY = useRef(new Animated.Value(0)).current;
+
   const handleBackground = useCallback(() => {
     setShowRestTimer(false);
     onBackgroundSession?.();
-  }, [onBackgroundSession]);
+    translateY.setValue(0);
+  }, [onBackgroundSession, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dy) > 5;
+        return gestureState.dy > 5;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
       },
       onPanResponderRelease: (_, gestureState) => {
-        // If swiped down or clicked on handle bar
-        if (gestureState.dy > 15 || gestureState.vy > 0.2) {
-          handleBackground();
+        if (gestureState.dy > 120 || gestureState.vy > 0.4) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            handleBackground();
+          });
         } else if (Math.abs(gestureState.dy) < 6 && Math.abs(gestureState.dx) < 6) {
-          handleBackground();
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            handleBackground();
+          });
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            bounciness: 4,
+            useNativeDriver: true,
+          }).start();
         }
       },
     })
@@ -450,8 +479,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={styles.container}>
+    <Modal visible={visible} animationType="none" transparent>
+      <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
         {/* Top Sheet Drag Handle Bar for Minimizing */}
         {onBackgroundSession && (
           <View
@@ -755,7 +784,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             {...customAlert}
           />
         )}
-      </View>
+      </Animated.View>
     </Modal>
   );
 };
