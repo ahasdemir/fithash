@@ -37,6 +37,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [selectedRoutineForMenu, setSelectedRoutineForMenu] = useState<Routine | null>(null);
   const [deletingRoutine, setDeletingRoutine] = useState<Routine | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   const handleMoveRoutine = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
@@ -170,21 +171,41 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
       {/* Routine Section Header */}
       <View style={styles.sectionHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>Antrenman Programlarım</Text>
-          <Text style={styles.sectionSubtitle}>Bento grid günlük rutinleriniz</Text>
+          <Text style={styles.sectionSubtitle}>
+            {isReorderMode ? 'Sıralamak için okları kullanın' : 'Bento grid günlük rutinleriniz'}
+          </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.createRoutineBtn}
-          onPress={() => {
-            setEditingRoutine(null);
-            setShowRoutineBuilder(true);
-          }}
-        >
-          <Ionicons name="add" size={16} color="#111111" />
-          <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtnGroup}>
+          {routines.length > 1 && (
+            <TouchableOpacity
+              style={[styles.reorderToggleBtn, isReorderMode && styles.reorderToggleBtnActive]}
+              onPress={() => setIsReorderMode(!isReorderMode)}
+            >
+              <Ionicons
+                name={isReorderMode ? 'checkmark' : 'swap-vertical'}
+                size={14}
+                color={isReorderMode ? '#111111' : COLORS.textPrimary}
+              />
+              <Text style={[styles.reorderToggleBtnText, isReorderMode && styles.reorderToggleBtnTextActive]}>
+                {isReorderMode ? 'Tamam' : 'Sırala'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.createRoutineBtn}
+            onPress={() => {
+              setEditingRoutine(null);
+              setShowRoutineBuilder(true);
+            }}
+          >
+            <Ionicons name="add" size={16} color="#111111" />
+            <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Routines Bento Grid */}
@@ -200,7 +221,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               </View>
 
               <View style={styles.routineHeaderRight}>
-                {routines.length > 1 && (
+                {isReorderMode && routines.length > 1 && (
                   <View style={styles.reorderPill}>
                     <TouchableOpacity
                       style={[styles.reorderPillBtn, index === 0 && styles.reorderPillBtnDisabled]}
@@ -499,6 +520,34 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  headerBtnGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reorderToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 100,
+  },
+  reorderToggleBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  reorderToggleBtnText: {
+    color: COLORS.textPrimary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  reorderToggleBtnTextActive: {
+    color: '#111111',
   },
   createRoutineBtn: {
     flexDirection: 'row',
