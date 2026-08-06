@@ -41,6 +41,7 @@ import {
   cancelSessionReminder,
 } from './src/services/notifications';
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
+import { updateStreakWidget } from './src/services/widgetService';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'workout' | 'analytics' | 'history' | 'library'>('workout');
@@ -59,6 +60,16 @@ export default function App() {
     loadAllData();
     restoreActiveSession();
   }, []);
+
+  useEffect(() => {
+    if (workouts) {
+      const stats = calculateUserStats(workouts, workoutDays);
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const todayCompleted = workouts.some(w => w.date === todayStr && w.completed !== false);
+      updateStreakWidget(stats.streakDays, todayCompleted);
+    }
+  }, [workouts, workoutDays]);
 
   const restoreActiveSession = async () => {
     configureNotifications();

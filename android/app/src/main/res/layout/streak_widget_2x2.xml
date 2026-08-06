@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:gravity="center">
+
+    <!-- Bold Prominent SVG Flame Icon -->
+    <ImageView
+        android:id="@+id/widget_flame_icon"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_flame"
+        android:contentDescription="Streak Flame"
+        android:layout_marginBottom="2dp" />
+
+    <!-- Large Bold Prominent Streak Count -->
+    <TextView
+        android:id="@+id/widget_streak_count"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:textColor="#FFFFFF"
+        android:textSize="36sp"
+        android:textStyle="bold"
+        android:includeFontPadding="false"
+        android:gravity="center" />
+
+    <!-- Subtitle Label -->
+    <TextView
+        android:id="@+id/widget_streak_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Gün Seri"
+        android:textColor="#8E93A7"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+</LinearLayout>
