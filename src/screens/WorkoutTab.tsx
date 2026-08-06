@@ -173,9 +173,9 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       <View style={styles.sectionHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>Antrenman Programlarım</Text>
-          <Text style={styles.sectionSubtitle}>
-            {isReorderMode ? 'Sıralamak için okları kullanın' : 'Bento grid günlük rutinleriniz'}
-          </Text>
+          {isReorderMode && (
+            <Text style={styles.sectionSubtitle}>Sıralamak için okları kullanın</Text>
+          )}
         </View>
 
         <View style={styles.headerBtnGroup}>
