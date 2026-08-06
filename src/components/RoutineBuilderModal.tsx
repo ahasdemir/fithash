@@ -126,6 +126,19 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
     setSelectedExercises(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleMoveExercise = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= selectedExercises.length) return;
+
+    setSelectedExercises(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
+  };
+
   const handleSave = () => {
     if (!name.trim() || selectedExercises.length === 0) return;
 
@@ -201,10 +214,37 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
               return (
                 <View key={`${ex.exerciseId}_${index}`} style={styles.exCard}>
                   <View style={styles.exCardHeader}>
-                    <Text style={styles.exName}>{index + 1}. {ex.exerciseName}</Text>
-                    <TouchableOpacity onPress={() => handleRemoveExercise(index)}>
-                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                    </TouchableOpacity>
+                    <Text style={styles.exName} numberOfLines={1}>{index + 1}. {ex.exerciseName}</Text>
+                    
+                    <View style={styles.exCardActions}>
+                      <View style={styles.reorderGroup}>
+                        <TouchableOpacity
+                          style={[styles.reorderBtn, index === 0 && styles.reorderBtnDisabled]}
+                          disabled={index === 0}
+                          onPress={() => handleMoveExercise(index, -1)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="chevron-up" size={16} color={index === 0 ? COLORS.textMuted : COLORS.textPrimary} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.reorderBtn, index === selectedExercises.length - 1 && styles.reorderBtnDisabled]}
+                          disabled={index === selectedExercises.length - 1}
+                          onPress={() => handleMoveExercise(index, 1)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="chevron-down" size={16} color={index === selectedExercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.deleteExBtn}
+                        onPress={() => handleRemoveExercise(index)}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {isCardio ? (
@@ -409,6 +449,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: COLORS.textPrimary,
+    flex: 1,
+    marginRight: 8,
+  },
+  exCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reorderGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  reorderBtn: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  reorderBtnDisabled: {
+    opacity: 0.3,
+  },
+  deleteExBtn: {
+    padding: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   targetsRow: {
     flexDirection: 'row',
