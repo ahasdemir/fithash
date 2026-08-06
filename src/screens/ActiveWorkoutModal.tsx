@@ -8,6 +8,7 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
@@ -110,10 +111,27 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     }
   }, []);
 
-  const handleBackground = () => {
+  const handleBackground = useCallback(() => {
     setShowRestTimer(false);
     onBackgroundSession?.();
-  };
+  }, [onBackgroundSession]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // If swiped down or clicked on handle bar
+        if (gestureState.dy > 15 || gestureState.vy > 0.2) {
+          handleBackground();
+        } else if (Math.abs(gestureState.dy) < 6 && Math.abs(gestureState.dx) < 6) {
+          handleBackground();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     let timer: any = null;
@@ -436,14 +454,12 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       <View style={styles.container}>
         {/* Top Sheet Drag Handle Bar for Minimizing */}
         {onBackgroundSession && (
-          <TouchableOpacity
+          <View
+            {...panResponder.panHandlers}
             style={styles.topDragHandleBarContainer}
-            activeOpacity={0.7}
-            onPress={handleBackground}
-            hitSlop={{ top: 20, bottom: 20, left: 120, right: 120 }}
           >
             <View style={styles.topDragHandleBar} />
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* Header Bar */}
