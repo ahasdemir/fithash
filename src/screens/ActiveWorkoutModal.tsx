@@ -45,7 +45,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerKey, setRestTimerKey] = useState(Date.now());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
-  const [draggingExIndex, setDraggingExIndex] = useState<number | null>(null);
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -499,36 +498,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
             const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment) : null;
 
-            const isBeingDragged = draggingExIndex === exIndex;
-
             return (
-              <View
-                key={ex.id}
-                style={[
-                  styles.exCard,
-                  isBeingDragged && styles.exCardDragging,
-                ]}
-              >
+              <View key={ex.id} style={styles.exCard}>
                 <View style={styles.exCardHeader}>
-                  {/* Grip Handle for Press & Drag */}
-                  {session.exercises.length > 1 && (
-                    <TouchableOpacity
-                      style={styles.dragGripBtn}
-                      activeOpacity={0.7}
-                      onLongPress={() => {
-                        setDraggingExIndex(exIndex);
-                      }}
-                      onPressOut={() => setDraggingExIndex(null)}
-                      delayLongPress={150}
-                    >
-                      <Ionicons
-                        name="reorder-two"
-                        size={22}
-                        color={isBeingDragged ? COLORS.primary : COLORS.textMuted}
-                      />
-                    </TouchableOpacity>
-                  )}
-
                   <View style={styles.exTitleLeft}>
                     <Text style={styles.exName}>{exIndex + 1}. {ex.exerciseName}</Text>
                     <View style={styles.exMetaRow}>
