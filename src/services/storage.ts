@@ -29,6 +29,14 @@ export const saveCachedAIAnalysis = async (analysis: any): Promise<void> => {
   }
 };
 
+export const clearCachedAIAnalysis = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.CACHED_AI_ANALYSIS);
+  } catch (e) {
+    console.error('Error clearing cached AI analysis:', e);
+  }
+};
+
 // --- EXERCISES ---
 export const getExercises = async (): Promise<Exercise[]> => {
   try {

@@ -86,7 +86,7 @@ Lütfen yanıtını tam olarak aşağıdaki JSON formatında döndür (JSON hari
 
     for (const mName of candidateModels) {
       try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {

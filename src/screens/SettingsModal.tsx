@@ -25,7 +25,7 @@ import {
   syncAllWorkoutsToHealthConnect,
   checkHealthConnectPermissions,
 } from '../services/healthConnectService';
-import { getWorkouts } from '../services/storage';
+import { getWorkouts, clearCachedAIAnalysis } from '../services/storage';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -168,6 +168,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       weightUnit,
       healthConnectEnabled,
     });
+    await clearCachedAIAnalysis();
+    onDataReload();
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
