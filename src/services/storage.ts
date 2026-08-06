@@ -121,6 +121,16 @@ export const saveRoutine = async (routine: Routine): Promise<Routine[]> => {
   }
 };
 
+export const saveRoutinesOrder = async (routines: Routine[]): Promise<Routine[]> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+    return getRoutines();
+  } catch (error) {
+    console.error('Error saving routines order:', error);
+    throw error;
+  }
+};
+
 export const deleteRoutine = async (id: string): Promise<Routine[]> => {
   try {
     const deletedJson = await AsyncStorage.getItem(DELETED_ROUTINES_KEY);

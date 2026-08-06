@@ -25,6 +25,7 @@ import {
   deleteWorkout,
   getRoutines,
   saveRoutine,
+  saveRoutinesOrder,
   deleteRoutine,
   getPersonalRecords,
   calculateUserStats,
@@ -134,6 +135,11 @@ export default function App() {
     setRoutines(updated);
   };
 
+  const handleReorderRoutines = async (updatedRoutines: Routine[]) => {
+    const updated = await saveRoutinesOrder(updatedRoutines);
+    setRoutines(updated);
+  };
+
   const handleDeleteRoutine = async (id: string) => {
     const updated = await deleteRoutine(id);
     setRoutines(updated);
@@ -193,6 +199,7 @@ export default function App() {
             onStartSession={handleStartSession}
             onOpenActiveSession={() => setShowActiveModal(true)}
             onSaveRoutine={handleSaveRoutine}
+            onReorderRoutines={handleReorderRoutines}
             onDeleteRoutine={handleDeleteRoutine}
           />
         )}

@@ -20,6 +20,7 @@ interface WorkoutTabProps {
   onStartSession: (session: WorkoutSession) => void;
   onOpenActiveSession: () => void;
   onSaveRoutine: (routine: Routine) => void;
+  onReorderRoutines: (routines: Routine[]) => void;
   onDeleteRoutine: (id: string) => void;
 }
 
@@ -29,12 +30,23 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   onStartSession,
   onOpenActiveSession,
   onSaveRoutine,
+  onReorderRoutines,
   onDeleteRoutine,
 }) => {
   const [showRoutineBuilder, setShowRoutineBuilder] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [selectedRoutineForMenu, setSelectedRoutineForMenu] = useState<Routine | null>(null);
   const [deletingRoutine, setDeletingRoutine] = useState<Routine | null>(null);
+
+  const handleMoveRoutine = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= routines.length) return;
+    const copy = [...routines];
+    const temp = copy[index];
+    copy[index] = copy[targetIndex];
+    copy[targetIndex] = temp;
+    onReorderRoutines(copy);
+  };
 
   const handleStartFreestyle = () => {
     const session: WorkoutSession = {
@@ -177,7 +189,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
       {/* Routines Bento Grid */}
       <View style={styles.routinesList}>
-        {routines.map(routine => (
+        {routines.map((routine, index) => (
           <View key={routine.id} style={styles.routineCard}>
             <View style={styles.routineHeader}>
               <View style={styles.routineTitleLeft}>
@@ -187,13 +199,37 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.dotsMenuBtn}
-                onPress={() => setSelectedRoutineForMenu(routine)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
+              <View style={styles.routineHeaderRight}>
+                {routines.length > 1 && (
+                  <View style={styles.reorderPill}>
+                    <TouchableOpacity
+                      style={[styles.reorderPillBtn, index === 0 && styles.reorderPillBtnDisabled]}
+                      disabled={index === 0}
+                      onPress={() => handleMoveRoutine(index, -1)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="chevron-up" size={14} color={index === 0 ? COLORS.textMuted : COLORS.textPrimary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.reorderPillBtn, index === routines.length - 1 && styles.reorderPillBtnDisabled]}
+                      disabled={index === routines.length - 1}
+                      onPress={() => handleMoveRoutine(index, 1)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="chevron-down" size={14} color={index === routines.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.dotsMenuBtn}
+                  onPress={() => setSelectedRoutineForMenu(routine)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <Text style={styles.routineDesc}>{routine.description}</Text>
@@ -236,6 +272,34 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           >
             <View style={styles.actionSheetContainer}>
               <Text style={styles.actionSheetTitle}>{selectedRoutineForMenu.name}</Text>
+
+              {routines.findIndex(r => r.id === selectedRoutineForMenu.id) > 0 && (
+                <TouchableOpacity
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    const idx = routines.findIndex(r => r.id === selectedRoutineForMenu.id);
+                    handleMoveRoutine(idx, -1);
+                    setSelectedRoutineForMenu(null);
+                  }}
+                >
+                  <Ionicons name="arrow-up-circle-outline" size={20} color={COLORS.textPrimary} />
+                  <Text style={styles.actionSheetText}>Yukarı Taşı</Text>
+                </TouchableOpacity>
+              )}
+
+              {routines.findIndex(r => r.id === selectedRoutineForMenu.id) < routines.length - 1 && (
+                <TouchableOpacity
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    const idx = routines.findIndex(r => r.id === selectedRoutineForMenu.id);
+                    handleMoveRoutine(idx, 1);
+                    setSelectedRoutineForMenu(null);
+                  }}
+                >
+                  <Ionicons name="arrow-down-circle-outline" size={20} color={COLORS.textPrimary} />
+                  <Text style={styles.actionSheetText}>Aşağı Taşı</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.actionSheetItem}
@@ -467,6 +531,28 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  routineHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reorderPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  reorderPillBtn: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  reorderPillBtnDisabled: {
+    opacity: 0.3,
   },
   routineTitleLeft: {
     flex: 1,
