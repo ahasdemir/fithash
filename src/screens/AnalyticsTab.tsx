@@ -10,7 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, PersonalRecord } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
-import { AICoachWidget } from '../components/AICoachWidget';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
 import { calculateUserStats } from '../services/storage';
 
@@ -82,9 +81,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ workouts, prs }) => 
           );
         })}
       </View>
-
-      {/* AI Coach Assistant Widget */}
-      <AICoachWidget workouts={filteredWorkouts} prs={prs} />
 
       {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
       <View style={styles.bentoGrid}>
