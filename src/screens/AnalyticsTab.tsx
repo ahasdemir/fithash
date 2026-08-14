@@ -186,7 +186,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ workouts, prs }) => 
       )}
 
       {/* SVG Charts (Hard Sets Distribution at top, Volume Chart below) */}
-      <AnalyticsCharts workouts={filteredWorkouts} filterMode={filterMode} />
+      <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />
 
       {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
       <OneRepMaxWidget workouts={filteredWorkouts} />
