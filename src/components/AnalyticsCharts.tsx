@@ -237,7 +237,7 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
   selectedIndex,
   onSelectIndex,
   minBarWidth = 28,
-  barGap = 12,
+  barGap = 8,
 }) => {
   const scrollViewRef = React.useRef<ScrollView>(null);
 
@@ -245,14 +245,15 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
 
   const PADDING_HORIZ = 16;
   const maxLabelLength = Math.max(...data.map(d => d.label.length), 4);
-  // Ensure step width is wide enough for the longest date label to prevent text collision
-  const minStepForLabel = maxLabelLength * 7.5 + 8;
+  // Optimal step width calculation for compact, balanced spacing without label collision
+  const minStepForLabel = maxLabelLength * 6.4 + 4;
   const dynamicMinStepWidth = Math.max(minBarWidth + barGap, minStepForLabel);
 
   const contentWidth = data.length * dynamicMinStepWidth + PADDING_HORIZ * 2;
   const chartWidth = Math.max(containerWidth - 32, contentWidth);
   const stepWidth = chartWidth / data.length;
-  const barWidth = Math.max(minBarWidth, Math.min(44, stepWidth * 0.55));
+  // Increase bar width ratio to 70% for tighter gap between bars
+  const barWidth = Math.max(minBarWidth, Math.min(52, stepWidth * 0.70));
 
   const maxVolume = Math.max(...data.map(d => d.volume), 1000);
   const baselineY = height - 32;
@@ -615,7 +616,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               selectedIndex={activeIndex}
               onSelectIndex={setSelectedIndex}
               minBarWidth={28}
-              barGap={12}
+              barGap={8}
             />
           </View>
         ) : (
@@ -696,7 +697,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 selectedIndex={modalActiveIndex}
                 onSelectIndex={setModalSelectedIndex}
                 minBarWidth={32}
-                barGap={14}
+                barGap={8}
               />
             </View>
 
