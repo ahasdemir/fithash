@@ -382,6 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   customBadge: {
     backgroundColor: COLORS.primaryGlow,

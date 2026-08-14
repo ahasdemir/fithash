@@ -7,10 +7,11 @@ import {
   SdkAvailabilityStatus,
   openHealthConnectSettings,
   insertRecords,
+  readRecords,
   ExerciseType,
   Permission,
 } from 'react-native-health-connect';
-import { WorkoutSession } from '../types/fitness';
+import { WorkoutSession, HealthDataSummary } from '../types/fitness';
 
 const REQUIRED_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
@@ -19,6 +20,10 @@ const REQUIRED_PERMISSIONS: Permission[] = [
   { accessType: 'write', recordType: 'TotalCaloriesBurned' },
   { accessType: 'read', recordType: 'ExerciseSession' },
   { accessType: 'write', recordType: 'ExerciseSession' },
+  { accessType: 'read', recordType: 'Distance' },
+  { accessType: 'write', recordType: 'Distance' },
+  { accessType: 'read', recordType: 'Steps' },
+  { accessType: 'write', recordType: 'Steps' },
 ];
 
 /**
@@ -60,7 +65,7 @@ export const checkHealthConnectPermissions = async (): Promise<boolean> => {
 };
 
 /**
- * Kullanıcıdan Health Connect için yakılan kalori ve antrenman geçmişi izinlerini ister.
+ * Kullanıcıdan Health Connect için yakılan kalori, adım, mesafe ve antrenman geçmişi izinlerini ister.
  */
 export const requestHealthConnectPermissions = async (): Promise<boolean> => {
   if (Platform.OS !== 'android') return false;
@@ -141,17 +146,32 @@ export const getHealthConnectExerciseType = (session: WorkoutSession): number =>
     combinedText.includes('kalistenik') ||
     combinedText.includes('calisthenics') ||
     combinedText.includes('şınav') ||
-    combinedText.includes('barfiks')
+    combinedText.includes('barfiks') ||
+    combinedText.includes('pull up') ||
+    combinedText.includes('push up')
   ) {
     return ExerciseType.CALISTHENICS;
   }
 
-  // FitHash ağırlık & fitness takip uygulaması olduğu için kardiyo dışındaki tüm antrenmanları STRENGTH_TRAINING (70) olarak tanımlıyoruz.
+  // 9. Yüzme
+  if (combinedText.includes('yüzme') || combinedText.includes('yuzme') || combinedText.includes('swim')) {
+    return ExerciseType.SWIMMING_OPEN_WATER;
+  }
+
+  // 10. Pilates / Yoga
+  if (combinedText.includes('pilates')) {
+    return ExerciseType.PILATES;
+  }
+  if (combinedText.includes('yoga')) {
+    return ExerciseType.YOGA;
+  }
+
+  // FitHash ağırlık & fitness takip uygulaması olduğu için kardiyo dışındaki tüm antrenmanları STRENGTH_TRAINING olarak tanımlıyoruz.
   return ExerciseType.STRENGTH_TRAINING;
 };
 
 /**
- * Tamamlanan bir antrenman oturumunu ve yakılan kaloriyi Health Connect'e kaydeder.
+ * Tamamlanan bir antrenman oturumunu, yakılan kaloriyi ve kardiyo mesafesini Health Connect'e kaydeder.
  */
 export const syncWorkoutToHealthConnect = async (
   session: WorkoutSession
@@ -161,41 +181,53 @@ export const syncWorkoutToHealthConnect = async (
     const initialized = await initHealthConnect();
     if (!initialized) return false;
 
-    const startIso = new Date(session.startTime).toISOString();
-    const durationMs = (session.durationSeconds || 60) * 1000;
-    const endIso = new Date(
-      session.endTime || session.startTime + durationMs
-    ).toISOString();
+    const startTimeMs = session.startTime || Date.now();
+    const durationMs = Math.max(session.durationSeconds || 60, 60) * 1000;
+    let endTimeMs = session.endTime || (startTimeMs + durationMs);
+
+    // Health Connect kuralı: endTime strictly > startTime
+    if (endTimeMs <= startTimeMs) {
+      endTimeMs = startTimeMs + durationMs;
+    }
+
+    const startIso = new Date(startTimeMs).toISOString();
+    const endIso = new Date(endTimeMs).toISOString();
 
     const exerciseType = getHealthConnectExerciseType(session);
 
-    // 1. Antrenman Geçmişi (ExerciseSession)
-    const exerciseListStr = session.exercises
-      ? session.exercises.map((e) => e.exerciseName).join(', ')
-      : '';
-    const notesStr = [
-      session.notes ? `Not: ${session.notes}` : '',
-      exerciseListStr ? `Egzersizler: ${exerciseListStr}` : '',
-      session.totalVolume ? `Toplam Hacim: ${session.totalVolume} kg` : '',
-      session.totalCardioDistanceKm ? `Mesafe: ${session.totalCardioDistanceKm} km` : '',
-      `Set Sayısı: ${session.totalSets || 0}`,
-    ]
-      .filter(Boolean)
-      .join('\n');
+    let syncedAny = false;
 
-    await insertRecords([
-      {
-        recordType: 'ExerciseSession',
-        startTime: startIso,
-        endTime: endIso,
-        exerciseType,
-        title: session.name || 'Antrenman',
-        notes: notesStr,
-      },
-    ]);
+    // 1. Antrenman Geçmişi (ExerciseSession)
+    try {
+      const exerciseListStr = session.exercises
+        ? session.exercises.map((e) => e.exerciseName).join(', ')
+        : '';
+      const notesStr = [
+        session.notes ? `Not: ${session.notes}` : '',
+        exerciseListStr ? `Egzersizler: ${exerciseListStr}` : '',
+        session.totalVolume ? `Toplam Hacim: ${session.totalVolume} kg` : '',
+        session.totalCardioDistanceKm ? `Mesafe: ${session.totalCardioDistanceKm} km` : '',
+        `Set Sayısı: ${session.totalSets || 0}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      await insertRecords([
+        {
+          recordType: 'ExerciseSession',
+          startTime: startIso,
+          endTime: endIso,
+          exerciseType,
+          title: session.name || 'Antrenman',
+          notes: notesStr,
+        },
+      ]);
+      syncedAny = true;
+    } catch (err) {
+      console.warn('ExerciseSession senkronizasyon hatası:', err);
+    }
 
     // 2. Yakılan Kalori (ActiveCaloriesBurned & TotalCaloriesBurned)
-    // Samsung Health ve Google Fit antrenman kalorisini okumak için TotalCaloriesBurned ve ActiveCaloriesBurned bekler.
     let caloriesToSync = session.totalCaloriesBurned || 0;
     if (caloriesToSync <= 0 && session.durationSeconds > 0) {
       const minutes = Math.max(1, Math.round(session.durationSeconds / 60));
@@ -204,17 +236,22 @@ export const syncWorkoutToHealthConnect = async (
 
     if (caloriesToSync > 0) {
       // 2a. ActiveCaloriesBurned
-      await insertRecords([
-        {
-          recordType: 'ActiveCaloriesBurned',
-          startTime: startIso,
-          endTime: endIso,
-          energy: {
-            value: caloriesToSync,
-            unit: 'kilocalories',
+      try {
+        await insertRecords([
+          {
+            recordType: 'ActiveCaloriesBurned',
+            startTime: startIso,
+            endTime: endIso,
+            energy: {
+              value: caloriesToSync,
+              unit: 'kilocalories',
+            },
           },
-        },
-      ]);
+        ]);
+        syncedAny = true;
+      } catch (err) {
+        console.warn('ActiveCaloriesBurned yazma hatası:', err);
+      }
 
       // 2b. TotalCaloriesBurned (Samsung Health senkronizasyonu için şarttır)
       try {
@@ -229,13 +266,33 @@ export const syncWorkoutToHealthConnect = async (
             },
           },
         ]);
-      } catch (e) {
-        console.warn('TotalCaloriesBurned yazma hatası:', e);
+      } catch (err) {
+        console.warn('TotalCaloriesBurned yazma hatası:', err);
+      }
+    }
+
+    // 3. Kat Edilen Mesafe (Distance)
+    if (session.totalCardioDistanceKm && session.totalCardioDistanceKm > 0) {
+      try {
+        await insertRecords([
+          {
+            recordType: 'Distance',
+            startTime: startIso,
+            endTime: endIso,
+            distance: {
+              value: session.totalCardioDistanceKm * 1000, // metre cinsinden
+              unit: 'meters',
+            },
+          },
+        ]);
+        syncedAny = true;
+      } catch (err) {
+        console.warn('Distance kaydı yazma hatası:', err);
       }
     }
 
     console.log(`Antrenman (${session.name}) Health Connect'e senkronize edildi. (Tip: ${exerciseType}, Kalori: ${caloriesToSync})`);
-    return true;
+    return syncedAny;
   } catch (error) {
     console.error('Health Connect senkronizasyon hatası:', error);
     return false;
@@ -262,3 +319,91 @@ export const syncAllWorkoutsToHealthConnect = async (
 
   return { success, failed };
 };
+
+/**
+ * Belirtilen tarih aralığında Health Connect'ten adım, kalori ve mesafe özetini okur.
+ */
+export const readHealthConnectData = async (
+  startDate: Date,
+  endDate: Date
+): Promise<HealthDataSummary | null> => {
+  if (Platform.OS !== 'android') return null;
+
+  try {
+    const initialized = await initHealthConnect();
+    if (!initialized) return null;
+
+    const timeRangeFilter = {
+      operator: 'between' as const,
+      startTime: startDate.toISOString(),
+      endTime: endDate.toISOString(),
+    };
+
+    let totalSteps = 0;
+    let activeCalories = 0;
+    let totalCalories = 0;
+    let distanceKm = 0;
+
+    // 1. Adım Sayısı
+    try {
+      const stepRes = await readRecords('Steps', { timeRangeFilter });
+      if (stepRes && stepRes.records) {
+        totalSteps = stepRes.records.reduce((sum, r) => sum + (r.count || 0), 0);
+      }
+    } catch (e) {
+      // Step permission not granted or not supported
+    }
+
+    // 2. Aktif Kalori
+    try {
+      const calRes = await readRecords('ActiveCaloriesBurned', { timeRangeFilter });
+      if (calRes && calRes.records) {
+        activeCalories = calRes.records.reduce((sum, r: any) => sum + (r.energy?.inKilocalories || r.energy?.value || 0), 0);
+      }
+    } catch (e) {
+      // Calories permission not granted
+    }
+
+    // 3. Toplam Kalori
+    try {
+      const totCalRes = await readRecords('TotalCaloriesBurned', { timeRangeFilter });
+      if (totCalRes && totCalRes.records) {
+        totalCalories = totCalRes.records.reduce((sum, r: any) => sum + (r.energy?.inKilocalories || r.energy?.value || 0), 0);
+      }
+    } catch (e) {
+      // Total calories permission not granted
+    }
+
+    // 4. Mesafe
+    try {
+      const distRes = await readRecords('Distance', { timeRangeFilter });
+      if (distRes && distRes.records) {
+        const meters = distRes.records.reduce((sum, r: any) => sum + (r.distance?.inMeters || r.distance?.value || 0), 0);
+        distanceKm = Math.round((meters / 1000) * 100) / 100;
+      }
+    } catch (e) {
+      // Distance permission not granted
+    }
+
+    return {
+      steps: totalSteps,
+      activeCalories: Math.round(activeCalories),
+      totalCalories: Math.round(totalCalories || activeCalories),
+      distanceKm,
+      lastSyncedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.warn('Health Connect veri okuma hatası:', error);
+    return null;
+  }
+};
+
+/**
+ * Bugünün Health Connect özet verisini getirir.
+ */
+export const readTodayHealthData = async (): Promise<HealthDataSummary | null> => {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  return readHealthConnectData(startOfDay, now);
+};
+

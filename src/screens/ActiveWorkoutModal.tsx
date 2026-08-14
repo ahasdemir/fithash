@@ -34,6 +34,8 @@ interface ActiveWorkoutModalProps {
   onBackgroundSession?: () => void;
 }
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   visible,
   activeSession,
@@ -42,6 +44,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   onCancelSession,
   onBackgroundSession,
 }) => {
+  const insets = useSafeAreaInsets();
   const [session, setSession] = useState<WorkoutSession | null>(activeSession);
   const [pastWorkouts, setPastWorkouts] = useState<WorkoutSession[]>([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -480,7 +483,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="none" transparent>
-      <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
+      <Animated.View style={[styles.container, { paddingTop: Math.max(10, insets.top), transform: [{ translateY }] }]}>
         {/* Top Sheet Drag Handle Bar for Minimizing */}
         {onBackgroundSession && (
           <View
@@ -505,6 +508,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             <TextInput
               style={styles.sessionTitleInput}
               value={session.name}
+              numberOfLines={1}
+              selectTextOnFocus
               onChangeText={txt => {
                 const updated = { ...session, name: txt };
                 setSession(updated);
@@ -987,8 +992,8 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    gap: 4,
+    paddingVertical: 5,
+    gap: 3,
     borderRadius: 12,
     paddingHorizontal: 2,
     marginBottom: 4,
@@ -997,7 +1002,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryGlow,
   },
   setNumberText: {
-    width: 24,
+    width: 22,
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontWeight: '700',
@@ -1006,37 +1011,41 @@ const styles = StyleSheet.create({
   inputCell: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 44,
   },
   setNumInput: {
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 100,
-    width: '92%',
+    width: '96%',
     height: 36,
     textAlign: 'center',
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
+    paddingHorizontal: 2,
   },
   inputCompleted: {
     borderColor: '#111111',
     color: '#111111',
   },
   rirPill: {
-    width: 56,
+    paddingHorizontal: 6,
     paddingVertical: 5,
     borderRadius: 100,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 48,
   },
   rirPillText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   speedPill: {
-    width: 68,
+    paddingHorizontal: 6,
     paddingVertical: 6,
     borderRadius: 100,
     backgroundColor: COLORS.surfaceSubtle,
@@ -1044,6 +1053,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 54,
   },
   speedPillText: {
     fontSize: 10,

@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
-import { getExercises } from '../services/storage';
+import { getExercises, getLocalDateString } from '../services/storage';
 
 interface WorkoutTabProps {
   routines: Routine[];
@@ -53,7 +53,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
     const session: WorkoutSession = {
       id: `session_${Date.now()}`,
       name: 'Serbest Antrenman',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       startTime: Date.now(),
       durationSeconds: 0,
       exercises: [],
@@ -92,7 +92,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       id: `session_${Date.now()}`,
       name: routine.name,
       routineId: routine.id,
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       startTime: Date.now(),
       durationSeconds: 0,
       exercises,

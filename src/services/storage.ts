@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats } from '../types/fitness';
+import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats, MuscleCategory } from '../types/fitness';
 import { INITIAL_EXERCISES, DEFAULT_ROUTINES } from '../data/exerciseLibrary';
 
 const STORAGE_KEYS = {
@@ -10,6 +10,17 @@ const STORAGE_KEYS = {
   ACTIVE_SESSION: '@fitness_active_session_v1',
   ACTIVE_REST_TIMER: '@fitness_active_rest_timer_v1',
   CACHED_AI_ANALYSIS: '@fitness_cached_ai_analysis_v1',
+};
+
+/**
+ * Yerel zaman dilimine uygun YYYY-MM-DD formatında tarih dizesi üretir (UTC kayması yaşanmaz).
+ */
+export const getLocalDateString = (d: Date | number = new Date()): string => {
+  const date = typeof d === 'number' ? new Date(d) : d;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const getCachedAIAnalysis = async (): Promise<any | null> => {
@@ -204,6 +215,7 @@ export const deleteWorkout = async (id: string): Promise<WorkoutSession[]> => {
     const workouts = await getWorkouts();
     const updated = workouts.filter(w => w.id !== id);
     await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(updated));
+    await recalculateAllPRs(updated);
     return updated;
   } catch (error) {
     console.error('Error deleting workout:', error);
@@ -280,27 +292,61 @@ const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
     workout.exercises.forEach(ex => {
       let maxW = 0;
       let maxR = 0;
+      let max1RM = 0;
       let exVol = 0;
+      let maxSpeed = 0;
+      let maxDist = 0;
+      let maxDur = 0;
 
       ex.sets.forEach(set => {
-        if (set.completed && set.weight > 0) {
-          if (set.weight > maxW) {
+        if (!set.completed) return;
+
+        // Ağırlık PR Kontrolü
+        if (set.weight && set.weight > 0) {
+          const reps = set.reps || 1;
+          const estimated1RM = Math.round(set.weight * (1 + reps / 30));
+
+          if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
             maxW = set.weight;
-            maxR = set.reps;
+            maxR = reps;
           }
-          exVol += set.weight * set.reps;
+          if (estimated1RM > max1RM) {
+            max1RM = estimated1RM;
+          }
+          exVol += set.weight * reps;
+        }
+
+        // Kardiyo PR Kontrolü
+        if (set.avgSpeedKmh && set.avgSpeedKmh > maxSpeed) {
+          maxSpeed = set.avgSpeedKmh;
+        }
+        if (set.distanceKm && set.distanceKm > maxDist) {
+          maxDist = set.distanceKm;
+        }
+        if (set.durationMinutes && set.durationMinutes > maxDur) {
+          maxDur = set.durationMinutes;
         }
       });
 
-      if (maxW > 0) {
-        const existingPR = prs[ex.exerciseId];
-        if (!existingPR || maxW > existingPR.maxWeight) {
+      const existingPR = prs[ex.exerciseId];
+      if (maxW > 0 || maxDist > 0 || maxSpeed > 0) {
+        const isBetterWeight = !existingPR || maxW > existingPR.maxWeight || (maxW === existingPR.maxWeight && maxR > existingPR.maxReps);
+        const isBetter1RM = max1RM > (existingPR?.maxEstimatedOneRepMax || 0);
+        const isBetterSpeed = maxSpeed > (existingPR?.maxSpeedKmh || 0);
+        const isBetterDistance = maxDist > (existingPR?.maxDistanceKm || 0);
+
+        if (isBetterWeight || isBetter1RM || isBetterSpeed || isBetterDistance) {
           prs[ex.exerciseId] = {
             exerciseId: ex.exerciseId,
             exerciseName: ex.exerciseName,
-            maxWeight: maxW,
-            maxReps: maxR,
+            maxWeight: Math.max(maxW, existingPR?.maxWeight || 0),
+            maxReps: maxW >= (existingPR?.maxWeight || 0) ? maxR : (existingPR?.maxReps || 0),
+            maxEstimatedOneRepMax: Math.max(max1RM, existingPR?.maxEstimatedOneRepMax || 0),
             maxVolume: Math.max(exVol, existingPR?.maxVolume || 0),
+            maxSpeedKmh: Math.max(maxSpeed, existingPR?.maxSpeedKmh || 0),
+            maxDistanceKm: Math.max(maxDist, existingPR?.maxDistanceKm || 0),
+            maxDurationMinutes: Math.max(maxDur, existingPR?.maxDurationMinutes || 0),
+            lastUpdatedDate: workout.date,
             date: workout.date,
           };
           updated = true;
@@ -313,6 +359,90 @@ const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
     }
   } catch (error) {
     console.error('Error updating PRs:', error);
+  }
+};
+
+/**
+ * Tüm antrenman geçmişinden sil baştan PR (Kişisel Rekor) haritasını hesaplar ve kaydeder.
+ */
+export const recalculateAllPRs = async (
+  workoutsInput?: WorkoutSession[]
+): Promise<Record<string, PersonalRecord>> => {
+  try {
+    const workouts = workoutsInput || (await getWorkouts());
+    const prs: Record<string, PersonalRecord> = {};
+
+    // Kronolojik olarak en eskiden en yeniye doğru işle
+    const sortedWorkouts = [...workouts].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    sortedWorkouts.forEach(workout => {
+      if (workout.completed === false) return;
+
+      workout.exercises.forEach(ex => {
+        let maxW = 0;
+        let maxR = 0;
+        let max1RM = 0;
+        let exVol = 0;
+        let maxSpeed = 0;
+        let maxDist = 0;
+        let maxDur = 0;
+
+        ex.sets.forEach(set => {
+          if (!set.completed) return;
+
+          if (set.weight && set.weight > 0) {
+            const reps = set.reps || 1;
+            const estimated1RM = Math.round(set.weight * (1 + reps / 30));
+
+            if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
+              maxW = set.weight;
+              maxR = reps;
+            }
+            if (estimated1RM > max1RM) {
+              max1RM = estimated1RM;
+            }
+            exVol += set.weight * reps;
+          }
+
+          if (set.avgSpeedKmh && set.avgSpeedKmh > maxSpeed) {
+            maxSpeed = set.avgSpeedKmh;
+          }
+          if (set.distanceKm && set.distanceKm > maxDist) {
+            maxDist = set.distanceKm;
+          }
+          if (set.durationMinutes && set.durationMinutes > maxDur) {
+            maxDur = set.durationMinutes;
+          }
+        });
+
+        if (maxW > 0 || maxDist > 0 || maxSpeed > 0) {
+          const existing = prs[ex.exerciseId];
+          const isBetterWeight = !existing || maxW > existing.maxWeight || (maxW === existing.maxWeight && maxR > existing.maxReps);
+
+          prs[ex.exerciseId] = {
+            exerciseId: ex.exerciseId,
+            exerciseName: ex.exerciseName,
+            maxWeight: isBetterWeight ? maxW : (existing?.maxWeight || 0),
+            maxReps: isBetterWeight ? maxR : (existing?.maxReps || 0),
+            maxEstimatedOneRepMax: Math.max(max1RM, existing?.maxEstimatedOneRepMax || 0),
+            maxVolume: Math.max(exVol, existing?.maxVolume || 0),
+            maxSpeedKmh: Math.max(maxSpeed, existing?.maxSpeedKmh || 0),
+            maxDistanceKm: Math.max(maxDist, existing?.maxDistanceKm || 0),
+            maxDurationMinutes: Math.max(maxDur, existing?.maxDurationMinutes || 0),
+            lastUpdatedDate: workout.date,
+            date: workout.date,
+          };
+        }
+      });
+    });
+
+    await AsyncStorage.setItem(STORAGE_KEYS.PRS, JSON.stringify(prs));
+    return prs;
+  } catch (error) {
+    console.error('Error recalculating PRs:', error);
+    return {};
   }
 };
 
@@ -334,10 +464,36 @@ export const calculateUserStats = (
   let totalRirSum = 0;
   let totalRirCount = 0;
 
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  let weeklyVolumeKg = 0;
+  let weeklyWorkouts = 0;
+  const muscleGroupDistribution: Record<MuscleCategory, number> = {
+    'Göğüs': 0,
+    'Sırt': 0,
+    'Bacak': 0,
+    'Omuz': 0,
+    'Ön Kol': 0,
+    'Arka Kol': 0,
+    'Karın': 0,
+    'Kardiyo': 0,
+  };
+
   workouts.forEach(workout => {
     totalTimeSeconds += workout.durationSeconds || 0;
-    totalCaloriesBurned += workout.totalCaloriesBurned || 0;
+    
+    let workoutCalories = workout.totalCaloriesBurned || 0;
+    if (workoutCalories <= 0 && (workout.durationSeconds || 0) > 0) {
+      workoutCalories = Math.round(((workout.durationSeconds || 0) / 60) * 6);
+    }
+    totalCaloriesBurned += workoutCalories;
     totalCardioDistanceKm += workout.totalCardioDistanceKm || 0;
+
+    const wDate = new Date(workout.date);
+    if (wDate >= sevenDaysAgo && workout.completed !== false) {
+      weeklyWorkouts++;
+      weeklyVolumeKg += workout.totalVolume || 0;
+    }
 
     workout.exercises.forEach(ex => {
       totalPlannedSetsCount += ex.sets.length;
@@ -346,6 +502,9 @@ export const calculateUserStats = (
           completedSetsCount++;
           totalSets++;
           totalVolumeKg += (s.weight || 0) * (s.reps || 0);
+          if (ex.category && muscleGroupDistribution[ex.category] !== undefined) {
+            muscleGroupDistribution[ex.category]++;
+          }
 
           if (ex.category === 'Kardiyo') {
             totalActiveSeconds += (s.durationMinutes || 0) * 60;
@@ -383,6 +542,9 @@ export const calculateUserStats = (
     streakDays: calculateStreakDays(workouts, workoutDays),
     totalCaloriesBurned: Math.round(totalCaloriesBurned),
     totalCardioDistanceKm: Math.round(totalCardioDistanceKm * 10) / 10,
+    weeklyVolumeKg,
+    weeklyWorkouts,
+    muscleGroupDistribution,
   };
 };
 
@@ -401,15 +563,12 @@ export const calculateStreakDays = (
   );
 
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalDateString(today);
   let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let streak = 0;
 
   for (let i = 0; i < 365; i++) {
-    const year = checkDate.getFullYear();
-    const month = String(checkDate.getMonth() + 1).padStart(2, '0');
-    const day = String(checkDate.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+    const dateStr = getLocalDateString(checkDate);
     const dayOfWeek = checkDate.getDay();
 
     const isScheduledWorkoutDay = activeWorkoutDaysSet.has(dayOfWeek);
@@ -475,7 +634,7 @@ export const generateSampleData = async (): Promise<WorkoutSession[]> => {
   // Past 24 days, workout every ~2 days
   for (let dayOffset = 24; dayOffset >= 1; dayOffset -= 2) {
     const dateObj = new Date(now.getTime() - dayOffset * 24 * 60 * 60 * 1000);
-    const dateStr = dateObj.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(dateObj);
     const templateIndex = Math.floor((24 - dayOffset) / 2) % workoutTemplates.length;
     const template = workoutTemplates[templateIndex];
     const progressFactor = 1 + (24 - dayOffset) * 0.015; // progressive overload
@@ -527,9 +686,7 @@ export const generateSampleData = async (): Promise<WorkoutSession[]> => {
   await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(sampleWorkouts));
 
   // Build PRs from sample data
-  for (const session of sampleWorkouts) {
-    await updatePRsFromWorkout(session);
-  }
+  await recalculateAllPRs(sampleWorkouts);
 
   return sampleWorkouts;
 };

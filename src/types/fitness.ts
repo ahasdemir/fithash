@@ -100,9 +100,20 @@ export interface PersonalRecord {
   maxWeight: number;
   maxVolume: number;
   maxReps: number;
+  maxEstimatedOneRepMax?: number;
   maxSpeedKmh?: number;
   maxDistanceKm?: number;
+  maxDurationMinutes?: number;
+  lastUpdatedDate?: string;
   date: string;
+}
+
+export interface HealthDataSummary {
+  steps: number;
+  activeCalories: number;
+  totalCalories: number;
+  distanceKm: number;
+  lastSyncedAt: string;
 }
 
 export interface UserStats {
@@ -117,4 +128,9 @@ export interface UserStats {
   streakDays: number;
   totalCaloriesBurned: number;
   totalCardioDistanceKm: number;
+  weeklyVolumeKg: number;
+  weeklyWorkouts: number;
+  muscleGroupDistribution: Record<MuscleCategory, number>;
+  todaySteps?: number;
+  todayActiveCalories?: number;
 }

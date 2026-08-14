@@ -5,7 +5,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +31,7 @@ import {
   getActiveSession,
   saveActiveSession,
   clearActiveSession,
+  getLocalDateString,
 } from './src/services/storage';
 import { getAppSettings, saveAppSettings } from './src/services/settings';
 import { syncWorkoutToHealthConnect } from './src/services/healthConnectService';
@@ -39,6 +39,8 @@ import {
   configureNotifications,
   scheduleSessionReminder,
   cancelSessionReminder,
+  triggerPRNotification,
+  triggerStreakMilestoneNotification,
 } from './src/services/notifications';
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 import { updateStreakWidget } from './src/services/widgetService';
@@ -64,8 +66,7 @@ export default function App() {
   useEffect(() => {
     if (workouts) {
       const stats = calculateUserStats(workouts, workoutDays);
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const todayStr = getLocalDateString();
       const todayCompleted = workouts.some(w => w.date === todayStr && w.completed !== false);
       updateStreakWidget(stats.streakDays, todayCompleted);
     }
@@ -111,10 +112,28 @@ export default function App() {
     setActiveSession(null);
     await clearActiveSession();
     cancelSessionReminder();
+
+    const previousPrs = prs;
     const updated = await saveWorkout(completedSession);
     setWorkouts(updated);
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
+
+    // Bildirimler: PR Kontrolü
+    completedSession.exercises.forEach(ex => {
+      const prevPR = previousPrs[ex.exerciseId];
+      const newPR = updatedPrs[ex.exerciseId];
+      if (newPR && (!prevPR || newPR.maxWeight > prevPR.maxWeight || newPR.maxReps > prevPR.maxReps)) {
+        triggerPRNotification(newPR.exerciseName, newPR.maxWeight, newPR.maxReps);
+      }
+    });
+
+    // Seri Bildirimi Kontrolü
+    const newStats = calculateUserStats(updated, workoutDays);
+    const milestones = [3, 7, 14, 21, 30, 60, 90, 100, 365];
+    if (milestones.includes(newStats.streakDays)) {
+      triggerStreakMilestoneNotification(newStats.streakDays);
+    }
 
     // Health Connect Senkronizasyonu
     try {
@@ -167,7 +186,7 @@ export default function App() {
     const newSession: WorkoutSession = {
       id: `session_${Date.now()}`,
       name: `${pastSession.name} (Tekrar)`,
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       startTime: Date.now(),
       durationSeconds: 0,
       totalVolume: 0,
@@ -193,136 +212,136 @@ export default function App() {
       <SafeAreaView style={styles.container} edges={['right', 'bottom', 'left']}>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
-      {/* Top Application Header */}
-      <Header
-        title="FitHash"
-        streakDays={stats.streakDays}
-        onOpenSettings={() => setShowSettingsModal(true)}
-        onOpenStreak={() => setShowStreakModal(true)}
-      />
+        {/* Top Application Header */}
+        <Header
+          title="FitHash"
+          streakDays={stats.streakDays}
+          onOpenSettings={() => setShowSettingsModal(true)}
+          onOpenStreak={() => setShowStreakModal(true)}
+        />
 
-      {/* Tab Screen Content */}
-      <View style={styles.mainContent}>
-        {currentTab === 'workout' && (
-          <WorkoutTab
-            routines={routines}
-            activeSession={activeSession}
-            onStartSession={handleStartSession}
-            onOpenActiveSession={() => setShowActiveModal(true)}
-            onSaveRoutine={handleSaveRoutine}
-            onReorderRoutines={handleReorderRoutines}
-            onDeleteRoutine={handleDeleteRoutine}
-          />
-        )}
-
-        {currentTab === 'analytics' && (
-          <AnalyticsTab workouts={workouts} prs={prs} />
-        )}
-
-        {currentTab === 'history' && (
-          <HistoryTab
-            workouts={workouts}
-            routines={routines}
-            onDeleteWorkout={handleDeleteWorkout}
-            onReuseWorkout={handleReuseWorkout}
-          />
-        )}
-
-        {currentTab === 'library' && <LibraryTab />}
-      </View>
-
-      {/* Floating Capsule Bottom Navigation Bar */}
-      <View style={styles.bottomNavContainer}>
-        <View style={styles.capsuleBar}>
-          <TouchableOpacity
-            style={[styles.navTab, currentTab === 'workout' && styles.activeNavTab]}
-            onPress={() => setCurrentTab('workout')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={currentTab === 'workout' ? 'barbell' : 'barbell-outline'}
-              size={20}
-              color={currentTab === 'workout' ? COLORS.primary : COLORS.textMuted}
+        {/* Tab Screen Content */}
+        <View style={styles.mainContent}>
+          {currentTab === 'workout' && (
+            <WorkoutTab
+              routines={routines}
+              activeSession={activeSession}
+              onStartSession={handleStartSession}
+              onOpenActiveSession={() => setShowActiveModal(true)}
+              onSaveRoutine={handleSaveRoutine}
+              onReorderRoutines={handleReorderRoutines}
+              onDeleteRoutine={handleDeleteRoutine}
             />
-            {currentTab === 'workout' && <Text style={styles.activeNavText}>Antrenman</Text>}
-          </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={[styles.navTab, currentTab === 'analytics' && styles.activeNavTab]}
-            onPress={() => setCurrentTab('analytics')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={currentTab === 'analytics' ? 'stats-chart' : 'stats-chart-outline'}
-              size={20}
-              color={currentTab === 'analytics' ? COLORS.primary : COLORS.textMuted}
-            />
-            {currentTab === 'analytics' && <Text style={styles.activeNavText}>Analiz</Text>}
-          </TouchableOpacity>
+          {currentTab === 'analytics' && (
+            <AnalyticsTab workouts={workouts} prs={prs} />
+          )}
 
-          <TouchableOpacity
-            style={[styles.navTab, currentTab === 'history' && styles.activeNavTab]}
-            onPress={() => setCurrentTab('history')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={currentTab === 'history' ? 'time' : 'time-outline'}
-              size={20}
-              color={currentTab === 'history' ? COLORS.primary : COLORS.textMuted}
+          {currentTab === 'history' && (
+            <HistoryTab
+              workouts={workouts}
+              routines={routines}
+              onDeleteWorkout={handleDeleteWorkout}
+              onReuseWorkout={handleReuseWorkout}
             />
-            {currentTab === 'history' && <Text style={styles.activeNavText}>Geçmiş</Text>}
-          </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={[styles.navTab, currentTab === 'library' && styles.activeNavTab]}
-            onPress={() => setCurrentTab('library')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={currentTab === 'library' ? 'book' : 'book-outline'}
-              size={20}
-              color={currentTab === 'library' ? COLORS.primary : COLORS.textMuted}
-            />
-            {currentTab === 'library' && <Text style={styles.activeNavText}>Kütüphane</Text>}
-          </TouchableOpacity>
+          {currentTab === 'library' && <LibraryTab />}
         </View>
-      </View>
 
-      {/* Active Workout Session Tracker Modal */}
-      <ActiveWorkoutModal
-        visible={showActiveModal}
-        activeSession={activeSession}
-        onUpdateSession={handleUpdateActiveSession}
-        onFinishSession={handleFinishActiveSession}
-        onCancelSession={handleCancelActiveSession}
-        onBackgroundSession={handleBackgroundSession}
-      />
+        {/* Floating Capsule Bottom Navigation Bar */}
+        <View style={styles.bottomNavContainer}>
+          <View style={styles.capsuleBar}>
+            <TouchableOpacity
+              style={[styles.navTab, currentTab === 'workout' && styles.activeNavTab]}
+              onPress={() => setCurrentTab('workout')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={currentTab === 'workout' ? 'barbell' : 'barbell-outline'}
+                size={20}
+                color={currentTab === 'workout' ? COLORS.primary : COLORS.textMuted}
+              />
+              {currentTab === 'workout' && <Text style={styles.activeNavText}>Antrenman</Text>}
+            </TouchableOpacity>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        visible={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        onDataReload={loadAllData}
-      />
+            <TouchableOpacity
+              style={[styles.navTab, currentTab === 'analytics' && styles.activeNavTab]}
+              onPress={() => setCurrentTab('analytics')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={currentTab === 'analytics' ? 'stats-chart' : 'stats-chart-outline'}
+                size={20}
+                color={currentTab === 'analytics' ? COLORS.primary : COLORS.textMuted}
+              />
+              {currentTab === 'analytics' && <Text style={styles.activeNavText}>Analiz</Text>}
+            </TouchableOpacity>
 
-      {/* Streak & Workout Days Modal */}
-      <StreakModal
-        visible={showStreakModal}
-        onClose={() => setShowStreakModal(false)}
-        workouts={workouts}
-        workoutDays={workoutDays}
-        onUpdateWorkoutDays={async (newDays) => {
-          setWorkoutDays(newDays);
-          await saveAppSettings({ workoutDays: newDays });
-        }}
-      />
+            <TouchableOpacity
+              style={[styles.navTab, currentTab === 'history' && styles.activeNavTab]}
+              onPress={() => setCurrentTab('history')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={currentTab === 'history' ? 'time' : 'time-outline'}
+                size={20}
+                color={currentTab === 'history' ? COLORS.primary : COLORS.textMuted}
+              />
+              {currentTab === 'history' && <Text style={styles.activeNavText}>Geçmiş</Text>}
+            </TouchableOpacity>
 
-      {/* Workout Summary Celebration Modal */}
-      <WorkoutSummaryModal
-        visible={showSummaryModal}
-        session={summarySession}
-        onClose={() => setShowSummaryModal(false)}
-      />
+            <TouchableOpacity
+              style={[styles.navTab, currentTab === 'library' && styles.activeNavTab]}
+              onPress={() => setCurrentTab('library')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={currentTab === 'library' ? 'book' : 'book-outline'}
+                size={20}
+                color={currentTab === 'library' ? COLORS.primary : COLORS.textMuted}
+              />
+              {currentTab === 'library' && <Text style={styles.activeNavText}>Kütüphane</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Active Workout Session Tracker Modal */}
+        <ActiveWorkoutModal
+          visible={showActiveModal}
+          activeSession={activeSession}
+          onUpdateSession={handleUpdateActiveSession}
+          onFinishSession={handleFinishActiveSession}
+          onCancelSession={handleCancelActiveSession}
+          onBackgroundSession={handleBackgroundSession}
+        />
+
+        {/* Settings Modal */}
+        <SettingsModal
+          visible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onDataReload={loadAllData}
+        />
+
+        {/* Streak & Workout Days Modal */}
+        <StreakModal
+          visible={showStreakModal}
+          onClose={() => setShowStreakModal(false)}
+          workouts={workouts}
+          workoutDays={workoutDays}
+          onUpdateWorkoutDays={async (newDays) => {
+            setWorkoutDays(newDays);
+            await saveAppSettings({ workoutDays: newDays });
+          }}
+        />
+
+        {/* Workout Summary Celebration Modal */}
+        <WorkoutSummaryModal
+          visible={showSummaryModal}
+          session={summarySession}
+          onClose={() => setShowSummaryModal(false)}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );

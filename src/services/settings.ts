@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getWorkouts, getRoutines, getExercises, getPersonalRecords } from './storage';
+import { getWorkouts, getRoutines, getExercises, getPersonalRecords, recalculateAllPRs } from './storage';
 import { WorkoutSession, Routine, Exercise, PersonalRecord } from '../types/fitness';
 
 const SETTINGS_KEY = '@fithash_settings_v1';
@@ -153,8 +153,13 @@ export const importFullDataJSON = async (jsonString: string): Promise<boolean> =
     if (backup.prs) {
       await AsyncStorage.setItem(STORAGE_KEYS.PRS, JSON.stringify(backup.prs));
     }
+    
+    // PR kayıtlarını yedeklenen tüm antrenman verisi üzerinden doğrula ve yeniden hesapla
+    if (backup.workouts && backup.workouts.length > 0) {
+      await recalculateAllPRs(backup.workouts);
+    }
+
     // v2 yedekleri, ana sayfadan silinen varsayılan programları da saklar.
-    // v1 yedeklerde bu alan olmadığından mevcut silme tercihine dokunmuyoruz.
     if (backup.deletedRoutineIds && Array.isArray(backup.deletedRoutineIds)) {
       await AsyncStorage.setItem(
         DELETED_ROUTINES_KEY,
@@ -168,3 +173,4 @@ export const importFullDataJSON = async (jsonString: string): Promise<boolean> =
     throw error;
   }
 };
+

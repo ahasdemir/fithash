@@ -93,8 +93,8 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
       <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
       <View style={styles.content}>
         <View style={styles.leftInfo}>
-          <Ionicons name="timer-outline" size={18} color="#111111" />
-          <Text style={styles.label}>Dinlenme Süresi:</Text>
+          <Ionicons name="timer-outline" size={16} color="#111111" />
+          <Text style={styles.label} numberOfLines={1}>Dinlenme:</Text>
           <Text style={styles.timeText}>{formatTime(secondsLeft)}</Text>
         </View>
 

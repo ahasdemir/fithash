@@ -175,11 +175,13 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
               {volumeData.map((item, index) => {
                 const stepWidth = containerWidth / Math.max(1, volumeData.length);
-                const barWidth = Math.min(24, Math.max(10, stepWidth - 10));
+                const barWidth = Math.min(24, Math.max(4, stepWidth * 0.65));
                 const x = index * stepWidth + (stepWidth - barWidth) / 2;
-                const barHeight = Math.max(6, (item.volume / maxVolume) * (CHART_HEIGHT - 60));
+                const barHeight = Math.max(4, (item.volume / maxVolume) * (CHART_HEIGHT - 60));
                 const y = CHART_HEIGHT - 30 - barHeight;
                 const isPeak = item.volume === maxVolume && item.volume > 0;
+                const labelFreq = Math.ceil(volumeData.length / 7);
+                const showLabel = index % labelFreq === 0 || index === volumeData.length - 1;
 
                 return (
                   <G key={index}>
@@ -188,20 +190,22 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                       y={y}
                       width={barWidth}
                       height={barHeight}
-                      rx={6}
+                      rx={Math.min(6, barWidth / 2)}
                       fill={isPeak ? COLORS.primary : item.volume > 0 ? '#111111' : COLORS.border}
                     />
 
-                    <SvgText
-                      x={x + barWidth / 2}
-                      y={CHART_HEIGHT - 10}
-                      fill={COLORS.textMuted}
-                      fontSize="10"
-                      fontWeight="600"
-                      textAnchor="middle"
-                    >
-                      {item.label}
-                    </SvgText>
+                    {showLabel && (
+                      <SvgText
+                        x={x + barWidth / 2}
+                        y={CHART_HEIGHT - 10}
+                        fill={COLORS.textMuted}
+                        fontSize="9"
+                        fontWeight="600"
+                        textAnchor="middle"
+                      >
+                        {item.label}
+                      </SvgText>
+                    )}
 
                     {volumeData.length <= 10 && item.volume > 0 && (
                       <SvgText
