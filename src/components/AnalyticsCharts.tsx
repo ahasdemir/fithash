@@ -574,7 +574,9 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 <View style={styles.tooltipHeader}>
                   <View style={styles.tooltipLeft}>
                     <Ionicons name="calendar" size={14} color={COLORS.primary} />
-                    <Text style={styles.tooltipDateText}>{selectedBucket.fullLabel}</Text>
+                    <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
+                      {selectedBucket.fullLabel}
+                    </Text>
                   </View>
                   {selectedBucket.isPeak && (
                     <View style={styles.peakBadge}>
@@ -707,7 +709,9 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 <View style={styles.modalDetailHeader}>
                   <View style={styles.modalDetailTitleRow}>
                     <Ionicons name="calendar" size={16} color={COLORS.primary} />
-                    <Text style={styles.modalDetailDate}>{modalSelectedBucket.fullLabel}</Text>
+                    <Text style={styles.modalDetailDate} numberOfLines={1} ellipsizeMode="tail">
+                      {modalSelectedBucket.fullLabel}
+                    </Text>
                   </View>
                   {modalSelectedBucket.isPeak && (
                     <View style={styles.peakPill}>
@@ -879,16 +883,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   tooltipLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   tooltipDateText: {
     fontSize: 12,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   peakBadge: {
     flexDirection: 'row',
@@ -898,6 +905,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 100,
+    flexShrink: 0,
   },
   peakBadgeText: {
     fontSize: 10,
@@ -1119,16 +1127,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   modalDetailTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   modalDetailDate: {
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   peakPill: {
     flexDirection: 'row',
@@ -1138,6 +1149,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 100,
+    flexShrink: 0,
   },
   peakPillText: {
     fontSize: 11,
