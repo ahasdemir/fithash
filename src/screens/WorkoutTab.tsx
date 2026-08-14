@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
-import { StreakWidget } from '../components/StreakWidget';
 import { getExercises, getLocalDateString } from '../services/storage';
 
 interface WorkoutTabProps {
@@ -152,13 +151,6 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           </View>
         </TouchableOpacity>
       )}
-
-      {/* Minimalist Streak Widget */}
-      <StreakWidget
-        workouts={workouts}
-        workoutDays={workoutDays}
-        onOpenStreak={onOpenStreak}
-      />
 
       {/* Hero Bento Card */}
       <View style={styles.heroCard}>

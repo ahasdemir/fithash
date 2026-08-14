@@ -54,18 +54,20 @@ class StreakWidgetProvider : AppWidgetProvider() {
             // Set streak count
             views.setTextViewText(R.id.widget_streak_count, streakCount.toString())
 
-            // Dynamic styling matching dark squircle calorie widget theme:
-            // - Today completed: Fire Orange SVG Flame (#FF9500, 100% opacity) + Fire Accent Subtitle
-            // - Pending today: Muted Slate SVG Flame (#4E5266, 40% opacity) + Muted Subtitle
+            // Minimalist Modern Android Home Screen Theme:
+            // - Completed: Vivid Fire Orange (#FF9500) Flame & Subtitle + Active Squircle Glow
+            // - Pending: Sleek Charcoal/Slate Gray (#6B7280) Flame & Subtitle
             if (todayCompleted) {
                 views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#FF9500"))
                 views.setFloat(R.id.widget_flame_icon, "setAlpha", 1.0f)
                 views.setTextColor(R.id.widget_streak_subtitle, Color.parseColor("#FF9500"))
+                views.setTextViewText(R.id.widget_streak_subtitle, "TAMAMLANDI 🔥")
                 views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_background_active)
             } else {
-                views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#4E5266"))
-                views.setFloat(R.id.widget_flame_icon, "setAlpha", 0.4f)
-                views.setTextColor(R.id.widget_streak_subtitle, Color.parseColor("#8E93A7"))
+                views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#6B7280"))
+                views.setFloat(R.id.widget_flame_icon, "setAlpha", 0.6f)
+                views.setTextColor(R.id.widget_streak_subtitle, Color.parseColor("#9CA3AF"))
+                views.setTextViewText(R.id.widget_streak_subtitle, "GÜN SERİ")
                 views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_background)
             }
 
