@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
+import { StreakWidget } from '../components/StreakWidget';
 import { getExercises, getLocalDateString } from '../services/storage';
 
 interface WorkoutTabProps {
@@ -22,6 +23,9 @@ interface WorkoutTabProps {
   onSaveRoutine: (routine: Routine) => void;
   onReorderRoutines: (routines: Routine[]) => void;
   onDeleteRoutine: (id: string) => void;
+  workouts?: WorkoutSession[];
+  workoutDays?: number[];
+  onOpenStreak?: () => void;
 }
 
 export const WorkoutTab: React.FC<WorkoutTabProps> = ({
@@ -32,6 +36,9 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   onSaveRoutine,
   onReorderRoutines,
   onDeleteRoutine,
+  workouts = [],
+  workoutDays = [1, 2, 3, 4, 5, 6],
+  onOpenStreak,
 }) => {
   const [showRoutineBuilder, setShowRoutineBuilder] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -145,6 +152,13 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           </View>
         </TouchableOpacity>
       )}
+
+      {/* Minimalist Streak Widget */}
+      <StreakWidget
+        workouts={workouts}
+        workoutDays={workoutDays}
+        onOpenStreak={onOpenStreak}
+      />
 
       {/* Hero Bento Card */}
       <View style={styles.heroCard}>

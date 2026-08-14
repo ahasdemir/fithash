@@ -231,6 +231,9 @@ export default function App() {
               onSaveRoutine={handleSaveRoutine}
               onReorderRoutines={handleReorderRoutines}
               onDeleteRoutine={handleDeleteRoutine}
+              workouts={workouts}
+              workoutDays={workoutDays}
+              onOpenStreak={() => setShowStreakModal(true)}
             />
           )}
 
