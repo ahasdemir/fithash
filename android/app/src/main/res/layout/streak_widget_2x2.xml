@@ -1,43 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:orientation="vertical"
-    android:padding="8dp"
-    android:gravity="center">
+    android:padding="14dp">
 
-    <!-- Bold Prominent SVG Flame Icon -->
-    <ImageView
-        android:id="@+id/widget_flame_icon"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:src="@drawable/ic_flame"
-        android:contentDescription="Streak Flame"
-        android:layout_marginBottom="2dp" />
+    <!-- Top Header Row -->
+    <LinearLayout
+        android:id="@+id/widget_header_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <!-- Large Bold Prominent Streak Count -->
-    <TextView
-        android:id="@+id/widget_streak_count"
+        <!-- App Branding -->
+        <TextView
+            android:id="@+id/widget_app_tag"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="FITHASH"
+            android:textColor="#727888"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1" />
+
+        <!-- Dynamic Status Pill -->
+        <TextView
+            android:id="@+id/widget_status_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_pill_bg"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="3dp"
+            android:text="BUGÜN ⚡️"
+            android:textColor="#FF9500"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Center Hero Section -->
+    <LinearLayout
+        android:id="@+id/widget_center_hero"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0"
-        android:textColor="#FFFFFF"
-        android:textSize="36sp"
-        android:textStyle="bold"
-        android:includeFontPadding="false"
-        android:gravity="center" />
+        android:layout_centerInParent="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <!-- Subtitle Label -->
+        <ImageView
+            android:id="@+id/widget_flame_icon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_flame"
+            android:contentDescription="Streak Flame"
+            android:layout_marginEnd="8dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_streak_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="0dp" />
+
+            <TextView
+                android:id="@+id/widget_streak_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="GÜN SERİ"
+                android:textColor="#8F96A3"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginTop="-2dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Bottom Motivational Subtitle / Footer -->
     <TextView
-        android:id="@+id/widget_streak_subtitle"
-        android:layout_width="wrap_content"
+        android:id="@+id/widget_footer_text"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Gün Seri"
-        android:textColor="#8E93A7"
-        android:textSize="11sp"
+        android:layout_alignParentBottom="true"
+        android:gravity="center"
+        android:text="Seriyi korumak için 1 antrenman yap!"
+        android:textColor="#6C7282"
+        android:textSize="10sp"
         android:textStyle="bold"
-        android:gravity="center" />
+        android:maxLines="1"
+        android:ellipsize="end" />
 
-</LinearLayout>
+</RelativeLayout>

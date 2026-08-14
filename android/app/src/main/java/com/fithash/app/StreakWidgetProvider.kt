@@ -51,23 +51,37 @@ class StreakWidgetProvider : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, R.layout.streak_widget_2x2)
 
-            // Set streak count
+            // Format streak number
             views.setTextViewText(R.id.widget_streak_count, streakCount.toString())
 
-            // Minimalist Modern Android Home Screen Theme:
-            // - Completed: Vivid Fire Orange (#FF9500) Flame & Subtitle + Active Squircle Glow
-            // - Pending: Sleek Charcoal/Slate Gray (#6B7280) Flame & Subtitle
+            // Modern Ultra-Sleek Android Home Screen Theme
             if (todayCompleted) {
+                // Flame glowing neon orange
                 views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#FF9500"))
                 views.setFloat(R.id.widget_flame_icon, "setAlpha", 1.0f)
-                views.setTextColor(R.id.widget_streak_subtitle, Color.parseColor("#FF9500"))
-                views.setTextViewText(R.id.widget_streak_subtitle, "TAMAMLANDI 🔥")
+
+                // Status Pill: Completed
+                views.setTextViewText(R.id.widget_status_pill, "TAMAMLANDI 🔥")
+                views.setTextColor(R.id.widget_status_pill, Color.parseColor("#FF9500"))
+                views.setInt(R.id.widget_status_pill, "setBackgroundResource", R.drawable.widget_pill_bg_active)
+
+                // Subtitles & Background
+                views.setTextViewText(R.id.widget_footer_text, "Harika! Bugünün hedefi tamamlandı 🎉")
+                views.setTextColor(R.id.widget_footer_text, Color.parseColor("#FF9500"))
                 views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_background_active)
             } else {
+                // Flame muted slate gray
                 views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#6B7280"))
                 views.setFloat(R.id.widget_flame_icon, "setAlpha", 0.6f)
-                views.setTextColor(R.id.widget_streak_subtitle, Color.parseColor("#9CA3AF"))
-                views.setTextViewText(R.id.widget_streak_subtitle, "GÜN SERİ")
+
+                // Status Pill: Pending
+                views.setTextViewText(R.id.widget_status_pill, "BUGÜN ⚡️")
+                views.setTextColor(R.id.widget_status_pill, Color.parseColor("#9CA3AF"))
+                views.setInt(R.id.widget_status_pill, "setBackgroundResource", R.drawable.widget_pill_bg)
+
+                // Subtitles & Background
+                views.setTextViewText(R.id.widget_footer_text, "Seriyi korumak için 1 antrenman yap!")
+                views.setTextColor(R.id.widget_footer_text, Color.parseColor("#6C7282"))
                 views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_background)
             }
 
