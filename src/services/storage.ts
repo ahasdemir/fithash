@@ -562,10 +562,13 @@ export const calculateStreakDays = (
       .map(w => w.date)
   );
 
+  if (completedDates.size === 0) return 0;
+
   const today = new Date();
   const todayStr = getLocalDateString(today);
   let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   let streak = 0;
+  let hasStartedActiveStreak = false;
 
   for (let i = 0; i < 365; i++) {
     const dateStr = getLocalDateString(checkDate);
@@ -577,20 +580,25 @@ export const calculateStreakDays = (
     if (hasWorkout) {
       // Completed workout on this date -> Always counts toward streak!
       streak++;
+      hasStartedActiveStreak = true;
     } else if (isScheduledWorkoutDay) {
       // Scheduled workout day, but no workout done
       if (dateStr === todayStr) {
-        // Today is still ongoing
+        // Today is still an ongoing scheduled workout day -> Do not break streak
       } else {
         // Missed a past scheduled workout day -> Streak breaks here
         break;
       }
     } else {
-      // Rest Day without workout -> Streak continues unbroken
+      // Rest Day without workout -> Rest days count toward active unbroken streak!
+      streak++;
     }
 
     checkDate.setDate(checkDate.getDate() - 1);
   }
+
+  // If no workouts were encountered in the scanned period (only rest days), streak is 0
+  if (!hasStartedActiveStreak) return 0;
 
   return streak;
 };
