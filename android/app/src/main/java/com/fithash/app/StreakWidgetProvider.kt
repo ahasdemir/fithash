@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 
 class StreakWidgetProvider : AppWidgetProvider() {
@@ -20,6 +22,16 @@ class StreakWidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateAppWidget(context, appWidgetManager, appWidgetId)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -51,10 +63,24 @@ class StreakWidgetProvider : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, R.layout.streak_widget_2x2)
 
+            // Retrieve current widget dimensions to adapt layout dynamically (1x1, 2x1, 1x2, 2x2)
+            val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+            val minWidth = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) ?: 100
+            val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT) ?: 100
+
+            // Responsive Layout Adaptation
+            if (minHeight < 90 || minWidth < 90) {
+                // Compact 1x1 or narrow 2x1/1x2 mode: Hide top app tag to maximize hero area
+                views.setViewVisibility(R.id.widget_app_tag, View.GONE)
+            } else {
+                // 2x2 or Large mode: Show top FITHASH app tag
+                views.setViewVisibility(R.id.widget_app_tag, View.VISIBLE)
+            }
+
             // Format streak number
             views.setTextViewText(R.id.widget_streak_count, streakCount.toString())
 
-            // Minimalist Modern Android Home Screen Theme
+            // Modern Ultra-Sleek Android Home Screen Theme
             if (todayCompleted) {
                 // Flame glowing neon orange
                 views.setInt(R.id.widget_flame_icon, "setColorFilter", Color.parseColor("#FF9500"))
