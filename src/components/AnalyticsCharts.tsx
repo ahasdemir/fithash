@@ -239,6 +239,8 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
   minBarWidth = 28,
   barGap = 12,
 }) => {
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
   if (!data.length) return null;
 
   const PADDING_HORIZ = 16;
@@ -258,9 +260,13 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollChartContent}
+      onContentSizeChange={() => {
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      }}
     >
       <Svg width={chartWidth} height={height}>
         {/* Dash lines */}
