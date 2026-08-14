@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:padding="16dp">
+    android:padding="8dp">
 
-    <!-- Top Header Row -->
+    <!-- Top Header Row (Dynamically shown/hidden based on size) -->
     <TextView
         android:id="@+id/widget_app_tag"
         android:layout_width="wrap_content"
@@ -15,54 +15,53 @@
         android:layout_alignParentStart="true"
         android:text="FITHASH"
         android:textColor="#727888"
-        android:textSize="10sp"
+        android:textSize="9sp"
         android:textStyle="bold"
         android:letterSpacing="0.1" />
 
-    <!-- Center Hero Section -->
+    <!-- Center Hero Section (Vertical Centered Stack for 100% Overflow Prevention) -->
     <LinearLayout
         android:id="@+id/widget_center_hero"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:gravity="center">
 
+        <!-- Flame Icon -->
         <ImageView
             android:id="@+id/widget_flame_icon"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
             android:src="@drawable/ic_flame"
             android:contentDescription="Streak Flame"
-            android:layout_marginEnd="10dp" />
+            android:layout_marginBottom="2dp" />
 
-        <LinearLayout
+        <!-- Streak Count -->
+        <TextView
+            android:id="@+id/widget_streak_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:text="0"
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:includeFontPadding="false"
+            android:gravity="center" />
 
-            <TextView
-                android:id="@+id/widget_streak_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FFFFFF"
-                android:textSize="44sp"
-                android:textStyle="bold"
-                android:includeFontPadding="false"
-                android:lineSpacingExtra="0dp" />
-
-            <TextView
-                android:id="@+id/widget_streak_subtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="GÜN SERİ"
-                android:textColor="#8F96A3"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.08"
-                android:layout_marginTop="-2dp" />
-        </LinearLayout>
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/widget_streak_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GÜN SERİ"
+            android:textColor="#8F96A3"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end" />
     </LinearLayout>
 
 </RelativeLayout>
