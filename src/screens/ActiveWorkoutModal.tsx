@@ -568,7 +568,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
               <View key={ex.id} style={styles.exCard}>
                 <View style={styles.exCardHeader}>
                   <View style={styles.exTitleLeft}>
-                    <Text style={styles.exName}>{exIndex + 1}. {ex.exerciseName}</Text>
+                    <Text style={styles.exName} numberOfLines={1} ellipsizeMode="tail">
+                      {exIndex + 1}. {ex.exerciseName}
+                    </Text>
                     <View style={styles.exMetaRow}>
                       <View style={[styles.catBadge, { backgroundColor: catColor + '15' }]}>
                         <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
@@ -593,17 +595,19 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                             size={12}
                             color="#111111"
                           />
-                          <Text style={styles.recBadgeText}>
+                          <Text style={styles.recBadgeText} numberOfLines={1} ellipsizeMode="tail">
                             {recommendation.badgeLabel}
                           </Text>
                         </TouchableOpacity>
                       )}
-
-                      {!isCardio && <Text style={styles.exVolumeText}>Toplam: {exVolume} kg</Text>}
                     </View>
                   </View>
 
                   <View style={styles.exCardHeaderRight}>
+                    {!isCardio && exVolume > 0 && (
+                      <Text style={styles.exVolumeText}>{exVolume} kg</Text>
+                    )}
+
                     {session.exercises.length > 1 && (
                       <View style={styles.activeReorderGroup}>
                         <TouchableOpacity
@@ -980,12 +984,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
   },
   catBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 100,
+    flexShrink: 0,
   },
   catBadgeText: {
     fontSize: 11,
@@ -996,18 +1002,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 100,
+    flexShrink: 1,
   },
   recBadgeText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#111111',
+    flexShrink: 1,
   },
   exVolumeText: {
     color: COLORS.textMuted,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
+    marginRight: 2,
   },
   tableHeader: {
     flexDirection: 'row',
