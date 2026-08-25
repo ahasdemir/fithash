@@ -449,25 +449,54 @@ export const recalculateAllPRs = async (
 // --- USER STATS CALCULATION ---
 export const calculateUserStats = (
   workouts: WorkoutSession[],
-  workoutDays: number[] = [1, 2, 3, 4, 5, 6]
+  workoutDays: number[] = [1, 2, 3, 4, 5, 6],
+  weeklyTargetHistory?: Record<string, number>
 ): UserStats => {
+  if (!workouts.length) {
+    return {
+      totalWorkouts: 0,
+      totalVolumeKg: 0,
+      totalSets: 0,
+      totalHardSets: 0,
+      avgWorkoutCompliance: 100,
+      activeWorkTimeMinutes: 0,
+      avgRir: 1.2,
+      totalTimeMinutes: 0,
+      streakDays: 0,
+      totalCaloriesBurned: 0,
+      totalCardioDistanceKm: 0,
+      weeklyVolumeKg: 0,
+      weeklyWorkouts: 0,
+      muscleGroupDistribution: {
+        'Göğüs': 0,
+        'Sırt': 0,
+        'Bacak': 0,
+        'Omuz': 0,
+        'Ön Kol': 0,
+        'Arka Kol': 0,
+        'Karın': 0,
+        'Kardiyo': 0,
+      },
+    };
+  }
+
   let totalVolumeKg = 0;
   let totalSets = 0;
   let totalHardSets = 0;
   let totalTimeSeconds = 0;
-  let totalCaloriesBurned = 0;
-  let totalCardioDistanceKm = 0;
-
+  let totalActiveSeconds = 0;
   let totalPlannedSetsCount = 0;
   let completedSetsCount = 0;
-  let totalActiveSeconds = 0;
   let totalRirSum = 0;
   let totalRirCount = 0;
+  let totalCaloriesBurned = 0;
+  let totalCardioDistanceKm = 0;
+  let weeklyVolumeKg = 0;
+  let weeklyWorkouts = 0;
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  let weeklyVolumeKg = 0;
-  let weeklyWorkouts = 0;
+
   const muscleGroupDistribution: Record<MuscleCategory, number> = {
     'Göğüs': 0,
     'Sırt': 0,
@@ -489,8 +518,9 @@ export const calculateUserStats = (
     totalCaloriesBurned += workoutCalories;
     totalCardioDistanceKm += workout.totalCardioDistanceKm || 0;
 
-    const wDate = new Date(workout.date);
-    if (wDate >= sevenDaysAgo && workout.completed !== false) {
+    const [year, month, day] = workout.date.split('-').map(Number);
+    const workoutDate = new Date(year, month - 1, day);
+    if (workoutDate >= sevenDaysAgo && workout.completed !== false) {
       weeklyWorkouts++;
       weeklyVolumeKg += workout.totalVolume || 0;
     }
@@ -539,7 +569,7 @@ export const calculateUserStats = (
     activeWorkTimeMinutes,
     avgRir,
     totalTimeMinutes: Math.round(totalTimeSeconds / 60),
-    streakDays: calculateStreakDays(workouts, workoutDays),
+    streakDays: calculateStreakDays(workouts, workoutDays, weeklyTargetHistory),
     totalCaloriesBurned: Math.round(totalCaloriesBurned),
     totalCardioDistanceKm: Math.round(totalCardioDistanceKm * 10) / 10,
     weeklyVolumeKg,
@@ -560,27 +590,29 @@ export const getMondayOfWeek = (date: Date): Date => {
 };
 
 /**
- * Haftalık hedef antrenman gün sayısına göre streak (seri gün sayısı) hesaplar.
- * Kullanıcı belirlediği haftalık hedef (ör. haftada 3 gün, 4 gün vb.) kadar antrenman yaptığı sürece
- * seri bozulmaz ve aradaki dinlenme günleri de dahil olmak üzere kesintisiz gün olarak sayılır.
+ * Haftalık hedef antrenman gün sayısına ve geçmiş haftaların hedeflerine göre streak (seri gün sayısı) hesaplar.
+ * Her haftanın hedefi kendi haftasına özel olarak değerlendirilir (ör. geçmişte 3 gün hedeflenmişse ve 3 gün gidilmişse,
+ * bu haftaki hedefin 5'e çıkarılması geçmişteki başarıyı ve seriyi bozmaz).
  *
  * @param workouts Tamamlanan antrenman kayıtları
- * @param workoutDaysOrTarget Haftalık hedef gün sayısı (1-7) veya seçili gün dizisi
+ * @param workoutDaysOrTarget Güncel haftalık hedef gün sayısı (1-7) veya seçili gün dizisi
+ * @param weeklyTargetHistory Her haftanın Pazartesi gününe (`YYYY-MM-DD`) denk gelen geçmiş hedef haritası
  */
 export const calculateStreakDays = (
   workouts: WorkoutSession[],
-  workoutDaysOrTarget: number[] | number = 4
+  workoutDaysOrTarget: number[] | number = 4,
+  weeklyTargetHistory?: Record<string, number>
 ): number => {
   if (!workouts || !workouts.length) return 0;
 
-  // Hedef gün sayısını belirle (1 ile 7 arası)
-  let targetDays = 4;
+  // Güncel hedef gün sayısını belirle (1 ile 7 arası)
+  let currentTargetDays = 4;
   if (typeof workoutDaysOrTarget === 'number') {
-    targetDays = workoutDaysOrTarget;
+    currentTargetDays = workoutDaysOrTarget;
   } else if (Array.isArray(workoutDaysOrTarget)) {
-    targetDays = workoutDaysOrTarget.length;
+    currentTargetDays = workoutDaysOrTarget.length;
   }
-  targetDays = Math.max(1, Math.min(7, targetDays || 4));
+  currentTargetDays = Math.max(1, Math.min(7, currentTargetDays || 4));
 
   const completedDates = new Set(
     workouts
@@ -592,6 +624,32 @@ export const calculateStreakDays = (
 
   const today = new Date();
   const currentWeekMonday = getMondayOfWeek(today);
+  const currentWeekMondayStr = getLocalDateString(currentWeekMonday);
+
+  // Belirli bir haftanın (Pazartesi tarih dizesi) hedefini döndüren yardımcı fonksiyon
+  const getTargetForWeek = (mondayStr: string): number => {
+    if (weeklyTargetHistory && weeklyTargetHistory[mondayStr] !== undefined) {
+      return Math.max(1, Math.min(7, weeklyTargetHistory[mondayStr]));
+    }
+    // Eğer o hafta için açık bir hedef girilmemişse:
+    if (weeklyTargetHistory && Object.keys(weeklyTargetHistory).length > 0) {
+      // mondayStr tarihinden önceki en son girilen hedefi bul
+      const sortedMondays = Object.keys(weeklyTargetHistory).sort();
+      let lastKnownTarget = currentTargetDays;
+      for (const m of sortedMondays) {
+        if (m <= mondayStr) {
+          lastKnownTarget = weeklyTargetHistory[m];
+        }
+      }
+      if (mondayStr < sortedMondays[0]) {
+        lastKnownTarget = weeklyTargetHistory[sortedMondays[0]];
+      }
+      return Math.max(1, Math.min(7, lastKnownTarget));
+    }
+    return currentTargetDays;
+  };
+
+  const thisWeekTarget = getTargetForWeek(currentWeekMondayStr);
 
   // 1. Bu haftanın (Pazartesi'den bugüne) analizi
   const todayDayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
@@ -608,8 +666,8 @@ export const calculateStreakDays = (
   }
 
   // Bu haftanın durumu
-  const isCurrentWeekTargetMet = completedThisWeekCount >= targetDays;
-  const isCurrentWeekStillViable = completedThisWeekCount + remainingDaysAfterToday >= targetDays;
+  const isCurrentWeekTargetMet = completedThisWeekCount >= thisWeekTarget;
+  const isCurrentWeekStillViable = completedThisWeekCount + remainingDaysAfterToday >= thisWeekTarget;
 
   // 2. Geçmiş haftaların (Önceki haftalar: -1, -2, -3, ...) geriye doğru analizi
   let pastSuccessfulWeeksCount = 0;
@@ -618,6 +676,9 @@ export const calculateStreakDays = (
   for (let weekOffset = 1; weekOffset <= 52; weekOffset++) {
     const pastMonday = new Date(currentWeekMonday);
     pastMonday.setDate(pastMonday.getDate() - weekOffset * 7);
+    const pastMondayStr = getLocalDateString(pastMonday);
+
+    const pastWeekTarget = getTargetForWeek(pastMondayStr);
 
     let countInPastWeek = 0;
     for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
@@ -628,11 +689,11 @@ export const calculateStreakDays = (
       }
     }
 
-    if (countInPastWeek >= targetDays) {
+    if (countInPastWeek >= pastWeekTarget) {
       pastSuccessfulWeeksCount++;
       hasPastStreak = true;
     } else {
-      // Bu geçmiş haftada hedef tutturulamamış -> Seri bu haftada koptu
+      // Bu geçmiş haftada o haftanın kendi hedefi tutturulamamış -> Seri bu haftada koptu
       break;
     }
   }

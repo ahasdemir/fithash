@@ -32,6 +32,7 @@ import {
   saveActiveSession,
   clearActiveSession,
   getLocalDateString,
+  getMondayOfWeek,
 } from './src/services/storage';
 import { getAppSettings, saveAppSettings } from './src/services/settings';
 import { syncWorkoutToHealthConnect } from './src/services/healthConnectService';
@@ -56,6 +57,7 @@ export default function App() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [workoutDays, setWorkoutDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [weeklyTargetHistory, setWeeklyTargetHistory] = useState<Record<string, number>>({});
   const [summarySession, setSummarySession] = useState<WorkoutSession | null>(null);
 
   useEffect(() => {
@@ -65,12 +67,12 @@ export default function App() {
 
   useEffect(() => {
     if (workouts) {
-      const stats = calculateUserStats(workouts, workoutDays);
+      const stats = calculateUserStats(workouts, workoutDays, weeklyTargetHistory);
       const todayStr = getLocalDateString();
       const todayCompleted = workouts.some(w => w.date === todayStr && w.completed !== false);
       updateStreakWidget(stats.streakDays, todayCompleted);
     }
-  }, [workouts, workoutDays]);
+  }, [workouts, workoutDays, weeklyTargetHistory]);
 
   const restoreActiveSession = async () => {
     configureNotifications();
@@ -92,6 +94,9 @@ export default function App() {
     setPrs(prData);
     if (appSettings.workoutDays) {
       setWorkoutDays(appSettings.workoutDays);
+    }
+    if (appSettings.weeklyTargetHistory) {
+      setWeeklyTargetHistory(appSettings.weeklyTargetHistory);
     }
   };
 
@@ -129,7 +134,7 @@ export default function App() {
     });
 
     // Seri Bildirimi Kontrolü
-    const newStats = calculateUserStats(updated, workoutDays);
+    const newStats = calculateUserStats(updated, workoutDays, weeklyTargetHistory);
     const milestones = [3, 7, 14, 21, 30, 60, 90, 100, 365];
     if (milestones.includes(newStats.streakDays)) {
       triggerStreakMilestoneNotification(newStats.streakDays);
@@ -333,9 +338,30 @@ export default function App() {
           onClose={() => setShowStreakModal(false)}
           workouts={workouts}
           workoutDays={workoutDays}
+          weeklyTargetHistory={weeklyTargetHistory}
           onUpdateWorkoutDays={async (newDays) => {
+            const newTarget = newDays.length;
+            const currentMondayStr = getLocalDateString(getMondayOfWeek(new Date()));
+            const updatedHistory = { ...(weeklyTargetHistory || {}) };
+
+            // If history is currently empty, backfill previous weeks with oldTarget so past weeks retain their goal
+            if (Object.keys(updatedHistory).length === 0) {
+              const oldTarget = workoutDays.length;
+              for (let w = 24; w >= 1; w--) {
+                const pastMon = new Date();
+                pastMon.setDate(pastMon.getDate() - w * 7);
+                const pastMonStr = getLocalDateString(getMondayOfWeek(pastMon));
+                updatedHistory[pastMonStr] = oldTarget;
+              }
+            }
+            updatedHistory[currentMondayStr] = newTarget;
+
             setWorkoutDays(newDays);
-            await saveAppSettings({ workoutDays: newDays });
+            setWeeklyTargetHistory(updatedHistory);
+            await saveAppSettings({
+              workoutDays: newDays,
+              weeklyTargetHistory: updatedHistory,
+            });
           }}
         />
 

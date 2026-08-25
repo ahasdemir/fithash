@@ -20,6 +20,7 @@ interface StreakModalProps {
   onClose: () => void;
   workouts: WorkoutSession[];
   workoutDays: number[]; // e.g. [1, 2, 3, 4] where length = targetDaysPerWeek
+  weeklyTargetHistory?: Record<string, number>;
   onUpdateWorkoutDays: (days: number[]) => void;
 }
 
@@ -35,6 +36,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   onClose,
   workouts,
   workoutDays,
+  weeklyTargetHistory,
   onUpdateWorkoutDays,
 }) => {
   const today = new Date();
@@ -42,7 +44,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   const targetDays = Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4);
-  const streakCount = calculateStreakDays(workouts, targetDays);
+  const streakCount = calculateStreakDays(workouts, targetDays, weeklyTargetHistory);
 
   const handleSelectTarget = (num: number) => {
     const clamped = Math.max(1, Math.min(7, num));

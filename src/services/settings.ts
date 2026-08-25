@@ -19,7 +19,8 @@ export interface AppSettings {
   defaultRir: number; // 0, 1, 2, 3
   weightUnit: 'kg' | 'lbs';
   healthConnectEnabled: boolean;
-  workoutDays: number[]; // 0=Pazar, 1=Pazartesi, 2=Salı, 3=Çarşamba, 4=Perşembe, 5=Cuma, 6=Cumartesi
+  workoutDays: number[]; // e.g. [1, 2, 3, 4]
+  weeklyTargetHistory?: Record<string, number>; // 'YYYY-MM-DD' (Monday of week) -> target days (1-7)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   weightUnit: 'kg',
   healthConnectEnabled: false,
   workoutDays: [1, 2, 3, 4, 5, 6], // Pazartesi - Cumartesi
+  weeklyTargetHistory: {},
 };
 
 export const getAppSettings = async (): Promise<AppSettings> => {
