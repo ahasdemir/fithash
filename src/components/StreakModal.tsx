@@ -45,9 +45,21 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   const streakCount = calculateStreakDays(workouts, targetDays);
 
   const handleSelectTarget = (num: number) => {
-    // Generate an array of target length: e.g. 3 -> [1, 2, 3]
-    const updated = Array.from({ length: num }, (_, i) => i + 1);
+    const clamped = Math.max(1, Math.min(7, num));
+    const updated = Array.from({ length: clamped }, (_, i) => i + 1);
     onUpdateWorkoutDays(updated);
+  };
+
+  const handleIncrement = () => {
+    if (targetDays < 7) {
+      handleSelectTarget(targetDays + 1);
+    }
+  };
+
+  const handleDecrement = () => {
+    if (targetDays > 1) {
+      handleSelectTarget(targetDays - 1);
+    }
   };
 
   const handlePrevMonth = () => {
@@ -227,29 +239,71 @@ export const StreakModal: React.FC<StreakModalProps> = ({
             </Text>
           </View>
 
-          {/* Weekly Target Days Selector */}
+          {/* Weekly Target Days Stepper & Quick Presets */}
           <View style={styles.targetSection}>
-            <Text style={styles.sectionHeaderTitle}>HAFTALIK HEDEF GÜN SAYISI</Text>
+            <Text style={styles.sectionHeaderTitle}>HAFTALIK HEDEF AYARI</Text>
             <Text style={styles.sectionSubTitle}>
-              Haftada kaç gün antrenman yapmak istediğinizi belirleyin.
+              Haftada kaç gün antrenman yapmak istediğinizi -/+ butonlarıyla veya listeden seçin.
             </Text>
 
-            <View style={styles.targetGrid}>
+            {/* Stepper Card */}
+            <View style={styles.stepperCard}>
+              {/* Minus Button */}
+              <TouchableOpacity
+                style={[styles.stepperBtn, targetDays <= 1 && styles.stepperBtnDisabled]}
+                onPress={handleDecrement}
+                disabled={targetDays <= 1}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="remove"
+                  size={24}
+                  color={targetDays <= 1 ? COLORS.textMuted : COLORS.textPrimary}
+                />
+              </TouchableOpacity>
+
+              {/* Center Display */}
+              <View style={styles.stepperCenter}>
+                <View style={styles.stepperNumberRow}>
+                  <Ionicons name="barbell" size={20} color={COLORS.primary} />
+                  <Text style={styles.stepperValueText}>{targetDays} Gün</Text>
+                  <Text style={styles.stepperUnitText}>/ Hafta</Text>
+                </View>
+                <Text style={styles.stepperSubText}>
+                  {targetDays} Gün Spor • {7 - targetDays} Gün Dinlenme
+                </Text>
+              </View>
+
+              {/* Plus Button */}
+              <TouchableOpacity
+                style={[styles.stepperBtn, targetDays >= 7 && styles.stepperBtnDisabled]}
+                onPress={handleIncrement}
+                disabled={targetDays >= 7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="add"
+                  size={24}
+                  color={targetDays >= 7 ? COLORS.textMuted : COLORS.textPrimary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Preset Selector Buttons */}
+            <View style={styles.quickPresetRow}>
               {TARGET_OPTIONS.map(num => {
                 const isSelected = targetDays === num;
                 return (
                   <TouchableOpacity
                     key={num}
-                    style={[styles.targetChip, isSelected && styles.targetChipSelected]}
+                    style={[styles.quickPresetChip, isSelected && styles.quickPresetChipSelected]}
                     onPress={() => handleSelectTarget(num)}
+                    activeOpacity={0.75}
                   >
-                    <Ionicons
-                      name="barbell"
-                      size={14}
-                      color={isSelected ? "#111111" : COLORS.textMuted}
-                    />
-                    <Text style={[styles.targetChipText, isSelected && styles.targetChipTextSelected]}>
-                      {num} Gün
+                    <Text style={[styles.quickPresetChipText, isSelected && styles.quickPresetChipTextSelected]}>
+                      {num}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -443,34 +497,85 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginBottom: 6,
   },
-  targetGrid: {
+  stepperCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 8,
   },
-  targetChip: {
+  stepperBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.soft,
+  },
+  stepperBtnDisabled: {
+    opacity: 0.3,
+    backgroundColor: 'transparent',
+  },
+  stepperCenter: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  stepperNumberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 100,
+  },
+  stepperValueText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+  },
+  stepperUnitText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  stepperSubText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  quickPresetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  quickPresetChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  targetChipSelected: {
+  quickPresetChipSelected: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  targetChipText: {
-    fontSize: 12,
-    fontWeight: '600',
+  quickPresetChipText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.textMuted,
   },
-  targetChipTextSelected: {
+  quickPresetChipTextSelected: {
     color: '#111111',
-    fontWeight: '800',
+    fontWeight: '900',
   },
   calendarSection: {
     backgroundColor: COLORS.surfaceSubtle,
