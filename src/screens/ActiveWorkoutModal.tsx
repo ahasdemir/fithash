@@ -567,72 +567,75 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             return (
               <View key={ex.id} style={styles.exCard}>
                 <View style={styles.exCardHeader}>
-                  <View style={styles.exTitleLeft}>
+                  {/* Top Row: Exercise Name & Controls */}
+                  <View style={styles.exTopRow}>
                     <Text style={styles.exName} numberOfLines={1} ellipsizeMode="tail">
                       {exIndex + 1}. {ex.exerciseName}
                     </Text>
-                    <View style={styles.exMetaRow}>
-                      <View style={[styles.catBadge, { backgroundColor: catColor + '15' }]}>
-                        <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
-                      </View>
 
-                      {recommendation && (
-                        <TouchableOpacity
-                          style={styles.recBadgePill}
-                          activeOpacity={0.8}
-                          onPress={() => handleApplyRecommendation(ex.id, recommendation)}
-                        >
-                          <Ionicons
-                            name={
-                              recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
-                                ? 'trending-up'
-                                : recommendation.actionType === 'MORE_REPS'
-                                ? 'add-circle-outline'
-                                : recommendation.actionType === 'LESS_WEIGHT'
-                                ? 'trending-down'
-                                : 'shield-checkmark-outline'
-                            }
-                            size={12}
-                            color="#111111"
-                          />
-                          <Text style={styles.recBadgeText} numberOfLines={1} ellipsizeMode="tail">
-                            {recommendation.badgeLabel}
-                          </Text>
-                        </TouchableOpacity>
+                    <View style={styles.exCardHeaderRight}>
+                      {!isCardio && exVolume > 0 && (
+                        <Text style={styles.exVolumeText}>{exVolume} kg</Text>
                       )}
+
+                      {session.exercises.length > 1 && (
+                        <View style={styles.activeReorderGroup}>
+                          <TouchableOpacity
+                            style={[styles.activeReorderBtn, exIndex === 0 && styles.activeReorderBtnDisabled]}
+                            disabled={exIndex === 0}
+                            onPress={() => handleMoveExercise(exIndex, -1)}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <Ionicons name="chevron-up" size={16} color={exIndex === 0 ? COLORS.textMuted : COLORS.textPrimary} />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[styles.activeReorderBtn, exIndex === session.exercises.length - 1 && styles.activeReorderBtnDisabled]}
+                            disabled={exIndex === session.exercises.length - 1}
+                            onPress={() => handleMoveExercise(exIndex, 1)}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <Ionicons name="chevron-down" size={16} color={exIndex === session.exercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      <TouchableOpacity onPress={() => handleRemoveExercise(ex.id)} style={{ padding: 4 }}>
+                        <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                      </TouchableOpacity>
                     </View>
                   </View>
 
-                  <View style={styles.exCardHeaderRight}>
-                    {!isCardio && exVolume > 0 && (
-                      <Text style={styles.exVolumeText}>{exVolume} kg</Text>
+                  {/* Bottom Row: Muscle Group Tag & Full Recommendation Tag on the Same Line */}
+                  <View style={styles.exMetaRow}>
+                    <View style={[styles.catBadge, { backgroundColor: catColor + '15' }]}>
+                      <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
+                    </View>
+
+                    {recommendation && (
+                      <TouchableOpacity
+                        style={styles.recBadgePill}
+                        activeOpacity={0.8}
+                        onPress={() => handleApplyRecommendation(ex.id, recommendation)}
+                      >
+                        <Ionicons
+                          name={
+                            recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
+                              ? 'trending-up'
+                              : recommendation.actionType === 'MORE_REPS'
+                              ? 'add-circle-outline'
+                              : recommendation.actionType === 'LESS_WEIGHT'
+                              ? 'trending-down'
+                              : 'shield-checkmark-outline'
+                          }
+                          size={12}
+                          color="#111111"
+                        />
+                        <Text style={styles.recBadgeText}>
+                          {recommendation.badgeLabel}
+                        </Text>
+                      </TouchableOpacity>
                     )}
-
-                    {session.exercises.length > 1 && (
-                      <View style={styles.activeReorderGroup}>
-                        <TouchableOpacity
-                          style={[styles.activeReorderBtn, exIndex === 0 && styles.activeReorderBtnDisabled]}
-                          disabled={exIndex === 0}
-                          onPress={() => handleMoveExercise(exIndex, -1)}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        >
-                          <Ionicons name="chevron-up" size={16} color={exIndex === 0 ? COLORS.textMuted : COLORS.textPrimary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.activeReorderBtn, exIndex === session.exercises.length - 1 && styles.activeReorderBtnDisabled]}
-                          disabled={exIndex === session.exercises.length - 1}
-                          onPress={() => handleMoveExercise(exIndex, 1)}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        >
-                          <Ionicons name="chevron-down" size={16} color={exIndex === session.exercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    <TouchableOpacity onPress={() => handleRemoveExercise(ex.id)} style={{ padding: 4 }}>
-                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -938,11 +941,14 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   exCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
     marginBottom: 12,
-    gap: 6,
+    gap: 8,
+  },
+  exTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   dragGripBtn: {
     paddingRight: 4,
@@ -971,11 +977,8 @@ const styles = StyleSheet.create({
   activeReorderBtnDisabled: {
     opacity: 0.3,
   },
-  exTitleLeft: {
-    flex: 1,
-    gap: 6,
-  },
   exName: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.textPrimary,
@@ -983,15 +986,14 @@ const styles = StyleSheet.create({
   exMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flexWrap: 'nowrap',
-    overflow: 'hidden',
   },
   catBadge: {
     paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 100,
-    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   catBadgeText: {
     fontSize: 11,
@@ -1000,18 +1002,17 @@ const styles = StyleSheet.create({
   recBadgePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
     borderRadius: 100,
-    flexShrink: 1,
+    alignSelf: 'flex-start',
   },
   recBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#111111',
-    flexShrink: 1,
   },
   exVolumeText: {
     color: COLORS.textMuted,

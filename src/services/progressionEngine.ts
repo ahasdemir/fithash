@@ -340,7 +340,7 @@ export const calculateSmartAutoregulatedOverload = (
       maxBracketReps: maxReps,
       actionType: 'MORE_REPS',
       actionTitle: 'Tekrar Artır',
-      badgeLabel: `Tekrar Artır (+1 Rep • ${lastMaxWeight} kg)`,
+      badgeLabel: `Tekrar Artır (+1 Rep)`,
       reason: `Ağırlığı koruyun (${lastMaxWeight} kg). ${maxReps} tekrar tavanına (${repsNeeded} tekrar kaldı) ulaşana kadar önce tekrar sayınızı artırmayı hedefleyin.`,
       isDoubleProgression: true,
       setTargets: generateSetTargets(lastMaxWeight, nextTargetReps, 1),
