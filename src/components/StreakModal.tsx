@@ -234,7 +234,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
 
             <Text style={styles.weekProgressMsg}>
               {isTargetMetThisWeek
-                ? 'Harika! 🎉 Bu haftaki hedefini tamamladın. Serin güvende!'
+                ? 'Harika! Bu haftaki hedefini tamamladın. Serin güvende.'
                 : `Haftalık hedefe ulaşmak için bu hafta ${remainingNeeded} gün daha spor yapmalısın.`}
             </Text>
           </View>

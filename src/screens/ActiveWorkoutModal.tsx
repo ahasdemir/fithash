@@ -580,7 +580,19 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           activeOpacity={0.8}
                           onPress={() => handleApplyRecommendation(ex.id, recommendation)}
                         >
-                          <Ionicons name="sparkles" size={12} color="#111111" />
+                          <Ionicons
+                            name={
+                              recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
+                                ? 'trending-up'
+                                : recommendation.actionType === 'MORE_REPS'
+                                ? 'add-circle-outline'
+                                : recommendation.actionType === 'LESS_WEIGHT'
+                                ? 'trending-down'
+                                : 'shield-checkmark-outline'
+                            }
+                            size={12}
+                            color="#111111"
+                          />
                           <Text style={styles.recBadgeText}>
                             {recommendation.badgeLabel}
                           </Text>

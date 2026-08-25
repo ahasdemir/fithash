@@ -130,7 +130,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
               color="#111111"
             />
             <Text style={styles.refreshBtnText}>
-              {justRefreshed ? 'Analiz Güncellendi! ✨' : 'Analizi Yenile'}
+              {justRefreshed ? 'Analiz Güncellendi' : 'Analizi Yenile'}
             </Text>
           </TouchableOpacity>
         </View>
