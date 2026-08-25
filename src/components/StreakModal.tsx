@@ -29,8 +29,6 @@ const MONTH_NAMES = [
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
 
-const TARGET_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
-
 export const StreakModal: React.FC<StreakModalProps> = ({
   visible,
   onClose,
@@ -241,11 +239,11 @@ export const StreakModal: React.FC<StreakModalProps> = ({
             </Text>
           </View>
 
-          {/* Weekly Target Days Stepper & Quick Presets */}
+          {/* Weekly Target Days Stepper */}
           <View style={styles.targetSection}>
             <Text style={styles.sectionHeaderTitle}>HAFTALIK HEDEF AYARI</Text>
             <Text style={styles.sectionSubTitle}>
-              Haftada kaç gün antrenman yapmak istediğinizi -/+ butonlarıyla veya listeden seçin.
+              Haftada kaç gün antrenman yapmak istediğinizi belirleyin.
             </Text>
 
             {/* Stepper Card */}
@@ -291,25 +289,6 @@ export const StreakModal: React.FC<StreakModalProps> = ({
                   color={targetDays >= 7 ? COLORS.textMuted : COLORS.textPrimary}
                 />
               </TouchableOpacity>
-            </View>
-
-            {/* Quick Preset Selector Buttons */}
-            <View style={styles.quickPresetRow}>
-              {TARGET_OPTIONS.map(num => {
-                const isSelected = targetDays === num;
-                return (
-                  <TouchableOpacity
-                    key={num}
-                    style={[styles.quickPresetChip, isSelected && styles.quickPresetChipSelected]}
-                    onPress={() => handleSelectTarget(num)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.quickPresetChipText, isSelected && styles.quickPresetChipTextSelected]}>
-                      {num}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
             </View>
           </View>
 
@@ -550,34 +529,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.textSecondary,
-  },
-  quickPresetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  quickPresetChip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickPresetChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  quickPresetChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-  },
-  quickPresetChipTextSelected: {
-    color: '#111111',
-    fontWeight: '900',
   },
   calendarSection: {
     backgroundColor: COLORS.surfaceSubtle,
