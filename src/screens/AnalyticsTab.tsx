@@ -16,9 +16,16 @@ import { calculateUserStats } from '../services/storage';
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
   prs: Record<string, PersonalRecord>;
+  workoutDays?: number[];
+  weeklyTargetHistory?: Record<string, number>;
 }
 
-export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ workouts, prs }) => {
+export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
+  workouts,
+  prs,
+  workoutDays,
+  weeklyTargetHistory,
+}) => {
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
 
   const filteredWorkouts = workouts.filter(w => {
@@ -29,7 +36,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ workouts, prs }) => 
     return filterMode === 'weekly' ? diffDays <= 7 : diffDays <= 30;
   });
 
-  const stats = calculateUserStats(filteredWorkouts);
+  const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
   const prList = Object.values(prs);
 
   // Compute average speeds per cardio exercise

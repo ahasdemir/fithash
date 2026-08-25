@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Ionicons name="flame" size={14} color="#111111" />
           <Text style={styles.streakText}>
-            {streakDays > 0 ? `${streakDays} Gün` : 'Streak'}
+            {`${streakDays} Gün`}
           </Text>
         </TouchableOpacity>
 

@@ -210,7 +210,7 @@ export default function App() {
     handleStartSession(newSession);
   };
 
-  const stats = calculateUserStats(workouts, workoutDays);
+  const stats = calculateUserStats(workouts, workoutDays, weeklyTargetHistory);
 
   return (
     <SafeAreaProvider>
@@ -243,7 +243,12 @@ export default function App() {
           )}
 
           {currentTab === 'analytics' && (
-            <AnalyticsTab workouts={workouts} prs={prs} />
+            <AnalyticsTab
+              workouts={workouts}
+              prs={prs}
+              workoutDays={workoutDays}
+              weeklyTargetHistory={weeklyTargetHistory}
+            />
           )}
 
           {currentTab === 'history' && (
