@@ -17,7 +17,8 @@ export interface SmartOverloadRecommendation {
   increment: number;
   minBracketReps: number;
   maxBracketReps: number;
-  actionType: 'WEIGHT_UP' | 'REP_UP' | 'MAINTAIN' | 'AGGRESSIVE_UP';
+  actionType: 'MORE_WEIGHT' | 'MORE_REPS' | 'MAINTAIN' | 'LESS_WEIGHT' | 'AGGRESSIVE_MORE_WEIGHT';
+  actionTitle: string;
   badgeLabel: string;
   reason: string;
   isDoubleProgression: boolean;
@@ -134,20 +135,18 @@ export const calculateLoadIncrement = (
   const name = exerciseName.toLowerCase();
   const eq = equipment.toLowerCase();
 
-  // Dumbbells: Small dumbbells (< 14kg) need 1.0 - 2.0kg steps to avoid >15% jumps
+  // Dumbbells
   if (eq.includes('dumbbell') || eq.includes('dambıl') || name.includes('dumbbell') || name.includes('db')) {
     if (currentWeight > 0 && currentWeight <= 14) {
-      return 2.0; // 2kg pair jump (e.g. 10kg -> 12kg)
+      return 2.0; // 2kg pair step
     }
-    return 2.5; // Standard 2.5kg pair step (e.g. 17.5kg -> 20kg)
+    return 2.5; // Standard 2.5kg pair step
   }
 
-  // Barbells: Micro-loading vs heavy compound loading
+  // Barbells
   if (eq.includes('barbell') || eq.includes('plate') || eq.includes('plaka')) {
-    if (currentWeight >= 120) {
-      return 5.0; // 2.5kg per side (+5kg total)
-    }
-    return 2.5; // 1.25kg per side (+2.5kg total)
+    if (currentWeight >= 120) return 5.0;
+    return 2.5;
   }
 
   // Machines & Cables
@@ -162,6 +161,12 @@ export const calculateLoadIncrement = (
 /**
  * GOLD-STANDARD AUTOREGULATED DOUBLE PROGRESSION HYPERTROPHY ENGINE
  * (Evidence-Based Sports Science / Dr. Mike Israetel / Eric Helms Model)
+ *
+ * Concepts:
+ * - MORE WEIGHT (Ağırlık Artır): Hit top rep ceiling with good RIR -> Bump to next available weight tier / plate.
+ * - MORE REPS (Tekrar Artır): Inside bracket -> Keep weight steady, progress reps first towards the ceiling.
+ * - MAINTAIN (Ağırlığı Koru): Fatigue or consolidate -> Same weight, prioritize strict form.
+ * - LESS WEIGHT (Ağırlığı Azalt): Excessive fatigue / grinder -> Lighten load for recovery and joint health.
  */
 export const calculateSmartAutoregulatedOverload = (
   exerciseName: string,
@@ -201,8 +206,9 @@ export const calculateSmartAutoregulatedOverload = (
       minBracketReps: minReps,
       maxBracketReps: maxReps,
       actionType: 'MAINTAIN',
-      badgeLabel: 'Yeni Egzersiz',
-      reason: `Geçmiş seans verisi bulunamadı. ${bracket.archetype} için ${minReps}-${maxReps} tekrar aralığında ısınarak başlayın.`,
+      actionTitle: 'Yeni Egzersiz',
+      badgeLabel: `✨ Yeni Egzersiz (${minReps}-${maxReps} Rep)`,
+      reason: `Geçmiş seans verisi bulunamadı. ${bracket.archetype} için ${minReps}-${maxReps} tekrar aralığında uygun bir ağırlıkla başlayın.`,
       isDoubleProgression: false,
       setTargets: [1, 2, 3].map(n => ({ setNumber: n, weight: 0, reps: baseReps, targetRir: 1 })),
     };
@@ -256,7 +262,8 @@ export const calculateSmartAutoregulatedOverload = (
         minBracketReps: minReps,
         maxBracketReps: maxReps,
         actionType: 'MAINTAIN',
-        badgeLabel: `🛡️ ${prevMaxWeight} kg (Toparlanma / Sabit)`,
+        actionTitle: 'Ağırlığı Koru',
+        badgeLabel: `🛡️ Ağırlığı Koru (${prevMaxWeight} kg)`,
         reason: `Geçmiş seans trendinize göre son seansta geçici bir yorgunluk/düşüş yaşandı. Serinizi korumak için ${prevMaxWeight} kg ile ${prevAvgReps} tekrar toparlanma hedefleyin.`,
         isDoubleProgression: false,
         setTargets: generateSetTargets(prevMaxWeight, prevAvgReps, 1),
@@ -266,7 +273,7 @@ export const calculateSmartAutoregulatedOverload = (
 
   // --- PROGRESSION DECISION MATRIX ---
 
-  // SCENARIO 1: Under-loaded / Too Easy (Avg RIR >= 3) -> Aggressive Overload
+  // SCENARIO 1: Under-loaded / Too Easy (Avg RIR >= 3) -> Aggressive Overload (More Weight)
   if (avgRir >= 3) {
     const aggIncrement = increment >= 5.0 ? 5.0 : Math.max(2.5, increment);
     const recWeight = parseFloat((lastMaxWeight + aggIncrement).toFixed(1));
@@ -281,16 +288,17 @@ export const calculateSmartAutoregulatedOverload = (
       increment: aggIncrement,
       minBracketReps: minReps,
       maxBracketReps: maxReps,
-      actionType: 'AGGRESSIVE_UP',
-      badgeLabel: `⚡ ${recWeight} kg (+${aggIncrement}kg Agresif)`,
-      reason: `Son seans çok rahat geçti (RIR ${avgRir}). İdeal hipertrofi uyarısı (RIR 1-2) için ağırlık +${aggIncrement} kg artırıldı.`,
+      actionType: 'AGGRESSIVE_MORE_WEIGHT',
+      actionTitle: 'Ağırlık Artır (Daha Ağır)',
+      badgeLabel: `⚡ Ağırlık Artır (Çok Rahat / RIR ${avgRir})`,
+      reason: `Son seans çok rahat geçti (RIR ${avgRir}). İdeal hipertrofi uyarısı (RIR 1-2) için salonunuzdaki bir sonraki ağırlık kademesine / daha ağır kiloya geçin.`,
       isDoubleProgression: false,
       setTargets: generateSetTargets(recWeight, targetRep, 1),
     };
   }
 
   // SCENARIO 2: Reached Top of the Rep Range (avgReps >= maxReps OR topSet >= maxReps with RIR >= 1)
-  // -> Double Progression Stage 2: Weight Jump & Rep Range Reset
+  // -> Double Progression Stage 2: More Weight & Rep Range Reset
   const hasHitRepCeiling = (avgReps >= maxReps) || (topSetReps >= maxReps && avgRir >= 1);
   if (hasHitRepCeiling && avgRir >= 1) {
     const recWeight = parseFloat((lastMaxWeight + increment).toFixed(1));
@@ -306,16 +314,17 @@ export const calculateSmartAutoregulatedOverload = (
       increment,
       minBracketReps: minReps,
       maxBracketReps: maxReps,
-      actionType: 'WEIGHT_UP',
-      badgeLabel: `📈 ${recWeight} kg (+${increment}kg)`,
-      reason: `Tebrikler! 🎯 Önceki seansta ${maxReps} tekrar tavanına ulaştınız (RIR ${avgRir}). Çift aşamalı modelle ağırlık +${increment} kg artırıldı, hedef ${minReps}-${maxReps} tekrar aralığına çekildi.`,
+      actionType: 'MORE_WEIGHT',
+      actionTitle: 'Ağırlık Artır',
+      badgeLabel: `📈 Ağırlık Artır (${resetReps}-${maxReps} Rep Hedefi)`,
+      reason: `Tebrikler! 🎯 Önceki seansta ${maxReps} tekrar tavanına ulaştınız (RIR ${avgRir}). Salonunuzdaki bir sonraki ağırlık kademesine / plakaya geçin ve ${minReps}-${maxReps} tekrar aralığında yeni serinizi başlatın.`,
       isDoubleProgression: true,
       setTargets: generateSetTargets(recWeight, resetReps, 1),
     };
   }
 
   // SCENARIO 3: Inside Bracket (minReps <= avgReps < maxReps) with Good Stimulus (RIR 1-2)
-  // -> Double Progression Stage 1: Rep Progression at Current Weight
+  // -> Double Progression Stage 1: More Reps at Current Weight
   if (avgRir >= 1 && avgReps >= minReps) {
     const nextTargetReps = Math.min(maxReps, Math.max(firstSetReps + 1, avgReps + 1));
     const repsNeeded = maxReps - avgReps;
@@ -329,9 +338,10 @@ export const calculateSmartAutoregulatedOverload = (
       increment: 0,
       minBracketReps: minReps,
       maxBracketReps: maxReps,
-      actionType: 'REP_UP',
-      badgeLabel: `🎯 ${lastMaxWeight} kg (+1 Rep Hedefi)`,
-      reason: `Ağırlığı koruyun (${lastMaxWeight} kg). ${maxReps} tekrar tavanına (${repsNeeded} tekrar kaldı) ulaşana kadar önce tekrar sayısını artırmayı hedefleyin.`,
+      actionType: 'MORE_REPS',
+      actionTitle: 'Tekrar Artır',
+      badgeLabel: `🎯 Tekrar Artır (+1 Rep • ${lastMaxWeight} kg)`,
+      reason: `Ağırlığı koruyun (${lastMaxWeight} kg). ${maxReps} tekrar tavanına (${repsNeeded} tekrar kaldı) ulaşana kadar önce tekrar sayınızı artırmayı hedefleyin.`,
       isDoubleProgression: true,
       setTargets: generateSetTargets(lastMaxWeight, nextTargetReps, 1),
     };
@@ -349,18 +359,41 @@ export const calculateSmartAutoregulatedOverload = (
       lastReps: avgReps,
       lastRir: 0,
       increment,
-      actionType: 'WEIGHT_UP',
       minBracketReps: minReps,
       maxBracketReps: maxReps,
-      badgeLabel: `📈 ${recWeight} kg (+${increment}kg)`,
-      reason: `Tükenişte (RIR 0) tekrar tavanı tamamlandı. Ağırlık +${increment} kg artırıldı, temiz form ile ${minReps} tekrar hedefleyin.`,
+      actionType: 'MORE_WEIGHT',
+      actionTitle: 'Ağırlık Artır',
+      badgeLabel: `📈 Ağırlık Artır (${minReps} Rep Hedefi)`,
+      reason: `Tükenişte (RIR 0) tekrar tavanı tamamlandı. Bir sonraki ağırlığa geçerek temiz form ile ${minReps} tekrar hedefleyin.`,
       isDoubleProgression: true,
       setTargets: generateSetTargets(recWeight, resetReps, 1),
     };
   }
 
-  // Hold weight steady to recover and consolidate technique
+  // Hold weight steady or reduce weight if severe fatigue
   const maintainReps = Math.max(minReps, Math.min(maxReps, avgReps));
+  const isSevereUnderperformance = avgReps < minReps - 1;
+
+  if (isSevereUnderperformance && lastMaxWeight > 0) {
+    const reducedWeight = Math.max(0, parseFloat((lastMaxWeight - increment).toFixed(1)));
+    return {
+      recWeight: reducedWeight,
+      lastWeight: lastMaxWeight,
+      recReps: minReps,
+      lastReps: avgReps,
+      lastRir: avgRir,
+      increment: -increment,
+      minBracketReps: minReps,
+      maxBracketReps: maxReps,
+      actionType: 'LESS_WEIGHT',
+      actionTitle: 'Ağırlığı Azalt',
+      badgeLabel: `↘️ Ağırlığı Azalt (${reducedWeight} kg • Toparlanma)`,
+      reason: `Son seans hedefin altında tamamlandı (${avgReps} tekrar). Kas toparlanması ve sakatlığı önlemek için ağırlığı bir kademe hafifletmeyi (${reducedWeight} kg) hedefleyin.`,
+      isDoubleProgression: false,
+      setTargets: generateSetTargets(reducedWeight, minReps, 1),
+    };
+  }
+
   return {
     recWeight: lastMaxWeight,
     lastWeight: lastMaxWeight,
@@ -371,7 +404,8 @@ export const calculateSmartAutoregulatedOverload = (
     minBracketReps: minReps,
     maxBracketReps: maxReps,
     actionType: 'MAINTAIN',
-    badgeLabel: `🛡️ ${lastMaxWeight} kg (Form Sabit)`,
+    actionTitle: 'Ağırlığı Koru',
+    badgeLabel: `🛡️ Ağırlığı Koru (Form Sabit)`,
     reason: `Son seans tükenişte/zorlanarak geçti (RIR ${avgRir}). Aşırı yorgunluğu önlemek için aynı kiloda (${lastMaxWeight} kg) temiz form ve toparlanma hedefleyin.`,
     isDoubleProgression: false,
     setTargets: generateSetTargets(lastMaxWeight, maintainReps, 1),
