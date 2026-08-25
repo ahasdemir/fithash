@@ -6,13 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession } from '../types/fitness';
-import { calculateStreakDays } from '../services/storage';
+import { calculateStreakDays, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
 import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
 
@@ -20,24 +19,16 @@ interface StreakModalProps {
   visible: boolean;
   onClose: () => void;
   workouts: WorkoutSession[];
-  workoutDays: number[]; // 0=Pazar, 1=Pazartesi, ... 6=Cumartesi
+  workoutDays: number[]; // e.g. [1, 2, 3, 4] where length = targetDaysPerWeek
   onUpdateWorkoutDays: (days: number[]) => void;
 }
-
-const DAYS_OF_WEEK = [
-  { id: 1, name: 'Pazartesi', short: 'Pzt' },
-  { id: 2, name: 'Salı', short: 'Sal' },
-  { id: 3, name: 'Çarşamba', short: 'Çar' },
-  { id: 4, name: 'Perşembe', short: 'Per' },
-  { id: 5, name: 'Cuma', short: 'Cum' },
-  { id: 6, name: 'Cumartesi', short: 'Cmt' },
-  { id: 0, name: 'Pazar', short: 'Paz' },
-];
 
 const MONTH_NAMES = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
+
+const TARGET_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
 export const StreakModal: React.FC<StreakModalProps> = ({
   visible,
@@ -50,26 +41,12 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
-  const streakCount = calculateStreakDays(workouts, workoutDays);
+  const targetDays = Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4);
+  const streakCount = calculateStreakDays(workouts, targetDays);
 
-  const toggleDay = (dayId: number) => {
-    let updated: number[];
-    if (workoutDays.includes(dayId)) {
-      // Must keep at least 1 workout day
-      if (workoutDays.length <= 1) {
-        setCustomAlert({
-          visible: true,
-          type: 'warning',
-          title: 'Uyarı',
-          message: 'En az 1 spor günü seçili olmalıdır.',
-          onConfirm: () => setCustomAlert(null),
-        });
-        return;
-      }
-      updated = workoutDays.filter(d => d !== dayId);
-    } else {
-      updated = [...workoutDays, dayId];
-    }
+  const handleSelectTarget = (num: number) => {
+    // Generate an array of target length: e.g. 3 -> [1, 2, 3]
+    const updated = Array.from({ length: num }, (_, i) => i + 1);
     onUpdateWorkoutDays(updated);
   };
 
@@ -93,7 +70,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   let startOffset = firstDayOfMonth.getDay() - 1;
   if (startOffset === -1) startOffset = 6;
 
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = getLocalDateString(today);
 
   const workoutMap = new Map<string, WorkoutSession[]>();
   workouts.forEach(w => {
@@ -104,9 +81,22 @@ export const StreakModal: React.FC<StreakModalProps> = ({
     }
   });
 
+  // Calculate current week progress (Monday to Sunday)
+  const currentWeekMonday = getMondayOfWeek(today);
+  let completedThisWeekCount = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(currentWeekMonday);
+    d.setDate(d.getDate() + i);
+    if (workoutMap.has(getLocalDateString(d))) {
+      completedThisWeekCount++;
+    }
+  }
+
+  const isTargetMetThisWeek = completedThisWeekCount >= targetDays;
+  const remainingNeeded = Math.max(0, targetDays - completedThisWeekCount);
+  const progressPercent = Math.min(100, Math.round((completedThisWeekCount / targetDays) * 100));
+
   const renderCalendarGrid = () => {
-    const totalCells = startOffset + daysInMonth;
-    const rows = Math.ceil(totalCells / 7);
     const cells = [];
 
     // Empty offset cells
@@ -116,15 +106,12 @@ export const StreakModal: React.FC<StreakModalProps> = ({
 
     // Day cells
     for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
-      const cellDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
       const cellDateObj = new Date(year, month, dayNum);
-      const dayOfWeek = cellDateObj.getDay();
+      const cellDateStr = getLocalDateString(cellDateObj);
 
-      const isScheduledWorkoutDay = workoutDays.includes(dayOfWeek);
       const dayWorkouts = workoutMap.get(cellDateStr);
       const hasCompletedWorkout = dayWorkouts && dayWorkouts.length > 0;
       const isToday = cellDateStr === todayStr;
-      const isPast = cellDateObj < new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
       let cellStyle = styles.cellRestDay;
       let textStyle = styles.cellTextRestDay;
@@ -136,24 +123,9 @@ export const StreakModal: React.FC<StreakModalProps> = ({
         textStyle = styles.cellTextCompleted;
         iconName = 'checkmark-circle';
         iconColor = '#10B981';
-      } else if (isScheduledWorkoutDay) {
-        if (isPast) {
-          cellStyle = styles.cellMissed;
-          textStyle = styles.cellTextMissed;
-          iconName = 'alert-circle';
-          iconColor = '#EF4444';
-        } else {
-          cellStyle = styles.cellScheduled;
-          textStyle = styles.cellTextScheduled;
-          iconName = 'barbell';
-          iconColor = COLORS.primary;
-        }
       } else {
-        // Rest Day
         cellStyle = styles.cellRestDay;
         textStyle = styles.cellTextRestDay;
-        iconName = 'pause';
-        iconColor = '#6B7280';
       }
 
       cells.push(
@@ -163,7 +135,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
           activeOpacity={hasCompletedWorkout ? 0.7 : 1}
           onPress={() => {
             if (dayWorkouts && dayWorkouts.length > 0) {
-              const summary = dayWorkouts.map(w => `• ${w.name} (${w.totalVolume || 0} kg hacim)`).join('\n');
+              const summary = dayWorkouts.map(w => `• ${w.name} (${(w.totalVolume || 0).toLocaleString('tr-TR')} kg hacim)`).join('\n');
               setCustomAlert({
                 visible: true,
                 type: 'info',
@@ -176,7 +148,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
         >
           <Text style={[styles.cellDayText, textStyle]}>{dayNum}</Text>
           {iconName && (
-            <Ionicons name={iconName as any} size={10} color={iconColor} style={{ marginTop: 2 }} />
+            <Ionicons name={iconName as any} size={11} color={iconColor} style={{ marginTop: 1 }} />
           )}
         </TouchableOpacity>
       );
@@ -200,10 +172,10 @@ export const StreakModal: React.FC<StreakModalProps> = ({
         {/* Modal Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.modalTitle}>Streak & Spor Günleri</Text>
-            <Text style={styles.modalSubTitle}>Spor günlerinizi seçin, dinlenme günlerinde streak korunur.</Text>
+            <Text style={styles.modalTitle}>Streak & Haftalık Hedef</Text>
+            <Text style={styles.modalSubTitle}>Haftalık spor hedefini tamamladıkça serin kesintisiz devam eder.</Text>
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
           </TouchableOpacity>
         </View>
@@ -217,34 +189,72 @@ export const StreakModal: React.FC<StreakModalProps> = ({
             </View>
             <Text style={styles.heroTitle}>Aktif Antrenman Serisi</Text>
             <Text style={styles.heroSub}>
-              Haftalık {workoutDays.length} Spor Günü • {7 - workoutDays.length} Dinlenme Günü
+              Haftalık Hedef: {targetDays} Gün • Bu Hafta: {completedThisWeekCount}/{targetDays} Gün
             </Text>
           </View>
 
-          {/* Workout Days Selector */}
-          <Text style={styles.sectionHeaderTitle}>HAFTALIK SPOR GÜNLERİ</Text>
-          <Text style={styles.sectionSubTitle}>Sadece seçtiğiniz günlerde antrenman yapılmadığında streak bozulur.</Text>
+          {/* Current Week Goal Status Card */}
+          <View style={styles.weekProgressCard}>
+            <View style={styles.weekProgressHeader}>
+              <View style={styles.weekProgressTitleRow}>
+                <Ionicons
+                  name={isTargetMetThisWeek ? "checkmark-circle" : "flag"}
+                  size={18}
+                  color={isTargetMetThisWeek ? "#10B981" : COLORS.primary}
+                />
+                <Text style={styles.weekProgressTitle}>Bu Haftanın Durumu</Text>
+              </View>
+              <Text style={[styles.weekProgressBadge, isTargetMetThisWeek && styles.weekProgressBadgeSuccess]}>
+                {completedThisWeekCount} / {targetDays} Gün ({progressPercent}%)
+              </Text>
+            </View>
 
-          <View style={styles.daysGrid}>
-            {DAYS_OF_WEEK.map(day => {
-              const isSelected = workoutDays.includes(day.id);
-              return (
-                <TouchableOpacity
-                  key={day.id}
-                  style={[styles.dayChip, isSelected && styles.dayChipSelected]}
-                  onPress={() => toggleDay(day.id)}
-                >
-                  <Ionicons
-                    name={isSelected ? "barbell" : "pause-circle"}
-                    size={14}
-                    color={isSelected ? "#111111" : COLORS.textMuted}
-                  />
-                  <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>
-                    {day.short}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {/* Progress Bar */}
+            <View style={styles.progressBarTrack}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progressPercent}%` },
+                  isTargetMetThisWeek && { backgroundColor: '#10B981' }
+                ]}
+              />
+            </View>
+
+            <Text style={styles.weekProgressMsg}>
+              {isTargetMetThisWeek
+                ? 'Harika! 🎉 Bu haftaki hedefini tamamladın. Serin güvende!'
+                : `Haftalık hedefe ulaşmak için bu hafta ${remainingNeeded} gün daha spor yapmalısın.`}
+            </Text>
+          </View>
+
+          {/* Weekly Target Days Selector */}
+          <View style={styles.targetSection}>
+            <Text style={styles.sectionHeaderTitle}>HAFTALIK HEDEF GÜN SAYISI</Text>
+            <Text style={styles.sectionSubTitle}>
+              Haftada kaç gün antrenman yapmak istediğinizi belirleyin.
+            </Text>
+
+            <View style={styles.targetGrid}>
+              {TARGET_OPTIONS.map(num => {
+                const isSelected = targetDays === num;
+                return (
+                  <TouchableOpacity
+                    key={num}
+                    style={[styles.targetChip, isSelected && styles.targetChipSelected]}
+                    onPress={() => handleSelectTarget(num)}
+                  >
+                    <Ionicons
+                      name="barbell"
+                      size={14}
+                      color={isSelected ? "#111111" : COLORS.textMuted}
+                    />
+                    <Text style={[styles.targetChipText, isSelected && styles.targetChipTextSelected]}>
+                      {num} Gün
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Calendar Visualizer */}
@@ -279,21 +289,14 @@ export const StreakModal: React.FC<StreakModalProps> = ({
               <View style={[styles.legendDot, { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10B981' }]}>
                 <Ionicons name="checkmark" size={10} color="#10B981" />
               </View>
-              <Text style={styles.legendText}>Tamamlanan Antrenman</Text>
+              <Text style={styles.legendText}>Tamamlanan Antrenman Günü</Text>
             </View>
 
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: 'rgba(107, 114, 128, 0.1)', borderColor: 'rgba(107, 114, 128, 0.3)' }]}>
-                <Ionicons name="pause" size={10} color="#6B7280" />
+                <Ionicons name="ellipse" size={6} color="#6B7280" />
               </View>
-              <Text style={styles.legendText}>Dinlenme Günü (Streak Korunur)</Text>
-            </View>
-
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: '#EF4444' }]}>
-                <Ionicons name="alert" size={10} color="#EF4444" />
-              </View>
-              <Text style={styles.legendText}>Kaçırılan Spor Günü</Text>
+              <Text style={styles.legendText}>Dinlenme / Boş Gün</Text>
             </View>
           </View>
         </ScrollView>
@@ -367,47 +370,105 @@ const styles = StyleSheet.create({
   heroSub: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(17, 17, 17, 0.7)',
+    color: 'rgba(17, 17, 17, 0.75)',
+  },
+  weekProgressCard: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 10,
+  },
+  weekProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekProgressTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  weekProgressTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  weekProgressBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  weekProgressBadgeSuccess: {
+    color: '#10B981',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 100,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 100,
+  },
+  weekProgressMsg: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    lineHeight: 16,
+  },
+  targetSection: {
+    gap: 6,
   },
   sectionHeaderTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 0.8,
-    marginTop: 6,
   },
   sectionSubTitle: {
     fontSize: 12,
     color: COLORS.textMuted,
-    marginTop: -10,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  daysGrid: {
+  targetGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  dayChip: {
+  targetChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 100,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  dayChipSelected: {
+  targetChipSelected: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  dayChipText: {
+  targetChipText: {
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.textMuted,
   },
-  dayChipTextSelected: {
+  targetChipTextSelected: {
     color: '#111111',
     fontWeight: '800',
   },
@@ -418,7 +479,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   monthHeader: {
     flexDirection: 'row',
@@ -482,20 +543,6 @@ const styles = StyleSheet.create({
   },
   cellTextCompleted: {
     color: '#10B981',
-  },
-  cellScheduled: {
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
-  },
-  cellTextScheduled: {
-    color: COLORS.textPrimary,
-  },
-  cellMissed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-  },
-  cellTextMissed: {
-    color: '#EF4444',
   },
   cellRestDay: {
     backgroundColor: 'rgba(107, 114, 128, 0.05)',

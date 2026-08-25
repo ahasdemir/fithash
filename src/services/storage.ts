@@ -548,13 +548,39 @@ export const calculateUserStats = (
   };
 };
 
+/**
+ * Verilen bir tarihin içinde bulunduğu haftanın Pazartesi gününü döndürür.
+ */
+export const getMondayOfWeek = (date: Date): Date => {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay(); // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi
+  const diff = (day === 0 ? -6 : 1) - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+};
+
+/**
+ * Haftalık hedef antrenman gün sayısına göre streak (seri gün sayısı) hesaplar.
+ * Kullanıcı belirlediği haftalık hedef (ör. haftada 3 gün, 4 gün vb.) kadar antrenman yaptığı sürece
+ * seri bozulmaz ve aradaki dinlenme günleri de dahil olmak üzere kesintisiz gün olarak sayılır.
+ *
+ * @param workouts Tamamlanan antrenman kayıtları
+ * @param workoutDaysOrTarget Haftalık hedef gün sayısı (1-7) veya seçili gün dizisi
+ */
 export const calculateStreakDays = (
   workouts: WorkoutSession[],
-  workoutDays: number[] = [1, 2, 3, 4, 5, 6]
+  workoutDaysOrTarget: number[] | number = 4
 ): number => {
-  if (!workouts.length) return 0;
+  if (!workouts || !workouts.length) return 0;
 
-  const activeWorkoutDaysSet = new Set(workoutDays.length > 0 ? workoutDays : [1, 2, 3, 4, 5, 6]);
+  // Hedef gün sayısını belirle (1 ile 7 arası)
+  let targetDays = 4;
+  if (typeof workoutDaysOrTarget === 'number') {
+    targetDays = workoutDaysOrTarget;
+  } else if (Array.isArray(workoutDaysOrTarget)) {
+    targetDays = workoutDaysOrTarget.length;
+  }
+  targetDays = Math.max(1, Math.min(7, targetDays || 4));
 
   const completedDates = new Set(
     workouts
@@ -565,42 +591,68 @@ export const calculateStreakDays = (
   if (completedDates.size === 0) return 0;
 
   const today = new Date();
-  const todayStr = getLocalDateString(today);
-  let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  let streak = 0;
-  let hasStartedActiveStreak = false;
+  const currentWeekMonday = getMondayOfWeek(today);
 
-  for (let i = 0; i < 365; i++) {
-    const dateStr = getLocalDateString(checkDate);
-    const dayOfWeek = checkDate.getDay();
+  // 1. Bu haftanın (Pazartesi'den bugüne) analizi
+  const todayDayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+  const elapsedDaysThisWeek = todayDayOfWeek; // Pazartesi'den bugüne geçen gün sayısı
+  const remainingDaysAfterToday = 7 - todayDayOfWeek; // Bu hafta bugünden sonra kalan gün sayısı
 
-    const isScheduledWorkoutDay = activeWorkoutDaysSet.has(dayOfWeek);
-    const hasWorkout = completedDates.has(dateStr);
-
-    if (hasWorkout) {
-      // Completed workout on this date -> Always counts toward streak!
-      streak++;
-      hasStartedActiveStreak = true;
-    } else if (isScheduledWorkoutDay) {
-      // Scheduled workout day, but no workout done
-      if (dateStr === todayStr) {
-        // Today is still an ongoing scheduled workout day -> Do not break streak
-      } else {
-        // Missed a past scheduled workout day -> Streak breaks here
-        break;
-      }
-    } else {
-      // Rest Day without workout -> Rest days count toward active unbroken streak!
-      streak++;
+  let completedThisWeekCount = 0;
+  for (let i = 0; i < elapsedDaysThisWeek; i++) {
+    const d = new Date(currentWeekMonday);
+    d.setDate(d.getDate() + i);
+    if (completedDates.has(getLocalDateString(d))) {
+      completedThisWeekCount++;
     }
-
-    checkDate.setDate(checkDate.getDate() - 1);
   }
 
-  // If no workouts were encountered in the scanned period (only rest days), streak is 0
-  if (!hasStartedActiveStreak) return 0;
+  // Bu haftanın durumu
+  const isCurrentWeekTargetMet = completedThisWeekCount >= targetDays;
+  const isCurrentWeekStillViable = completedThisWeekCount + remainingDaysAfterToday >= targetDays;
 
-  return streak;
+  // 2. Geçmiş haftaların (Önceki haftalar: -1, -2, -3, ...) geriye doğru analizi
+  let pastSuccessfulWeeksCount = 0;
+  let hasPastStreak = false;
+
+  for (let weekOffset = 1; weekOffset <= 52; weekOffset++) {
+    const pastMonday = new Date(currentWeekMonday);
+    pastMonday.setDate(pastMonday.getDate() - weekOffset * 7);
+
+    let countInPastWeek = 0;
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const d = new Date(pastMonday);
+      d.setDate(d.getDate() + dayOffset);
+      if (completedDates.has(getLocalDateString(d))) {
+        countInPastWeek++;
+      }
+    }
+
+    if (countInPastWeek >= targetDays) {
+      pastSuccessfulWeeksCount++;
+      hasPastStreak = true;
+    } else {
+      // Bu geçmiş haftada hedef tutturulamamış -> Seri bu haftada koptu
+      break;
+    }
+  }
+
+  // 3. Toplam Streak Gün Sayısı
+  if (hasPastStreak) {
+    if (isCurrentWeekStillViable || isCurrentWeekTargetMet) {
+      // Geçmiş haftaların tüm günleri (hafta başına 7 gün) + bu hafta bugüne kadar geçen gün sayısı
+      return pastSuccessfulWeeksCount * 7 + elapsedDaysThisWeek;
+    } else {
+      return 0;
+    }
+  } else {
+    // Geçmiş haftalarda aktif seri yok (kullanıcı yeni başladı veya bu hafta yeniden başladı)
+    if (completedThisWeekCount > 0 && isCurrentWeekStillViable) {
+      return elapsedDaysThisWeek;
+    } else {
+      return 0;
+    }
+  }
 };
 
 // --- SAMPLE DATA GENERATOR FOR DEMO ---
