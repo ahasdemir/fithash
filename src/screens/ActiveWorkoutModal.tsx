@@ -53,6 +53,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerKey, setRestTimerKey] = useState(Date.now());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
+  const [toggledRecs, setToggledRecs] = useState<Record<string, boolean>>({});
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -216,6 +217,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
+    // Toggle minimal recent stats view state for this exercise
+    setToggledRecs(prev => ({ ...prev, [exId]: !prev[exId] }));
+
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       const copySets = ex.sets.map((s, idx) => {
@@ -233,14 +237,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const updated = { ...session, exercises: updatedExercises };
     setSession(updated);
     onUpdateSession(updated);
-
-    setCustomAlert({
-      visible: true,
-      type: 'info',
-      title: 'Progressive Overload Önerisi',
-      message: rec.reason,
-      onConfirm: () => setCustomAlert(null),
-    });
   };
 
   const handleAddExercise = (ex: Exercise) => {
@@ -612,30 +608,40 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
                     </View>
 
-                    {recommendation && (
-                      <TouchableOpacity
-                        style={styles.recBadgePill}
-                        activeOpacity={0.8}
-                        onPress={() => handleApplyRecommendation(ex.id, recommendation)}
-                      >
-                        <Ionicons
-                          name={
-                            recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
-                              ? 'trending-up'
-                              : recommendation.actionType === 'MORE_REPS'
-                              ? 'add-circle-outline'
-                              : recommendation.actionType === 'LESS_WEIGHT'
-                              ? 'trending-down'
-                              : 'shield-checkmark-outline'
-                          }
-                          size={12}
-                          color="#111111"
-                        />
-                        <Text style={styles.recBadgeText}>
-                          {recommendation.badgeLabel}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                    {recommendation && (() => {
+                      const isToggled = !!toggledRecs[ex.id];
+                      const recentStatsText = recommendation.lastWeight > 0
+                        ? `Son: ${recommendation.lastWeight} kg × ${recommendation.lastReps} rep`
+                        : `Son: ${recommendation.lastReps} rep`;
+                      const displayText = isToggled ? recentStatsText : recommendation.badgeLabel;
+
+                      return (
+                        <TouchableOpacity
+                          style={[styles.recBadgePill, isToggled && styles.recBadgePillToggled]}
+                          activeOpacity={0.8}
+                          onPress={() => handleApplyRecommendation(ex.id, recommendation)}
+                        >
+                          <Ionicons
+                            name={
+                              isToggled
+                                ? 'stats-chart-outline'
+                                : (recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
+                                  ? 'trending-up'
+                                  : recommendation.actionType === 'MORE_REPS'
+                                  ? 'add-circle-outline'
+                                  : recommendation.actionType === 'LESS_WEIGHT'
+                                  ? 'trending-down'
+                                  : 'shield-checkmark-outline')
+                            }
+                            size={12}
+                            color={isToggled ? COLORS.textPrimary : '#111111'}
+                          />
+                          <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
+                            {displayText}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
                 </View>
 
@@ -1009,10 +1015,19 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     alignSelf: 'flex-start',
   },
+  recBadgePillToggled: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   recBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#111111',
+  },
+  recBadgeTextToggled: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
   },
   exVolumeText: {
     color: COLORS.textMuted,
