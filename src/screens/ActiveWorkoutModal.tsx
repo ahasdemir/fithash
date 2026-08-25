@@ -188,8 +188,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
   };
 
-  // Progressive Overload weight recommendation engine (Sports Science Autoregulated)
-  const calculateRecommendation = (exName: string, exId: string, equipment: string): SmartOverloadRecommendation | null => {
+  // Progressive Overload weight recommendation engine (Gold-Standard Double Progression & RP Model)
+  const calculateRecommendation = (
+    exName: string,
+    exId: string,
+    equipment: string = '',
+    category: string = ''
+  ): SmartOverloadRecommendation | null => {
     for (const past of pastWorkouts) {
       if (past.id === session.id) continue;
 
@@ -197,7 +202,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       if (match) {
         const validSets = match.sets.filter(s => s.completed && s.weight > 0);
         if (validSets.length > 0) {
-          return calculateSmartAutoregulatedOverload(exName, equipment, validSets, 10, 1);
+          return calculateSmartAutoregulatedOverload(exName, equipment, validSets, undefined, category);
         }
       }
     }
@@ -207,11 +212,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
-      const copySets = ex.sets.map(s => ({
-        ...s,
-        weight: rec.recWeight > 0 ? rec.recWeight : s.weight,
-        reps: rec.recReps > 0 ? rec.recReps : s.reps,
-      }));
+      const copySets = ex.sets.map((s, idx) => {
+        const setTarget = rec.setTargets && rec.setTargets[idx];
+        return {
+          ...s,
+          weight: rec.recWeight > 0 ? rec.recWeight : s.weight,
+          reps: setTarget ? setTarget.reps : (rec.recReps > 0 ? rec.recReps : s.reps),
+          rir: setTarget ? setTarget.targetRir : (s.rir ?? 1),
+        };
+      });
       return { ...ex, sets: copySets };
     });
 
@@ -222,14 +231,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     setCustomAlert({
       visible: true,
       type: 'info',
-      title: 'AI Önerisi Uygulandı',
+      title: 'Progressive Overload Önerisi',
       message: rec.reason,
       onConfirm: () => setCustomAlert(null),
     });
   };
 
   const handleAddExercise = (ex: Exercise) => {
-    const rec = calculateRecommendation(ex.name, ex.id, ex.equipment);
+    const rec = calculateRecommendation(ex.name, ex.id, ex.equipment, ex.category);
     const defaultWeight = rec ? rec.recWeight : 0;
     const isCardio = ex.category === 'Kardiyo';
 
@@ -547,7 +556,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             const catColor = COLORS.category[ex.category] || COLORS.textPrimary;
             const isCardio = ex.category === 'Kardiyo';
             const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
-            const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment) : null;
+            const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment, ex.category) : null;
 
             return (
               <View key={ex.id} style={styles.exCard}>
@@ -712,7 +721,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.setNumInput, set.completed && styles.inputCompleted]}
                           keyboardType="number-pad"
-                          placeholder="0"
+                          placeholder={
+                            recommendation?.setTargets?.[setIdx]
+                              ? `${recommendation.setTargets[setIdx].reps}`
+                              : recommendation
+                              ? `${recommendation.recReps}`
+                              : "0"
+                          }
                           placeholderTextColor={COLORS.textMuted}
                           value={set.reps > 0 ? set.reps.toString() : ''}
                           onChangeText={v => handleSetChange(ex.id, setIdx, 'reps', v)}
