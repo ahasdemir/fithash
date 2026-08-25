@@ -54,6 +54,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [restTimerKey, setRestTimerKey] = useState(Date.now());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [toggledRecs, setToggledRecs] = useState<Record<string, boolean>>({});
+  const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -220,6 +221,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     // Toggle minimal recent stats view state for this exercise
     setToggledRecs(prev => ({ ...prev, [exId]: !prev[exId] }));
 
+    // Reset raw input overrides for this exercise so newly applied values show cleanly
+    setRawInputMap(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => {
+        if (k.startsWith(`${exId}_`)) delete next[k];
+      });
+      return next;
+    });
+
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       const copySets = ex.sets.map((s, idx) => {
@@ -289,10 +299,29 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleSetChange = (exId: string, setIdx: number, field: keyof ExerciseSet, val: any) => {
+    let cleanString = typeof val === 'string' ? val : (val != null ? String(val) : '');
+    const isDecimalField = field === 'weight' || field === 'distanceKm';
+    const rawKey = `${exId}_${setIdx}_${field}`;
+
+    if (isDecimalField && typeof val === 'string') {
+      // Normalize Samsung keyboard comma (,) to dot (.) and sanitize
+      cleanString = val.replace(',', '.').replace(/[^0-9.]/g, '');
+      const parts = cleanString.split('.');
+      if (parts.length > 2) {
+        cleanString = parts[0] + '.' + parts.slice(1).join('');
+      }
+      setRawInputMap(prev => ({ ...prev, [rawKey]: cleanString }));
+    } else if ((field === 'reps' || field === 'durationMinutes') && typeof val === 'string') {
+      cleanString = val.replace(/[^0-9]/g, '');
+      setRawInputMap(prev => ({ ...prev, [rawKey]: cleanString }));
+    }
+
+    const floatVal = parseFloat(cleanString);
+    const parsedVal = isNaN(floatVal) ? 0 : floatVal;
+
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       const copySets = [...ex.sets];
-      const parsedVal = typeof val === 'number' ? val : (parseFloat(val) || 0);
 
       const updatedSet = {
         ...copySets[setIdx],
@@ -672,6 +701,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     const mins = set.durationMinutes || 0;
                     const dist = set.distanceKm || 0;
                     const speed = mins > 0 && dist > 0 ? ((dist / mins) * 60).toFixed(1) : '-';
+                    const durRawKey = `${ex.id}_${setIdx}_durationMinutes`;
+                    const distRawKey = `${ex.id}_${setIdx}_distanceKm`;
+                    const durDisplay = rawInputMap[durRawKey] !== undefined ? rawInputMap[durRawKey] : (mins > 0 ? mins.toString() : '');
+                    const distDisplay = rawInputMap[distRawKey] !== undefined ? rawInputMap[distRawKey] : (dist > 0 ? dist.toString() : '');
 
                     return (
                       <View key={set.id} style={[styles.tableRow, set.completed && styles.tableRowCompleted]}>
@@ -684,7 +717,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                             keyboardType="number-pad"
                             placeholder="15"
                             placeholderTextColor={COLORS.textMuted}
-                            value={mins > 0 ? mins.toString() : ''}
+                            value={durDisplay}
                             onChangeText={v => handleSetChange(ex.id, setIdx, 'durationMinutes', v)}
                           />
                         </View>
@@ -696,8 +729,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                             keyboardType="decimal-pad"
                             placeholder="2.5"
                             placeholderTextColor={COLORS.textMuted}
-                            value={dist > 0 ? dist.toString() : ''}
+                            value={distDisplay}
                             onChangeText={v => handleSetChange(ex.id, setIdx, 'distanceKm', v)}
+                            onBlur={() => {
+                              if (rawInputMap[distRawKey]?.endsWith('.')) {
+                                const cleaned = rawInputMap[distRawKey].slice(0, -1);
+                                setRawInputMap(prev => ({ ...prev, [distRawKey]: cleaned }));
+                              }
+                            }}
                           />
                         </View>
 
@@ -724,6 +763,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                   const rirVal = set.rir ?? 1;
                   const rirColor = getRirColor(rirVal);
+                  const weightRawKey = `${ex.id}_${setIdx}_weight`;
+                  const repsRawKey = `${ex.id}_${setIdx}_reps`;
+                  const weightDisplay = rawInputMap[weightRawKey] !== undefined ? rawInputMap[weightRawKey] : (set.weight > 0 ? set.weight.toString() : '');
+                  const repsDisplay = rawInputMap[repsRawKey] !== undefined ? rawInputMap[repsRawKey] : (set.reps > 0 ? set.reps.toString() : '');
 
                   return (
                     <View
@@ -742,8 +785,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           keyboardType="decimal-pad"
                           placeholder={recommendation ? `${recommendation.recWeight}` : "0"}
                           placeholderTextColor={COLORS.textMuted}
-                          value={set.weight > 0 ? set.weight.toString() : ''}
+                          value={weightDisplay}
                           onChangeText={v => handleSetChange(ex.id, setIdx, 'weight', v)}
+                          onBlur={() => {
+                            if (rawInputMap[weightRawKey]?.endsWith('.')) {
+                              const cleaned = rawInputMap[weightRawKey].slice(0, -1);
+                              setRawInputMap(prev => ({ ...prev, [weightRawKey]: cleaned }));
+                            }
+                          }}
                         />
                       </View>
 
@@ -760,7 +809,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                               : "0"
                           }
                           placeholderTextColor={COLORS.textMuted}
-                          value={set.reps > 0 ? set.reps.toString() : ''}
+                          value={repsDisplay}
                           onChangeText={v => handleSetChange(ex.id, setIdx, 'reps', v)}
                         />
                       </View>
