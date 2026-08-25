@@ -267,48 +267,76 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                {/* Bento Grid Summary Cards */}
+                {/* Bento Grid Summary Cards (2x2 Clean Balanced Layout) */}
                 <View style={styles.detailBentoGrid}>
+                  {/* Card 1: Süre */}
                   <View style={styles.detailBentoCard}>
-                    <Ionicons name="time" size={16} color="#111111" />
-                    <Text style={styles.detailBentoVal}>{formatDuration(selectedWorkout.durationSeconds)}</Text>
-                    <Text style={styles.detailBentoLabel}>Süre</Text>
+                    <View style={styles.bentoIconRow}>
+                      <Ionicons name="time" size={15} color="#111111" />
+                      <Text style={styles.detailBentoLabel}>Süre</Text>
+                    </View>
+                    <Text style={styles.detailBentoVal} numberOfLines={1}>
+                      {formatDuration(selectedWorkout.durationSeconds)}
+                    </Text>
                   </View>
 
-                  {selectedWorkout.totalVolume ? (
-                    <View style={styles.detailBentoCard}>
-                      <Ionicons name="barbell" size={16} color="#111111" />
-                      <Text style={styles.detailBentoVal}>{selectedWorkout.totalVolume.toLocaleString('tr-TR')}</Text>
-                      <Text style={styles.detailBentoLabel}>Hacim (kg)</Text>
+                  {/* Card 2: Hacim / Mesafe */}
+                  <View style={styles.detailBentoCard}>
+                    <View style={styles.bentoIconRow}>
+                      <Ionicons
+                        name={selectedWorkout.totalCardioDistanceKm ? "walk" : "barbell"}
+                        size={15}
+                        color="#111111"
+                      />
+                      <Text style={styles.detailBentoLabel}>
+                        {selectedWorkout.totalCardioDistanceKm ? "Mesafe" : "Hacim"}
+                      </Text>
                     </View>
-                  ) : null}
+                    <Text style={styles.detailBentoVal} numberOfLines={1}>
+                      {selectedWorkout.totalCardioDistanceKm
+                        ? `${selectedWorkout.totalCardioDistanceKm} km`
+                        : (selectedWorkout.totalVolume || 0) > 0
+                        ? `${(selectedWorkout.totalVolume || 0).toLocaleString('tr-TR')} kg`
+                        : '0 kg'}
+                    </Text>
+                  </View>
 
-                  {selectedWorkout.totalCaloriesBurned ? (
-                    <View style={[styles.detailBentoCard, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                      <Ionicons name="flame" size={16} color="#EF4444" />
-                      <Text style={[styles.detailBentoVal, { color: '#EF4444' }]}>~{selectedWorkout.totalCaloriesBurned}</Text>
-                      <Text style={styles.detailBentoLabel}>Kalori (kcal)</Text>
+                  {/* Card 3: Kalori */}
+                  <View style={[styles.detailBentoCard, { backgroundColor: 'rgba(239, 68, 68, 0.08)' }]}>
+                    <View style={styles.bentoIconRow}>
+                      <Ionicons name="flame" size={15} color="#EF4444" />
+                      <Text style={[styles.detailBentoLabel, { color: '#EF4444' }]}>Kalori</Text>
                     </View>
-                  ) : null}
+                    <Text style={[styles.detailBentoVal, { color: '#EF4444' }]} numberOfLines={1}>
+                      ~{selectedWorkout.totalCaloriesBurned || 0} kcal
+                    </Text>
+                  </View>
 
-                  {/* Set Compliance Bento Card */}
+                  {/* Card 4: Set Durumu */}
                   <View style={[
                     styles.detailBentoCard,
-                    skippedSetsInSession > 0 ? { backgroundColor: 'rgba(239, 68, 68, 0.1)' } : { backgroundColor: 'rgba(16, 185, 129, 0.1)' }
+                    skippedSetsInSession > 0
+                      ? { backgroundColor: 'rgba(239, 68, 68, 0.08)' }
+                      : { backgroundColor: 'rgba(16, 185, 129, 0.08)' }
                   ]}>
-                    <Ionicons
-                      name={skippedSetsInSession > 0 ? "alert-circle" : "checkmark-circle"}
-                      size={16}
-                      color={skippedSetsInSession > 0 ? "#EF4444" : "#10B981"}
-                    />
+                    <View style={styles.bentoIconRow}>
+                      <Ionicons
+                        name={skippedSetsInSession > 0 ? "alert-circle" : "checkmark-circle"}
+                        size={15}
+                        color={skippedSetsInSession > 0 ? "#EF4444" : "#10B981"}
+                      />
+                      <Text style={[
+                        styles.detailBentoLabel,
+                        { color: skippedSetsInSession > 0 ? '#EF4444' : '#10B981' }
+                      ]} numberOfLines={1}>
+                        {skippedSetsInSession > 0 ? `${skippedSetsInSession} Atlandı` : 'Tamamlandı'}
+                      </Text>
+                    </View>
                     <Text style={[
                       styles.detailBentoVal,
                       { color: skippedSetsInSession > 0 ? '#EF4444' : '#10B981' }
-                    ]}>
-                      {completedSetsInSession}/{totalSetsInSession}
-                    </Text>
-                    <Text style={styles.detailBentoLabel}>
-                      {skippedSetsInSession > 0 ? `${skippedSetsInSession} Set Atlandı` : 'Set Tamamlandı'}
+                    ]} numberOfLines={1}>
+                      {completedSetsInSession}/{totalSetsInSession} Set
                     </Text>
                   </View>
                 </View>
@@ -407,7 +435,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
                         return (
                           <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
-                            <View style={{ width: 36, alignItems: 'center' }}>
+                            <View style={{ width: 32, alignItems: 'center' }}>
                               <Ionicons
                                 name={isSetCompleted ? "checkmark-circle" : "close-circle"}
                                 size={16}
@@ -421,14 +449,9 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                             <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                               {set.reps} tekrar
                             </Text>
-                            <Text style={[styles.setValue, { width: 50, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
-                              RIR {set.rir ?? 1}
+                            <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
+                              {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
                             </Text>
-                            {!isSetCompleted && (
-                              <View style={styles.skippedTag}>
-                                <Text style={styles.skippedTagText}>ATLANDI</Text>
-                              </View>
-                            )}
                           </View>
                         );
                       })}
@@ -725,31 +748,37 @@ const styles = StyleSheet.create({
   detailBentoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   detailBentoCard: {
-    flex: 1,
-    minWidth: '46%',
-    maxWidth: '50%',
+    width: '48.5%',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
+    minHeight: 70,
+  },
+  bentoIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   detailBentoVal: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   detailBentoLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   modalScroll: {
     flex: 1,

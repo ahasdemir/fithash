@@ -16,3 +16,8 @@ This project utilizes two specialized subagents:
   - Handling `AsyncStorage` and data persistence ([src/services](file:///home/ahmet/Projects/fitness-tracker/src/services))
   - Setting up `expo-notifications` for workout tracking & step counting goals
   - Defining TypeScript data models and analytics ([src/types](file:///home/ahmet/Projects/fitness-tracker/src/types))
+
+## Web Export & Live Preview Workflow
+- **Export Command**: `npx expo export -p web` (Outputs production static build to `dist/`).
+- **Quick Tunnel Preview**: Run `python3 -m http.server 5050 --directory dist` and `cloudflared tunnel --url http://localhost:5050` to generate a instant live HTTPS preview link on `trycloudflare.com`.
+- **Vercel Deploy**: Run `npx vercel` targeting the `dist` directory.
