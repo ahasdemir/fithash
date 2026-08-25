@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, PersonalRecord } from '../types/fitness';
-import { getAppSettings } from '../services/settings';
-import { generateGeminiAnalysis, AIAnalysisResult } from '../services/geminiService';
+import { generateLocalCoachAnalysis, CoachAnalysisResult } from '../services/progressionEngine';
 import { getCachedAIAnalysis, saveCachedAIAnalysis } from '../services/storage';
 
 interface AICoachWidgetProps {
@@ -13,13 +12,13 @@ interface AICoachWidgetProps {
 }
 
 export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) => {
-  const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<CoachAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [justRefreshed, setJustRefreshed] = useState(false);
 
   useEffect(() => {
     initAnalysis();
-  }, []);
+  }, [workouts, prs]);
 
   const initAnalysis = async () => {
     const cached = await getCachedAIAnalysis();
@@ -34,17 +33,11 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
     setLoading(true);
     setJustRefreshed(false);
 
-    const minDelay = isManualRefresh ? new Promise(resolve => setTimeout(resolve, 500)) : Promise.resolve();
+    const minDelay = isManualRefresh ? new Promise(resolve => setTimeout(resolve, 300)) : Promise.resolve();
 
     try {
-      const settings = await getAppSettings();
       const [result] = await Promise.all([
-        generateGeminiAnalysis(
-          workouts,
-          prs,
-          settings.geminiApiKey,
-          settings.selectedModel
-        ),
+        Promise.resolve(generateLocalCoachAnalysis(workouts, prs)),
         minDelay,
       ]);
 
@@ -56,7 +49,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
         setTimeout(() => setJustRefreshed(false), 2500);
       }
     } catch (error) {
-      console.error('Error running AI analysis:', error);
+      console.error('Error running coach analysis:', error);
     } finally {
       setLoading(false);
     }
@@ -71,9 +64,9 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
             <Ionicons name="sparkles" size={16} color="#111111" />
           </View>
           <View>
-            <Text style={styles.cardTitle}>FitHash AI Antrenör</Text>
+            <Text style={styles.cardTitle}>FitHash Akıllı Antrenör</Text>
             <Text style={styles.cardSubtitle}>
-              {analysis?.isCustomKeyUsed ? 'Gemini API Canlı Analiz' : 'Akıllı Analiz Motoru'}
+              Bilimsel Hipertrofi & Antrenman Analizi
             </Text>
           </View>
         </View>
@@ -104,13 +97,6 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
 
           {/* Summary */}
           <Text style={styles.summaryText}>{analysis.summary}</Text>
-
-          {analysis.liveError && (
-            <View style={styles.liveErrorBox}>
-              <Ionicons name="warning-outline" size={15} color="#B45309" />
-              <Text style={styles.liveErrorText}>{analysis.liveError}</Text>
-            </View>
-          )}
 
           {/* Overload Tip Box */}
           <View style={styles.tipBox}>

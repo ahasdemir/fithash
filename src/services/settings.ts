@@ -12,8 +12,6 @@ const STORAGE_KEYS = {
 };
 
 export interface AppSettings {
-  geminiApiKey: string;
-  selectedModel: string;
   defaultRestSeconds: number; // e.g. 30, 60, 90, 120, 180
   autoStartRestTimer: boolean;
   defaultRir: number; // 0, 1, 2, 3
@@ -24,8 +22,6 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  geminiApiKey: '',
-  selectedModel: 'gemini-2.0-flash',
   defaultRestSeconds: 90,
   autoStartRestTimer: true,
   defaultRir: 1,
@@ -40,11 +36,7 @@ export const getAppSettings = async (): Promise<AppSettings> => {
     const json = await AsyncStorage.getItem(SETTINGS_KEY);
     if (!json) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(json);
-    let selectedModel = parsed.selectedModel || 'gemini-2.0-flash';
-    if (selectedModel.includes('2.5')) {
-      selectedModel = 'gemini-2.0-flash';
-    }
-    return { ...DEFAULT_SETTINGS, ...parsed, selectedModel };
+    return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (error) {
     console.error('Error reading settings:', error);
     return DEFAULT_SETTINGS;

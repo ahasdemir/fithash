@@ -22,7 +22,7 @@ import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
-import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/geminiService';
+import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/progressionEngine';
 import { getAppSettings } from '../services/settings';
 
 interface ActiveWorkoutModalProps {

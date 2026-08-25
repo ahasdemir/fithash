@@ -36,13 +36,6 @@ interface SettingsModalProps {
   onDataReload: () => void;
 }
 
-const AVAILABLE_MODELS = [
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Ücretsiz Tier • Hızlı & Önerilen' },
-  { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash-Lite', tag: 'Ücretsiz Tier • Ultra Hızlı' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Ücretsiz Tier • Kararlı Standart' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Özel/Ücretli Tier • Gelişmiş Mantık' },
-];
-
 const REST_TIME_OPTIONS = [30, 60, 90, 120, 180];
 const RIR_OPTIONS = [0, 1, 2, 3];
 
@@ -51,9 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onDataReload,
 }) => {
-  const [apiKey, setApiKey] = useState('');
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
-  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [defaultRir, setDefaultRir] = useState(1);
@@ -77,12 +68,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const loadSettings = async () => {
     const s = await getAppSettings();
-    setApiKey(s.geminiApiKey || '');
-    let model = s.selectedModel || 'gemini-2.0-flash';
-    if (model.includes('2.5')) {
-      model = 'gemini-2.0-flash';
-    }
-    setSelectedModel(model);
     setDefaultRestSeconds(s.defaultRestSeconds ?? 90);
     setAutoStartRestTimer(s.autoStartRestTimer ?? true);
     setDefaultRir(s.defaultRir ?? 1);
@@ -160,8 +145,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSaveAllSettings = async () => {
     await saveAppSettings({
-      geminiApiKey: apiKey.trim(),
-      selectedModel,
       defaultRestSeconds,
       autoStartRestTimer,
       defaultRir,
@@ -414,68 +397,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
           </View>
 
-          {/* SECTION 2: GEMINI AI API & MODEL SETTINGS */}
-          <View style={styles.bentoSection}>
-            <View style={styles.sectionTitleRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="sparkles" size={18} color="#111111" />
-              </View>
-              <View>
-                <Text style={styles.sectionTitle}>Gemini AI Entegrasyonu</Text>
-                <Text style={styles.sectionSub}>Kişisel AI antrenörünüz için API anahtarı ve model</Text>
-              </View>
-            </View>
 
-            {/* API Key Input */}
-            <Text style={styles.label}>Gemini API Key</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="AIzaSy..."
-                placeholderTextColor={COLORS.textMuted}
-                value={apiKey}
-                onChangeText={setApiKey}
-                secureTextEntry={false}
-              />
-              {apiKey ? (
-                <TouchableOpacity onPress={() => setApiKey('')}>
-                  <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <Text style={styles.hintText}>
-              API anahtarınız sadece cihazınızda saklanır ve Google Gemini sunucularına doğrudan istek atmak için kullanılır.
-            </Text>
-
-            {/* Model Selector */}
-            <Text style={styles.label}>AI Modeli Seçin</Text>
-            <View style={styles.modelsContainer}>
-              {AVAILABLE_MODELS.map(m => {
-                const isSelected = selectedModel === m.id;
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={[
-                      styles.modelCard,
-                      isSelected && styles.modelCardSelected,
-                    ]}
-                    onPress={() => setSelectedModel(m.id)}
-                  >
-                    <View style={styles.modelCardHeader}>
-                      <Text style={[styles.modelName, isSelected && styles.modelNameSelected]}>
-                        {m.name}
-                      </Text>
-                      <View style={[styles.modelTag, isSelected && styles.modelTagSelected]}>
-                        <Text style={[styles.modelTagText, isSelected && styles.modelTagTextSelected]}>
-                          {m.tag}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
 
           {/* SAVE ALL SETTINGS BUTTON */}
           <TouchableOpacity
