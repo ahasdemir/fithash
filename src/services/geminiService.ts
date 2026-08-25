@@ -279,17 +279,24 @@ export const getHypertrophyRepBracket = (
     return { minReps: 12, maxReps: 20, archetype: 'Metabolik & İzolasyon (12-20 Reps)' };
   }
 
-  // 2. Heavy Multi-Joint Free Weight Compounds (6 - 10 Reps)
+  // 2. Heavy Multi-Joint Free Weight Compounds (5 - 8 Reps for Squat/Deadlift/Bench, 6 - 10 for other free weights)
   if (
     (eq.includes('barbell') || eq.includes('serbest') || eq.includes('plate')) &&
-    (name.includes('bench press') ||
+    (name.includes('deadlift') ||
      name.includes('squat') ||
-     name.includes('deadlift') ||
+     name.includes('bench press') ||
      name.includes('overhead press') ||
-     name.includes('military') ||
-     name.includes('barbell row') ||
+     name.includes('military'))
+  ) {
+    return { minReps: 5, maxReps: 8, archetype: 'Ağır Serbest Bileşik (5-8 Reps)' };
+  }
+
+  if (
+    (eq.includes('barbell') || eq.includes('serbest') || eq.includes('plate')) &&
+    (name.includes('barbell row') ||
      name.includes('bent over') ||
-     name.includes('incline press'))
+     name.includes('incline press') ||
+     name.includes('romanian'))
   ) {
     return { minReps: 6, maxReps: 10, archetype: 'Ağır Serbest Bileşik (6-10 Reps)' };
   }
@@ -371,27 +378,40 @@ export const calculateLoadIncrement = (
  * (Evidence-Based Sports Science / Dr. Mike Israetel / Eric Helms Model)
  *
  * Principles:
- * 1. Double Progression: Advance reps within the hypertrophy bracket -> Upon hitting the rep ceiling, bump weight and reset reps to bracket base.
- * 2. Autoregulation via RIR: Adjust recommendations dynamically based on actual proximity to failure (RIR 1-2 sweet spot).
- * 3. Equipment-Aware Microloading: Prevents excessive percentage jumps on dumbbells and isolation movements.
- * 4. Intra-Workout Fatigue Modeling: Accounts for neuromuscular fatigue across sets (e.g. Set 1: 12 reps -> Set 2: 11 reps -> Set 3: 10 reps).
+ * 1. Category & Movement Rep Ranges: 5-8 reps on Squat/Deadlift/Bench, 8-12 on Machines, 10-15 on Isolations, 12-20 on Delts/Calves.
+ * 2. Multi-Session Trend Lookback: Ingests last 2-3 sessions to eliminate "Single Bad Day Fragility" outliers.
+ * 3. Double Progression: Advance reps within the hypertrophy bracket -> Upon hitting the rep ceiling, bump weight and reset reps to bracket base.
+ * 4. Autoregulation via RIR: Adjust recommendations dynamically based on actual proximity to failure (RIR 1-2 sweet spot).
+ * 5. Equipment-Aware Microloading: Prevents excessive percentage jumps on dumbbells and isolation movements.
+ * 6. Intra-Workout Fatigue Modeling: Accounts for neuromuscular fatigue across sets (e.g. Set 1: 12 reps -> Set 2: 11 reps -> Set 3: 10 reps).
  */
 export const calculateSmartAutoregulatedOverload = (
   exerciseName: string,
   equipment: string = '',
-  pastCompletedSets: ExerciseSet[],
+  pastCompletedSetsOrSessions: ExerciseSet[] | ExerciseSet[][],
   customTargetReps?: number,
   category: string = ''
 ): SmartOverloadRecommendation => {
   const bracket = getHypertrophyRepBracket(exerciseName, equipment, category);
   
-  // If a specific custom target rep was configured (e.g., in a routine), anchor bracket around it
+  // Anchor bracket around custom routine target reps if specified
   const minReps = customTargetReps ? Math.max(3, customTargetReps - 2) : bracket.minReps;
   const maxReps = customTargetReps ? customTargetReps + 2 : bracket.maxReps;
 
-  const validSets = (pastCompletedSets || []).filter(s => s.completed && s.weight > 0);
+  // Normalize multi-session history: pastSessions[0] = most recent, pastSessions[1] = previous, etc.
+  let pastSessions: ExerciseSet[][] = [];
+  if (Array.isArray(pastCompletedSetsOrSessions) && pastCompletedSetsOrSessions.length > 0) {
+    if (Array.isArray(pastCompletedSetsOrSessions[0])) {
+      pastSessions = (pastCompletedSetsOrSessions as ExerciseSet[][])
+        .map(sList => sList.filter(s => s.completed && s.weight > 0))
+        .filter(sList => sList.length > 0);
+    } else {
+      const valid = (pastCompletedSetsOrSessions as ExerciseSet[]).filter(s => s.completed && s.weight > 0);
+      if (valid.length > 0) pastSessions = [valid];
+    }
+  }
 
-  if (validSets.length === 0) {
+  if (pastSessions.length === 0) {
     const baseReps = customTargetReps || Math.round((minReps + maxReps) / 2);
     return {
       recWeight: 0,
@@ -410,10 +430,11 @@ export const calculateSmartAutoregulatedOverload = (
     };
   }
 
-  // Working metrics from most recent session
-  const weights = validSets.map(s => s.weight);
-  const reps = validSets.map(s => s.reps);
-  const rirs = validSets.map(s => s.rir ?? 1);
+  // Primary metrics from most recent session (Session 0)
+  const recentSets = pastSessions[0];
+  const weights = recentSets.map(s => s.weight);
+  const reps = recentSets.map(s => s.reps);
+  const rirs = recentSets.map(s => s.rir ?? 1);
 
   const lastMaxWeight = Math.max(...weights);
   const avgReps = Math.round(reps.reduce((a, b) => a + b, 0) / reps.length);
@@ -437,6 +458,33 @@ export const calculateSmartAutoregulatedOverload = (
       };
     });
   };
+
+  // MULTI-SESSION TREND ANALYSIS: Single Bad Day Outlier Detection
+  if (pastSessions.length >= 2) {
+    const prevSets = pastSessions[1];
+    const prevMaxWeight = Math.max(...prevSets.map(s => s.weight));
+    const prevAvgReps = Math.round(prevSets.reduce((a, b) => a + b.reps, 0) / prevSets.length);
+
+    // If previous session was strong and in-bracket, but latest session experienced an isolated dip (e.g. bad sleep/fatigue)
+    const isIsolatedDip = (lastMaxWeight >= prevMaxWeight) && (prevAvgReps >= minReps) && (avgReps < minReps || avgRir === 0);
+    if (isIsolatedDip) {
+      return {
+        recWeight: prevMaxWeight,
+        lastWeight: lastMaxWeight,
+        recReps: prevAvgReps,
+        lastReps: avgReps,
+        lastRir: avgRir,
+        increment: 0,
+        minBracketReps: minReps,
+        maxBracketReps: maxReps,
+        actionType: 'MAINTAIN',
+        badgeLabel: `🛡️ ${prevMaxWeight} kg (Toparlanma / Sabit)`,
+        reason: `Geçmiş seans trendinize göre son seansta geçici bir yorgunluk/düşüş yaşandı. Serinizi korumak için ${prevMaxWeight} kg ile ${prevAvgReps} tekrar toparlanma hedefleyin.`,
+        isDoubleProgression: false,
+        setTargets: generateSetTargets(prevMaxWeight, prevAvgReps, 1),
+      };
+    }
+  }
 
   // --- PROGRESSION DECISION MATRIX ---
 

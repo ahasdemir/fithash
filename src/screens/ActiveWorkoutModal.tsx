@@ -195,6 +195,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     equipment: string = '',
     category: string = ''
   ): SmartOverloadRecommendation | null => {
+    const pastSessions: ExerciseSet[][] = [];
     for (const past of pastWorkouts) {
       if (past.id === session.id) continue;
 
@@ -202,9 +203,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       if (match) {
         const validSets = match.sets.filter(s => s.completed && s.weight > 0);
         if (validSets.length > 0) {
-          return calculateSmartAutoregulatedOverload(exName, equipment, validSets, undefined, category);
+          pastSessions.push(validSets);
+          if (pastSessions.length >= 3) break; // Collect up to 3 past sessions for trend analysis
         }
       }
+    }
+
+    if (pastSessions.length > 0) {
+      return calculateSmartAutoregulatedOverload(exName, equipment, pastSessions, undefined, category);
     }
     return null;
   };
