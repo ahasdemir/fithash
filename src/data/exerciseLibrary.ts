@@ -16,12 +16,14 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_pushup', name: 'Push-Up (Şınav)', category: 'Göğüs', equipment: 'Vücut Ağırlığı', targetMuscle: 'Göğüs & Triceps', instructions: 'Elleri omuz genişliğinde koyup gövdeyi düz bir çizgide aşağı indirip göğüsten itin.' },
   { id: 'ex_db_pullover', name: 'Dumbbell Pullover', category: 'Göğüs', equipment: 'Dumbbell', targetMuscle: 'Üst Göğüs & Latissimus', instructions: 'Sehpaya sırtı koyarak dambılı başın arkasından göğüs hizasına doğru kaldırın.' },
   { id: 'ex_landmine_press', name: 'Landmine Press', category: 'Göğüs', equipment: 'Barbell', targetMuscle: 'Üst Göğüs & Ön Omuz', instructions: 'Halterin tek ucunu açılı tutarak yukarı ve öne doğru presleyin.' },
+  { id: 'custom_ex_1787820061934', name: 'Chest Press', category: 'Göğüs', equipment: 'Makine', targetMuscle: 'Orta & Alt Göğüs', instructions: 'Oturarak göğüs pres makinesinde tutacakları göğüs hizasında kavrayıp sıkarak öne doğru itin.' },
 
   // --- SIRT (BACK) ---
   { id: 'ex_pullup', name: 'Pull-Up (Geniş Tutuş Barfiks)', category: 'Sırt', equipment: 'Vücut Ağırlığı', targetMuscle: 'Üst Sırt & Kanat', instructions: 'Geniş tutuşla kendinizi göğüs seviyesine kadar yukarı çekin.' },
   { id: 'ex_chinup', name: 'Chin-Up (Dar Avuç İçi Barfiks)', category: 'Sırt', equipment: 'Vücut Ağırlığı', targetMuscle: 'Kanat & Biceps', instructions: 'Avuç içleri kendinize dönük olarak çenenizi barın üzerine çekin.' },
   { id: 'ex_lat_pulldown', name: 'Lat Pulldown', category: 'Sırt', equipment: 'Kablo', targetMuscle: 'Kanat (Latissimus)', instructions: 'Geniş tutuşla barı üst göğse çekin, RIR 1 seviyesini koruyun.' },
   { id: 'ex_seated_cable_row', name: 'Seated Cable Row', category: 'Sırt', equipment: 'Kablo', targetMuscle: 'Orta Sırt & Kalınlık', instructions: 'Karnınıza doğru kabloyu çekip kürek kemiklerini birbirine bastırın.' },
+  { id: 'custom_ex_1787821074027', name: 'Seated Row MCH', category: 'Sırt', equipment: 'Makine', targetMuscle: 'Orta Sırt & Kanat', instructions: 'Göğüs desteğine yaslanarak tutacakları karnınıza doğru çekip kürek kemiklerini birbirine sıkıştırın.' },
   { id: 'ex_bent_over_row', name: 'Bent-Over Barbell Row', category: 'Sırt', equipment: 'Barbell', targetMuscle: 'Tüm Sırt', instructions: 'Gövdeyi 45 derece eğip barı göbeğe doğru çekin.' },
   { id: 'ex_tbar_row_cs', name: 'T-Bar Row (Chest Supported)', category: 'Sırt', equipment: 'Makine', targetMuscle: 'Orta Sırt & Kalınlık', instructions: 'Göğüs destekli T-Bar çekiş, beli koruyarak sırtı sıkıştırın.' },
   { id: 'ex_tbar_row', name: 'T-Bar Row', category: 'Sırt', equipment: 'Barbell', targetMuscle: 'Orta Sırt', instructions: 'T-Bar aparatı ile gövde eğik çekiş.' },
@@ -52,6 +54,10 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_hip_adductor', name: 'Hip Adductor Machine (İç Bacak)', category: 'Bacak', equipment: 'Makine', targetMuscle: 'İç Bacak (Adductors)', instructions: 'Oturarak bacakları içe doğru birleştirip iç bacağı sıkın.' },
   { id: 'ex_cable_glute_kickback', name: 'Cable Glute Kickback', category: 'Bacak', equipment: 'Kablo', targetMuscle: 'Kalça (Gluteus Maximus)', instructions: 'Ayak bileğinize kabloyu bağlayıp bacağınızı geriye doğru itin.' },
   { id: 'ex_standing_calf_raise', name: 'Standing Calf Raise', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Gastrocnemius (Üst Kalf)', instructions: 'Ayakta kalf makinesinde topukları tepe noktaya kadar kaldırın.' },
+  { id: 'custom_ex_1787749289886', name: 'Horizontal Leg Press', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Ön Bacak & Kalça', instructions: 'Yatay leg press makinesinde sırtı sehpaya yaslayıp ayak tabanlarıyla platformu kontrollü itin.' },
+  { id: 'custom_ex_1787739646969', name: 'Horizantal Leg Press', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Ön Bacak & Kalça', instructions: 'Yatay leg press makinesinde sırtı sehpaya yaslayıp ayak tabanlarıyla platformu kontrollü itin.' },
+  { id: 'custom_ex_1786959435976', name: 'Seated Leg Curl', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Arka Bacak (Hamstrings)', instructions: 'Oturarak bacak bükme makinesinde dizleri aşağı doğru büküp arka bacağı sıkıştırın.' },
+  { id: 'custom_ex_1786650446836', name: 'Leg Press Calf Raise', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Gastrocnemius (Kalf)', instructions: 'Leg press platformunda ayakların sadece uç kısmını yerleştirip parmak uçlarıyla platformu ileri doğru itin.' },
 
   // --- OMUZ (SHOULDERS) ---
   { id: 'ex_shoulders_1', name: 'Overhead Barbell Press (OHP)', category: 'Omuz', equipment: 'Barbell', targetMuscle: 'Ön & Yan Omuz', instructions: 'Ayakta barı baş üstüne itin.' },
@@ -60,7 +66,7 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_ohp_mch', name: 'Overhead Press MCH', category: 'Omuz', equipment: 'Makine', targetMuscle: 'Ön & Yan Omuz', instructions: 'Omuz pres makinesinde baş üstüne itin.' },
   { id: 'ex_lat_raise_drop', name: 'Lateral Raise (Dropset)', category: 'Omuz', equipment: 'Dumbbell', targetMuscle: 'Yan Omuz', instructions: 'Ağır kilodan hafif kiloya noksansız dropset, RIR 0 (tam tükeniş).' },
   { id: 'ex_cable_lateral_raise', name: 'Cable Lateral Raise', category: 'Omuz', equipment: 'Kablo', targetMuscle: 'Yan Omuz İzolasyon', instructions: 'Alt makaradan tek kol yan omuz açışı yapın.' },
-  { id: 'ex_reverse_fly', name: 'Reverse Fly (Pec Deck)', category: 'Omuz', equipment: 'Makine', targetMuscle: 'Arka Omuz', instructions: 'Ters fly makinesi ile arka omuzları sıkıştırın.' },
+  { id: 'ex_reverse_fly', name: 'Reverse Fly', category: 'Omuz', equipment: 'Makine', targetMuscle: 'Arka Omuz', instructions: 'Ters fly makinesi (Pec Deck) ile kolları geriye açarak arka omuzları sıkıştırın.' },
   { id: 'ex_db_front_raise', name: 'Dumbbell Front Raise', category: 'Omuz', equipment: 'Dumbbell', targetMuscle: 'Ön Omuz', instructions: 'Dambılları öne doğru göz seviyesine kaldırın.' },
   { id: 'ex_barbell_shrug', name: 'Barbell Shrug', category: 'Omuz', equipment: 'Barbell', targetMuscle: 'Trapezler', instructions: 'Omuzları kulaklara doğru yukarı silkerek çekin.' },
   { id: 'ex_db_lateral_raise', name: 'Dumbbell Lateral Raise (Klasik Yan Omuz)', category: 'Omuz', equipment: 'Dumbbell', targetMuscle: 'Yan Omuz', instructions: 'Dambılları dirsekler hafif bükük şekilde yana doğru omuz hizasına kaldırın.' },
@@ -68,7 +74,8 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_db_shrug', name: 'Dumbbell Shrug', category: 'Omuz', equipment: 'Dumbbell', targetMuscle: 'Trapezler', instructions: 'Dambıllarla omuzları yukarı doğru silkerek tepe noktada sıkın.' },
 
   // --- ÖN KOL / BICEPS ---
-  { id: 'ex_biceps_curl', name: 'Dumbbell Biceps Curl', category: 'Ön Kol', equipment: 'Dumbbell', targetMuscle: 'Biceps Brachii', instructions: 'Klasik dambıl biceps bükme.' },
+  { id: 'ex_biceps_curl', name: 'Biceps Curl', category: 'Ön Kol', equipment: 'Dumbbell', targetMuscle: 'Biceps Brachii', instructions: 'Klasik dambıl ile biceps bükme hareketi.' },
+  { id: 'ex_dumbbell_biceps_curl', name: 'Dumbbell Biceps Curl', category: 'Ön Kol', equipment: 'Dumbbell', targetMuscle: 'Biceps Brachii', instructions: 'Klasik dambıl biceps bükme.' },
   { id: 'ex_barbell_curl', name: 'Barbell Curl', category: 'Ön Kol', equipment: 'Barbell', targetMuscle: 'Biceps Hacim', instructions: 'Barbell ile ayakta biceps bükme.' },
   { id: 'ex_hammer_curl', name: 'Hammer Curl', category: 'Ön Kol', equipment: 'Dumbbell', targetMuscle: 'Brachialis & Ön Kol', instructions: 'Avuç içleri birbirine bakacak şekilde dambıl bükme.' },
   { id: 'ex_incline_db_curl', name: 'Incline Dumbbell Curl', category: 'Ön Kol', equipment: 'Dumbbell', targetMuscle: 'Biceps Uzun Baş', instructions: 'Eğimli sehpada kolları geride esneterek dambıl kaldırın.' },
@@ -88,6 +95,7 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_bench_dips', name: 'Triceps Dips (Bench Dips)', category: 'Arka Kol', equipment: 'Vücut Ağırlığı', targetMuscle: 'Triceps', instructions: 'Sehpaya arkadan tutunup dirsekleri 90 derece bükerek vücudu indirin ve itin.' },
   { id: 'ex_cable_overhead_triceps_ext', name: 'Cable Overhead Triceps Extension', category: 'Arka Kol', equipment: 'Kablo', targetMuscle: 'Triceps Uzun Baş', instructions: 'Kabloyu baş arkasından öne doğru uzatarak triceps uzun başını esnetin.' },
   { id: 'ex_db_triceps_kickback', name: 'Dumbbell Triceps Kickback', category: 'Arka Kol', equipment: 'Dumbbell', targetMuscle: 'Triceps İzolasyon', instructions: 'Gövde öne eğik durumdayken dambılı geriye doğru uzatıp tricepsi kilitleyin.' },
+  { id: 'custom_ex_1787566359529', name: 'Triceps Press', category: 'Arka Kol', equipment: 'Makine', targetMuscle: 'Triceps Brachii', instructions: 'Oturarak triceps press makinesinde kolları aşağı doğru düzleştirip triceps kaslarını kilitleyin.' },
 
   // --- KARIN / CORE ---
   { id: 'ex_abs_1', name: 'Cable Woodchopper', category: 'Karın', equipment: 'Kablo', targetMuscle: 'Oblikler', instructions: 'Kabloyu çapraz çekin.' },
