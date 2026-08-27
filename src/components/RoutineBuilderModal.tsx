@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Routine, RoutineExercise, Exercise } from '../types/fitness';
 import { ExercisePickerModal } from './ExercisePickerModal';
@@ -27,6 +28,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Özel Program');
@@ -171,7 +173,14 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.form}
+            contentContainerStyle={[
+              styles.formContent,
+              { paddingBottom: Math.max(insets.bottom, 16) + 40 }
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.label}>Program Adı *</Text>
             <TextInput
               style={styles.input}
@@ -367,8 +376,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '90%',
-    padding: 18,
+    height: '92%',
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -387,6 +398,9 @@ const styles = StyleSheet.create({
   },
   form: {
     marginVertical: 12,
+  },
+  formContent: {
+    paddingBottom: 40,
   },
   label: {
     fontSize: 13,

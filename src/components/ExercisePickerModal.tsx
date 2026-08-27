@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { Exercise, MuscleCategory } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddExerciseModal } from './AddExerciseModal';
 import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
 
@@ -38,6 +39,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   onClose,
   onSelectExercise,
 }) => {
+  const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
@@ -154,9 +156,14 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
 
           {/* Exercise List */}
           <FlatList
+            style={styles.exerciseFlatList}
             data={filteredExercises}
             keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContainer}
+            contentContainerStyle={[
+              styles.listContainer,
+              { paddingBottom: Math.max(insets.bottom, 16) + 80 }
+            ]}
+            showsVerticalScrollIndicator={true}
             renderItem={({ item }) => {
               const catColor = COLORS.category[item.category] || COLORS.textPrimary;
               return (
@@ -247,10 +254,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '88%',
-    padding: 18,
+    height: '92%',
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 0,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  exerciseFlatList: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

@@ -582,7 +582,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           </View>
         )}
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 70 }
+          ]}
+        >
           {session.exercises.map((ex, exIndex) => {
             const catColor = COLORS.category[ex.category] || COLORS.textPrimary;
             const isCardio = ex.category === 'Kardiyo';
