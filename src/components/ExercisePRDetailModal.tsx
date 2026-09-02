@@ -666,15 +666,21 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                 {stats.sessionHistory.map((s, idx) => (
                   <View key={`${s.workoutId}_${idx}`} style={styles.sessionCard}>
                     <View style={styles.sessionCardTop}>
-                      <View>
+                      <View style={styles.sessionCardTitleBox}>
                         <Text style={styles.sessionDateText}>{s.date}</Text>
-                        <Text style={styles.sessionWorkoutNameText}>{s.workoutName}</Text>
-                      </View>
-                      <View style={styles.sessionPill}>
-                        <Text style={styles.sessionPillText}>
-                          Zirve: {s.sessionMaxWeight} kg {s.sessionMax1RM > 0 ? `(1RM: ${s.sessionMax1RM}k)` : ''}
+                        <Text style={styles.sessionWorkoutNameText} numberOfLines={1}>
+                          {s.workoutName || 'Antrenman Seansı'}
                         </Text>
                       </View>
+
+                      {s.sessionMaxWeight > 0 && !stats.isCardio ? (
+                        <View style={styles.sessionPill}>
+                          <Text style={styles.sessionPillLabel}>En İyi</Text>
+                          <Text style={styles.sessionPillVal}>
+                            {s.sessionMaxWeight} kg {s.sessionMax1RM > 0 ? `• 1RM ${s.sessionMax1RM}k` : ''}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     {/* Sets Grid */}
@@ -1036,6 +1042,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
+  },
+  sessionCardTitleBox: {
+    flex: 1,
+    minWidth: 0,
   },
   sessionDateText: {
     fontSize: 13,
@@ -1045,19 +1056,29 @@ const styles = StyleSheet.create({
   sessionWorkoutNameText: {
     fontSize: 11,
     color: COLORS.textMuted,
-    marginTop: 1,
+    marginTop: 2,
   },
   sessionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
+    flexShrink: 0,
   },
-  sessionPillText: {
-    fontSize: 11,
+  sessionPillLabel: {
+    fontSize: 9,
     fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+  },
+  sessionPillVal: {
+    fontSize: 11,
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
   setsWrap: {
