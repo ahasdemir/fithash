@@ -2,7 +2,7 @@
   "expo": {
     "name": "FitHash",
     "slug": "fithash",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "com.fithash.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#111111",
         "foregroundImage": "./assets/icon.png"
