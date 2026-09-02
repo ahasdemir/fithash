@@ -636,10 +636,10 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
             <View style={styles.repTableCard}>
               <View style={styles.repTableHeader}>
                 <View style={styles.repTitleRow}>
-                  <Ionicons name="calculator-outline" size={18} color={COLORS.textPrimary} />
-                  <Text style={styles.repTableTitle}>Hedef Tekrar Maksimumları (Rep Max Projeksiyonu)</Text>
+                  <Ionicons name="calculator-outline" size={17} color={COLORS.textPrimary} />
+                  <Text style={styles.repTableTitle}>Tekrar Maksimumları (Rep Max)</Text>
                 </View>
-                <Text style={styles.repTableSub}>Zirve 1RM ({peak1RM} kg) baz alınarak hesaplanan ağırlıklar</Text>
+                <Text style={styles.repTableSub}>Zirve 1RM ({peak1RM} kg) bazlı projeksiyon</Text>
               </View>
 
               <View style={styles.repGrid}>
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
     ...SHADOWS.soft,
   },
   repTableHeader: {
-    gap: 2,
+    gap: 3,
   },
   repTitleRow: {
     flexDirection: 'row',
@@ -991,6 +991,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    flex: 1,
+    flexShrink: 1,
   },
   repTableSub: {
     fontSize: 11,
