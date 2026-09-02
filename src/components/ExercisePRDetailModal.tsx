@@ -395,16 +395,16 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
           <View style={[styles.windowCard, styles.windowCardAllTime]}>
             <View style={styles.windowCardHeader}>
               <View style={styles.windowHeaderLeft}>
-                <View style={[styles.windowIconBg, { backgroundColor: '#F59E0B' }]}>
-                  <Ionicons name="trophy" size={16} color="#111111" />
+                <View style={styles.windowIconBg}>
+                  <Ionicons name="trophy-outline" size={16} color={COLORS.textPrimary} />
                 </View>
-                <View>
-                  <Text style={styles.windowTitle}>Tüm Zamanlar Rekoru (All-Time PR)</Text>
-                  <Text style={styles.windowSubtitle}>Bu egzersizde ulaşılan mutlak zirve</Text>
+                <View style={styles.windowTitleBox}>
+                  <Text style={styles.windowTitle}>Tüm Zamanlar Rekoru</Text>
+                  <Text style={styles.windowSubtitle}>Bu egzersizde kaydedilen en yüksek değer</Text>
                 </View>
               </View>
               <View style={styles.goldBadge}>
-                <Text style={styles.goldBadgeText}>👑 ZİRVE</Text>
+                <Text style={styles.goldBadgeText}>ZİRVE</Text>
               </View>
             </View>
 
@@ -422,7 +422,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                     <View style={styles.dividerVertical} />
 
                     <View style={styles.mainMetricCol}>
-                      <Text style={[styles.mainMetricVal, { color: '#F59E0B' }]}>
+                      <Text style={styles.mainMetricVal}>
                         {stats.allTime.estimated1RM} <Text style={styles.unitText}>kg</Text>
                       </Text>
                       <Text style={styles.mainMetricSub}>Tahmini 1RM (Tek Tekrar)</Text>
@@ -473,17 +473,17 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
           <View style={styles.windowCard}>
             <View style={styles.windowCardHeader}>
               <View style={styles.windowHeaderLeft}>
-                <View style={[styles.windowIconBg, { backgroundColor: '#3B82F6' }]}>
-                  <Ionicons name="calendar" size={16} color="#FFFFFF" />
+                <View style={styles.windowIconBg}>
+                  <Ionicons name="calendar-outline" size={16} color={COLORS.textPrimary} />
                 </View>
-                <View>
+                <View style={styles.windowTitleBox}>
                   <Text style={styles.windowTitle}>Bu Ayki Max (Son 30 Gün)</Text>
                   <Text style={styles.windowSubtitle}>Son 30 günlük güç ve yoğunluk tepe noktası</Text>
                 </View>
               </View>
               {stats.monthly.hasData && stats.allTime.hasData && stats.monthly.maxWeight >= stats.allTime.maxWeight && (
                 <View style={styles.freshBadge}>
-                  <Text style={styles.freshBadgeText}>🔥 REKOR</Text>
+                  <Text style={styles.freshBadgeText}>AYIN REKORU</Text>
                 </View>
               )}
             </View>
@@ -502,7 +502,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                     <View style={styles.dividerVertical} />
 
                     <View style={styles.mainMetricCol}>
-                      <Text style={[styles.mainMetricVal, { color: '#3B82F6' }]}>
+                      <Text style={styles.mainMetricVal}>
                         {stats.monthly.estimated1RM} <Text style={styles.unitText}>kg</Text>
                       </Text>
                       <Text style={styles.mainMetricSub}>Bu Ayki Est. 1RM</Text>
@@ -555,17 +555,17 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
           <View style={styles.windowCard}>
             <View style={styles.windowCardHeader}>
               <View style={styles.windowHeaderLeft}>
-                <View style={[styles.windowIconBg, { backgroundColor: '#10B981' }]}>
-                  <Ionicons name="flash" size={16} color="#FFFFFF" />
+                <View style={styles.windowIconBg}>
+                  <Ionicons name="flash-outline" size={16} color={COLORS.textPrimary} />
                 </View>
-                <View>
+                <View style={styles.windowTitleBox}>
                   <Text style={styles.windowTitle}>Bu Haftaki Max (Son 7 Gün)</Text>
                   <Text style={styles.windowSubtitle}>Güncel haftalık antrenman performansı</Text>
                 </View>
               </View>
               {stats.weekly.hasData && (
                 <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>AKTİF</Text>
+                  <Text style={styles.activeBadgeText}>BU HAFTA</Text>
                 </View>
               )}
             </View>
@@ -584,7 +584,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                     <View style={styles.dividerVertical} />
 
                     <View style={styles.mainMetricCol}>
-                      <Text style={[styles.mainMetricVal, { color: '#10B981' }]}>
+                      <Text style={styles.mainMetricVal}>
                         {stats.weekly.estimated1RM} <Text style={styles.unitText}>kg</Text>
                       </Text>
                       <Text style={styles.mainMetricSub}>Haftalık Est. 1RM</Text>
@@ -800,8 +800,8 @@ const styles = StyleSheet.create({
     ...SHADOWS.soft,
   },
   windowCardAllTime: {
-    borderColor: '#F59E0B',
-    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
     backgroundColor: COLORS.surface,
   },
   windowCardHeader: {
@@ -811,19 +811,28 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    gap: 8,
   },
   windowHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    minWidth: 0,
   },
   windowIconBg: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  windowTitleBox: {
+    flex: 1,
+    minWidth: 0,
   },
   windowTitle: {
     fontSize: 14,
@@ -836,41 +845,43 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   goldBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderColor: COLORS.border,
   },
   goldBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#D97706',
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   freshBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: COLORS.border,
   },
   freshBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   activeBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   activeBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#10B981',
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   windowBody: {
     paddingTop: 14,

@@ -293,33 +293,33 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       {/* Personal Record Spotlight Bento Card */}
       <View style={styles.prBentoCard}>
         <View style={styles.prHeaderRow}>
-          <View style={styles.sectionHeader}>
+          <View style={styles.prTitleBox}>
             <View style={styles.prIconBadge}>
-              <Ionicons name="trophy" size={18} color="#111111" />
+              <Ionicons name="trophy-outline" size={16} color="#111111" />
             </View>
-            <View>
-              <Text style={styles.sectionTitle}>Kişisel Rekorlar (PR) & Analiz</Text>
-              <Text style={styles.sectionSub}>Her hareket için haftalık, aylık ve tüm zamanlar analizi</Text>
+            <View style={styles.prTitleTextBox}>
+              <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
+              <Text style={styles.sectionSub} numberOfLines={1}>Haftalık, aylık ve tüm zamanlar analizi</Text>
             </View>
           </View>
 
           <TouchableOpacity
             style={styles.openPickerBtn}
-            activeOpacity={0.8}
+            activeOpacity={0.75}
             onPress={() => setShowPickerModal(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="add-circle" size={15} color="#111111" />
-            <Text style={styles.openPickerBtnText}>Tüm Hareketler</Text>
+            <Ionicons name="list" size={14} color="#111111" />
+            <Text style={styles.openPickerBtnText}>Kütüphane</Text>
           </TouchableOpacity>
         </View>
 
         {/* Search Input */}
         <View style={styles.prSearchRow}>
-          <Ionicons name="search" size={16} color={COLORS.textMuted} />
+          <Ionicons name="search" size={15} color={COLORS.textMuted} />
           <TextInput
             style={styles.prSearchInput}
-            placeholder="Egzersiz veya rekor ara (Örn: Bench Press, Squat)..."
+            placeholder="Egzersiz veya rekor ara (Örn: Bench Press)..."
             placeholderTextColor={COLORS.textMuted}
             value={prSearchQuery}
             onChangeText={setPrSearchQuery}
@@ -362,14 +362,14 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   onPress={() => setSelectedExerciseForPR(item)}
                 >
                   <View style={styles.prLeft}>
-                    <Text style={styles.prExName}>{item.name}</Text>
+                    <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
                     <View style={styles.prCardMetaRow}>
                       <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
                         <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
                       </View>
                       {item.isRecent && (
                         <View style={styles.recentBadge}>
-                          <Text style={styles.recentBadgeText}>🔥 Bu Hafta</Text>
+                          <Text style={styles.recentBadgeText}>Bu Hafta</Text>
                         </View>
                       )}
                       {item.lastWorkoutDate && !item.isRecent && (
@@ -395,10 +395,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       </View>
                     ) : (
                       <View style={styles.prInspectBadge}>
-                        <Text style={styles.prInspectBadgeText}>İncele ➔</Text>
+                        <Text style={styles.prInspectBadgeText}>İncele</Text>
                       </View>
                     )}
-                    <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                    <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
                   </View>
                 </TouchableOpacity>
               );
@@ -406,7 +406,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </View>
         ) : (
           <View style={styles.emptyPrCard}>
-            <Ionicons name="search-outline" size={32} color={COLORS.textMuted} />
+            <Ionicons name="search-outline" size={28} color={COLORS.textMuted} />
             <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
           </View>
         )}
@@ -592,16 +592,27 @@ const styles = StyleSheet.create({
     gap: 14,
     ...SHADOWS.soft,
   },
-  prHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  prHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  prTitleBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     flex: 1,
+    minWidth: 0,
+  },
+  prTitleTextBox: {
+    flex: 1,
+    minWidth: 0,
   },
   prIconBadge: {
     width: 34,
@@ -625,9 +636,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 100,
+    flexShrink: 0,
   },
   openPickerBtnText: {
     fontSize: 11,
@@ -685,15 +697,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
+    gap: 8,
   },
   prLeft: {
     flex: 1,
     gap: 4,
-    paddingRight: 8,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   prExName: {
     fontSize: 13,
@@ -704,6 +719,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap',
   },
   prCatBadge: {
     paddingHorizontal: 6,
@@ -715,7 +731,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   recentBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -723,7 +741,7 @@ const styles = StyleSheet.create({
   recentBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#EF4444',
+    color: COLORS.textPrimary,
   },
   prDateText: {
     fontSize: 10,
@@ -733,6 +751,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 0,
   },
   prRightPill: {
     alignItems: 'flex-end',
@@ -754,7 +773,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   prInspectBadge: {
-    backgroundColor: COLORS.primaryGlow,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -762,7 +783,7 @@ const styles = StyleSheet.create({
   prInspectBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.textPrimary,
   },
   emptyPrCard: {
     alignItems: 'center',
