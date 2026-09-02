@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
-import { WorkoutSession, PersonalRecord, Exercise, MuscleCategory } from '../types/fitness';
+import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
-import { ExercisePickerModal } from '../components/ExercisePickerModal';
-import { calculateUserStats, getExercises } from '../services/storage';
+import { calculateUserStats } from '../services/storage';
 
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
@@ -31,14 +30,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 }) => {
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
   const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{ id?: string; name: string; category?: string; equipment?: string } | null>(null);
-  const [showPickerModal, setShowPickerModal] = useState(false);
   const [prSearchQuery, setPrSearchQuery] = useState('');
   const [selectedPRCategory, setSelectedPRCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
-  const [libraryExercises, setLibraryExercises] = useState<Exercise[]>([]);
-
-  useEffect(() => {
-    getExercises().then(setLibraryExercises);
-  }, []);
 
   const filteredWorkouts = workouts.filter(w => {
     if (filterMode === 'all') return true;
@@ -50,60 +43,60 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
 
-  // Egzersiz PR Listesi: Antrenman geçmişi, kaydedilen PR'lar ve kütüphaneyi birleştirir
+  // Egzersiz PR Listesi: Antrenman geçmişi ve kaydedilen PR'ları birleştirir
   const allExercisePRItems = useMemo(() => {
     const exerciseMap: Record<string, { id: string; name: string; category: MuscleCategory; equipment: string; pr?: PersonalRecord; lastWorkoutDate?: string; isRecent: boolean; allTimeWeight?: number; allTimeReps?: number; allTime1RM?: number }> = {};
 
-    // 1. Kütüphane egzersizleri tabanı
-    libraryExercises.forEach(ex => {
-      exerciseMap[ex.name.toLowerCase().trim()] = {
-        id: ex.id,
-        name: ex.name,
-        category: ex.category,
-        equipment: ex.equipment,
+    // 1. PR Kayıtları
+    Object.values(prs).forEach(pr => {
+      const key = pr.exerciseName.toLowerCase().trim();
+      exerciseMap[key] = {
+        id: pr.exerciseId,
+        name: pr.exerciseName,
+        category: 'Göğüs',
+        equipment: 'Barbell',
+        pr,
         isRecent: false,
+        allTimeWeight: pr.maxWeight,
+        allTimeReps: pr.maxReps,
+        allTime1RM: pr.maxEstimatedOneRepMax,
       };
     });
 
-    // 2. PR Kayıtları
-    Object.values(prs).forEach(pr => {
-      const key = pr.exerciseName.toLowerCase().trim();
-      if (!exerciseMap[key]) {
-        exerciseMap[key] = {
-          id: pr.exerciseId,
-          name: pr.exerciseName,
-          category: 'Göğüs',
-          equipment: 'Barbell',
-          pr,
-          isRecent: false,
-          allTimeWeight: pr.maxWeight,
-          allTimeReps: pr.maxReps,
-          allTime1RM: pr.maxEstimatedOneRepMax,
-        };
-      } else {
-        exerciseMap[key].pr = pr;
-        exerciseMap[key].allTimeWeight = pr.maxWeight;
-        exerciseMap[key].allTimeReps = pr.maxReps;
-        exerciseMap[key].allTime1RM = pr.maxEstimatedOneRepMax;
-      }
-    });
-
-    // 3. Antrenman Geçmişi (Tarih ve tamamlanan set bilgileri)
+    // 2. Antrenman Geçmişi (Tamamlanan setler ve en güncel tarihler)
     const now = new Date().getTime();
     workouts.forEach(w => {
+      if (w.completed === false) return;
       const wDate = new Date(w.date).getTime();
       const isThisWeek = (now - wDate) <= 7 * 24 * 3600 * 1000;
 
       w.exercises.forEach(ex => {
+        const completedSets = ex.sets?.filter(s => s.completed) || [];
+        if (completedSets.length === 0) return;
+
         const key = ex.exerciseName.toLowerCase().trim();
         if (!exerciseMap[key]) {
+          let maxW = 0;
+          let maxR = 0;
+          let max1RM = 0;
+          completedSets.forEach(s => {
+            if (s.weight && s.reps && (s.weight > maxW || (s.weight === maxW && s.reps > maxR))) {
+              maxW = s.weight;
+              maxR = s.reps;
+              max1RM = Math.round(s.weight * (1 + s.reps / 30));
+            }
+          });
+
           exerciseMap[key] = {
             id: ex.exerciseId,
             name: ex.exerciseName,
-            category: ex.category,
-            equipment: ex.equipment,
+            category: ex.category || 'Göğüs',
+            equipment: ex.equipment || 'Barbell',
             lastWorkoutDate: w.date,
             isRecent: isThisWeek,
+            allTimeWeight: maxW > 0 ? maxW : undefined,
+            allTimeReps: maxR > 0 ? maxR : undefined,
+            allTime1RM: max1RM > 0 ? max1RM : undefined,
           };
         } else {
           if (ex.category) exerciseMap[key].category = ex.category;
@@ -114,6 +107,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           if (isThisWeek) {
             exerciseMap[key].isRecent = true;
           }
+          completedSets.forEach(s => {
+            if (s.weight && s.reps) {
+              const curW = exerciseMap[key].allTimeWeight || 0;
+              const curR = exerciseMap[key].allTimeReps || 0;
+              if (s.weight > curW || (s.weight === curW && s.reps > curR)) {
+                exerciseMap[key].allTimeWeight = s.weight;
+                exerciseMap[key].allTimeReps = s.reps;
+                exerciseMap[key].allTime1RM = Math.round(s.weight * (1 + s.reps / 30));
+              }
+            }
+          });
         }
       });
     });
@@ -124,12 +128,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
       return matchesSearch && matchesCat;
     }).sort((a, b) => {
-      const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0) + (a.lastWorkoutDate ? 20 : 0);
-      const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0) + (b.lastWorkoutDate ? 20 : 0);
+      const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0);
+      const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0);
       if (bScore !== aScore) return bScore - aScore;
       return a.name.localeCompare(b.name, 'tr');
     });
-  }, [libraryExercises, prs, workouts, prSearchQuery, selectedPRCategory]);
+  }, [prs, workouts, prSearchQuery, selectedPRCategory]);
 
   // Compute average speeds per cardio exercise
   const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
@@ -302,16 +306,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <Text style={styles.sectionSub} numberOfLines={1}>Haftalık, aylık ve tüm zamanlar analizi</Text>
             </View>
           </View>
-
-          <TouchableOpacity
-            style={styles.openPickerBtn}
-            activeOpacity={0.75}
-            onPress={() => setShowPickerModal(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="list" size={14} color="#111111" />
-            <Text style={styles.openPickerBtnText}>Kütüphane</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Search Input */}
@@ -418,15 +412,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         onClose={() => setSelectedExerciseForPR(null)}
         exercise={selectedExerciseForPR}
         workouts={workouts}
-      />
-
-      <ExercisePickerModal
-        visible={showPickerModal}
-        onClose={() => setShowPickerModal(false)}
-        onSelectExercise={(ex) => {
-          setShowPickerModal(false);
-          setSelectedExerciseForPR(ex);
-        }}
       />
     </View>
   );

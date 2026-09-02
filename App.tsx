@@ -260,7 +260,9 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'library' && <LibraryTab />}
+          {currentTab === 'library' && (
+            <LibraryTab workouts={workouts} prs={prs} />
+          )}
         </View>
 
         {/* Floating Capsule Bottom Navigation Bar */}

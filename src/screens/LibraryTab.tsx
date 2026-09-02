@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
-import { Exercise, MuscleCategory } from '../types/fitness';
+import { Exercise, MuscleCategory, WorkoutSession, PersonalRecord } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { AddExerciseModal } from '../components/AddExerciseModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
+import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 
 const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
   'Hepsi',
@@ -28,12 +29,18 @@ const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
   'Kardiyo',
 ];
 
-export const LibraryTab: React.FC = () => {
+interface LibraryTabProps {
+  workouts?: WorkoutSession[];
+  prs?: Record<string, PersonalRecord>;
+}
+
+export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} }) => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<Exercise | null>(null);
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
   useEffect(() => {
@@ -44,6 +51,52 @@ export const LibraryTab: React.FC = () => {
     const data = await getExercises();
     setExercises(data);
   };
+
+  // Egzersizlerin rekor ve son çalışma durumu haritası
+  const exercisePRMap = useMemo(() => {
+    const map: Record<string, { maxWeight: number; maxReps: number; max1RM: number; isRecent: boolean }> = {};
+    const now = new Date().getTime();
+
+    // PR tablosu
+    Object.values(prs).forEach(pr => {
+      const key = pr.exerciseName.toLowerCase().trim();
+      map[key] = {
+        maxWeight: pr.maxWeight,
+        maxReps: pr.maxReps,
+        max1RM: pr.maxEstimatedOneRepMax || Math.round(pr.maxWeight * 1.05),
+        isRecent: false,
+      };
+    });
+
+    // Antrenman geçmişi
+    workouts.forEach(w => {
+      if (w.completed === false) return;
+      const wTime = new Date(w.date).getTime();
+      const isThisWeek = (now - wTime) <= 7 * 24 * 3600 * 1000;
+
+      w.exercises.forEach(ex => {
+        const key = ex.exerciseName.toLowerCase().trim();
+        const completedSets = ex.sets?.filter(s => s.completed) || [];
+        completedSets.forEach(s => {
+          if (s.weight && s.reps) {
+            const e1rm = Math.round(s.weight * (1 + s.reps / 30));
+            if (!map[key]) {
+              map[key] = { maxWeight: s.weight, maxReps: s.reps, max1RM: e1rm, isRecent: isThisWeek };
+            } else {
+              if (s.weight > map[key].maxWeight || (s.weight === map[key].maxWeight && s.reps > map[key].maxReps)) {
+                map[key].maxWeight = s.weight;
+                map[key].maxReps = s.reps;
+              }
+              if (e1rm > map[key].max1RM) map[key].max1RM = e1rm;
+              if (isThisWeek) map[key].isRecent = true;
+            }
+          }
+        });
+      });
+    });
+
+    return map;
+  }, [prs, workouts]);
 
   const handleSaveCustom = async (newEx: Exercise) => {
     const updated = await saveCustomExercise(newEx);
@@ -148,6 +201,7 @@ export const LibraryTab: React.FC = () => {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const catColor = COLORS.category[item.category] || COLORS.textPrimary;
+          const prInfo = exercisePRMap[item.name.toLowerCase().trim()];
           return (
             <TouchableOpacity
               style={styles.card}
@@ -171,6 +225,11 @@ export const LibraryTab: React.FC = () => {
                   <View style={styles.eqBadge}>
                     <Text style={styles.eqBadgeText}>{item.equipment}</Text>
                   </View>
+                  {prInfo ? (
+                    <View style={styles.prBadge}>
+                      <Text style={styles.prBadgeText}>PR: {prInfo.maxWeight} kg</Text>
+                    </View>
+                  ) : null}
                   {item.targetMuscle && (
                     <Text style={styles.targetText}>• {item.targetMuscle}</Text>
                   )}
@@ -237,6 +296,24 @@ export const LibraryTab: React.FC = () => {
                   </View>
                 )}
 
+                {/* PR & Gelişim Analiz Butonu */}
+                <TouchableOpacity
+                  style={styles.prInspectActionBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const ex = selectedExercise;
+                    setSelectedExercise(null);
+                    setSelectedExerciseForPR(ex);
+                  }}
+                >
+                  <Ionicons name="stats-chart-outline" size={15} color="#111111" />
+                  <Text style={styles.prInspectActionBtnText}>
+                    {exercisePRMap[selectedExercise.name.toLowerCase().trim()]
+                      ? 'Kişisel Rekor & Gelişim Analizi'
+                      : 'Performans & 1RM Projeksiyonu'}
+                  </Text>
+                </TouchableOpacity>
+
                 {selectedExercise.isCustom && (
                   <TouchableOpacity
                     style={styles.deleteModalBtn}
@@ -251,6 +328,13 @@ export const LibraryTab: React.FC = () => {
           </View>
         </Modal>
       )}
+
+      <ExercisePRDetailModal
+        visible={!!selectedExerciseForPR}
+        onClose={() => setSelectedExerciseForPR(null)}
+        exercise={selectedExerciseForPR}
+        workouts={workouts}
+      />
 
       <AddExerciseModal
         visible={showAddModal}
@@ -490,6 +574,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
+  prBadge: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 100,
+  },
+  prBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  prInspectActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 100,
+    marginTop: 14,
+  },
+  prInspectActionBtnText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 13,
+  },
   deleteModalBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -498,7 +610,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     paddingVertical: 12,
     borderRadius: 100,
-    marginTop: 16,
+    marginTop: 12,
   },
   deleteModalBtnText: {
     color: COLORS.danger,
