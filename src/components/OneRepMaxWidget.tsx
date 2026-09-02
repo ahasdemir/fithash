@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 
 interface OneRepMaxWidgetProps {
   workouts: WorkoutSession[];
+  onSelectExercise?: (exerciseName: string) => void;
 }
 
-export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts }) => {
+export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSelectExercise }) => {
   const calculate1RMData = () => {
     const exerciseMaxMap: Record<string, { exerciseName: string; max1RM: number; weight: number; reps: number; date: string }> = {};
 
@@ -57,7 +58,12 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts }) =>
 
       <View style={styles.rmList}>
         {oneRMList.map(item => (
-          <View key={item.exerciseName} style={styles.rmCard}>
+          <TouchableOpacity
+            key={item.exerciseName}
+            style={styles.rmCard}
+            activeOpacity={0.7}
+            onPress={() => onSelectExercise?.(item.exerciseName)}
+          >
             <View style={styles.rmLeft}>
               <Text style={styles.exName}>{item.exerciseName}</Text>
               <Text style={styles.rmFormulaText}>
@@ -69,7 +75,7 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts }) =>
               <Text style={styles.rmVal}>{item.max1RM} kg</Text>
               <Text style={styles.rmTag}>Est. 1RM</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
     </View>

@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
-import { WorkoutSession, PersonalRecord } from '../types/fitness';
+import { WorkoutSession, PersonalRecord, Exercise, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
-import { calculateUserStats } from '../services/storage';
+import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
+import { ExercisePickerModal } from '../components/ExercisePickerModal';
+import { calculateUserStats, getExercises } from '../services/storage';
 
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
@@ -27,6 +30,15 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   weeklyTargetHistory,
 }) => {
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
+  const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{ id?: string; name: string; category?: string; equipment?: string } | null>(null);
+  const [showPickerModal, setShowPickerModal] = useState(false);
+  const [prSearchQuery, setPrSearchQuery] = useState('');
+  const [selectedPRCategory, setSelectedPRCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
+  const [libraryExercises, setLibraryExercises] = useState<Exercise[]>([]);
+
+  useEffect(() => {
+    getExercises().then(setLibraryExercises);
+  }, []);
 
   const filteredWorkouts = workouts.filter(w => {
     if (filterMode === 'all') return true;
@@ -37,7 +49,87 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   });
 
   const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
-  const prList = Object.values(prs);
+
+  // Egzersiz PR Listesi: Antrenman geçmişi, kaydedilen PR'lar ve kütüphaneyi birleştirir
+  const allExercisePRItems = useMemo(() => {
+    const exerciseMap: Record<string, { id: string; name: string; category: MuscleCategory; equipment: string; pr?: PersonalRecord; lastWorkoutDate?: string; isRecent: boolean; allTimeWeight?: number; allTimeReps?: number; allTime1RM?: number }> = {};
+
+    // 1. Kütüphane egzersizleri tabanı
+    libraryExercises.forEach(ex => {
+      exerciseMap[ex.name.toLowerCase().trim()] = {
+        id: ex.id,
+        name: ex.name,
+        category: ex.category,
+        equipment: ex.equipment,
+        isRecent: false,
+      };
+    });
+
+    // 2. PR Kayıtları
+    Object.values(prs).forEach(pr => {
+      const key = pr.exerciseName.toLowerCase().trim();
+      if (!exerciseMap[key]) {
+        exerciseMap[key] = {
+          id: pr.exerciseId,
+          name: pr.exerciseName,
+          category: 'Göğüs',
+          equipment: 'Barbell',
+          pr,
+          isRecent: false,
+          allTimeWeight: pr.maxWeight,
+          allTimeReps: pr.maxReps,
+          allTime1RM: pr.maxEstimatedOneRepMax,
+        };
+      } else {
+        exerciseMap[key].pr = pr;
+        exerciseMap[key].allTimeWeight = pr.maxWeight;
+        exerciseMap[key].allTimeReps = pr.maxReps;
+        exerciseMap[key].allTime1RM = pr.maxEstimatedOneRepMax;
+      }
+    });
+
+    // 3. Antrenman Geçmişi (Tarih ve tamamlanan set bilgileri)
+    const now = new Date().getTime();
+    workouts.forEach(w => {
+      const wDate = new Date(w.date).getTime();
+      const isThisWeek = (now - wDate) <= 7 * 24 * 3600 * 1000;
+
+      w.exercises.forEach(ex => {
+        const key = ex.exerciseName.toLowerCase().trim();
+        if (!exerciseMap[key]) {
+          exerciseMap[key] = {
+            id: ex.exerciseId,
+            name: ex.exerciseName,
+            category: ex.category,
+            equipment: ex.equipment,
+            lastWorkoutDate: w.date,
+            isRecent: isThisWeek,
+          };
+        } else {
+          if (ex.category) exerciseMap[key].category = ex.category;
+          if (ex.equipment) exerciseMap[key].equipment = ex.equipment;
+          if (!exerciseMap[key].lastWorkoutDate || new Date(w.date) > new Date(exerciseMap[key].lastWorkoutDate!)) {
+            exerciseMap[key].lastWorkoutDate = w.date;
+          }
+          if (isThisWeek) {
+            exerciseMap[key].isRecent = true;
+          }
+        }
+      });
+    });
+
+    // Filtreleme ve sıralama
+    return Object.values(exerciseMap).filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(prSearchQuery.toLowerCase());
+      const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
+      return matchesSearch && matchesCat;
+    }).sort((a, b) => {
+      const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0) + (a.lastWorkoutDate ? 20 : 0);
+      const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0) + (b.lastWorkoutDate ? 20 : 0);
+      if (bScore !== aScore) return bScore - aScore;
+      return a.name.localeCompare(b.name, 'tr');
+    });
+  }, [libraryExercises, prs, workouts, prSearchQuery, selectedPRCategory]);
 
   // Compute average speeds per cardio exercise
   const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
@@ -69,8 +161,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Filter Switcher Pills */}
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.content}>
+        {/* Filter Switcher Pills */}
       <View style={styles.filterBar}>
         {(['weekly', 'monthly', 'all'] as const).map(mode => {
           const isSelected = filterMode === mode;
@@ -192,44 +285,150 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />
 
       {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
-      <OneRepMaxWidget workouts={filteredWorkouts} />
+      <OneRepMaxWidget
+        workouts={filteredWorkouts}
+        onSelectExercise={(name) => setSelectedExerciseForPR({ name })}
+      />
 
       {/* Personal Record Spotlight Bento Card */}
       <View style={styles.prBentoCard}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.prIconBadge}>
-            <Ionicons name="trophy" size={18} color="#111111" />
+        <View style={styles.prHeaderRow}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.prIconBadge}>
+              <Ionicons name="trophy" size={18} color="#111111" />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Kişisel Rekorlar (PR) & Analiz</Text>
+              <Text style={styles.sectionSub}>Her hareket için haftalık, aylık ve tüm zamanlar analizi</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.sectionTitle}>Kişisel Rekorlar (PR)</Text>
-            <Text style={styles.sectionSub}>Ağırlık ve tekrar rekorları</Text>
-          </View>
+
+          <TouchableOpacity
+            style={styles.openPickerBtn}
+            activeOpacity={0.8}
+            onPress={() => setShowPickerModal(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="add-circle" size={15} color="#111111" />
+            <Text style={styles.openPickerBtnText}>Tüm Hareketler</Text>
+          </TouchableOpacity>
         </View>
 
-        {prList.length > 0 ? (
-          <View style={styles.prList}>
-            {prList.slice(0, 6).map(pr => (
-              <View key={pr.exerciseId} style={styles.prCard}>
-                <View style={styles.prLeft}>
-                  <Text style={styles.prExName}>{pr.exerciseName}</Text>
-                  <Text style={styles.prDateText}>Tarih: {pr.date}</Text>
-                </View>
+        {/* Search Input */}
+        <View style={styles.prSearchRow}>
+          <Ionicons name="search" size={16} color={COLORS.textMuted} />
+          <TextInput
+            style={styles.prSearchInput}
+            placeholder="Egzersiz veya rekor ara (Örn: Bench Press, Squat)..."
+            placeholderTextColor={COLORS.textMuted}
+            value={prSearchQuery}
+            onChangeText={setPrSearchQuery}
+          />
+          {prSearchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setPrSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-                <View style={styles.prRightPill}>
-                  <Text style={styles.prWeightText}>{pr.maxWeight} kg</Text>
-                  <Text style={styles.prRepsText}>{pr.maxReps} tekrar</Text>
-                </View>
-              </View>
-            ))}
+        {/* Horizontal Category Filter Chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prCategoryChips}>
+          {(['Hepsi', 'Göğüs', 'Sırt', 'Bacak', 'Omuz', 'Ön Kol', 'Arka Kol', 'Karın', 'Kardiyo'] as const).map(cat => {
+            const isSelected = selectedPRCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.prCatChip, isSelected && styles.prCatChipSelected]}
+                onPress={() => setSelectedPRCategory(cat)}
+              >
+                <Text style={[styles.prCatChipText, isSelected && styles.prCatChipTextSelected]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Interactive Exercise PR Cards */}
+        {allExercisePRItems.length > 0 ? (
+          <View style={styles.prList}>
+            {allExercisePRItems.slice(0, 15).map(item => {
+              const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
+              return (
+                <TouchableOpacity
+                  key={item.id || item.name}
+                  style={styles.prCard}
+                  activeOpacity={0.75}
+                  onPress={() => setSelectedExerciseForPR(item)}
+                >
+                  <View style={styles.prLeft}>
+                    <Text style={styles.prExName}>{item.name}</Text>
+                    <View style={styles.prCardMetaRow}>
+                      <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
+                        <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
+                      </View>
+                      {item.isRecent && (
+                        <View style={styles.recentBadge}>
+                          <Text style={styles.recentBadgeText}>🔥 Bu Hafta</Text>
+                        </View>
+                      )}
+                      {item.lastWorkoutDate && !item.isRecent && (
+                        <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.prRightRow}>
+                    {item.allTimeWeight ? (
+                      <View style={styles.prRightPill}>
+                        <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
+                        <Text style={styles.prRepsText}>
+                          {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
+                        </Text>
+                      </View>
+                    ) : item.pr?.maxSpeedKmh ? (
+                      <View style={styles.prRightPill}>
+                        <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
+                        <Text style={styles.prRepsText}>
+                          {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.prInspectBadge}>
+                        <Text style={styles.prInspectBadgeText}>İncele ➔</Text>
+                      </View>
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : (
           <View style={styles.emptyPrCard}>
-            <Ionicons name="ribbon-outline" size={32} color={COLORS.textMuted} />
-            <Text style={styles.emptyPrText}>Henüz kaydedilmiş rekor bulunmuyor.</Text>
+            <Ionicons name="search-outline" size={32} color={COLORS.textMuted} />
+            <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
           </View>
         )}
       </View>
     </ScrollView>
+
+      <ExercisePRDetailModal
+        visible={!!selectedExerciseForPR}
+        onClose={() => setSelectedExerciseForPR(null)}
+        exercise={selectedExerciseForPR}
+        workouts={workouts}
+      />
+
+      <ExercisePickerModal
+        visible={showPickerModal}
+        onClose={() => setShowPickerModal(false)}
+        onSelectExercise={(ex) => {
+          setShowPickerModal(false);
+          setSelectedExerciseForPR(ex);
+        }}
+      />
+    </View>
   );
 };
 
@@ -237,6 +436,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollArea: {
+    flex: 1,
   },
   content: {
     padding: 16,
@@ -390,10 +592,16 @@ const styles = StyleSheet.create({
     gap: 14,
     ...SHADOWS.soft,
   },
+  prHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   prIconBadge: {
     width: 34,
@@ -404,55 +612,157 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
   sectionSub: {
     fontSize: 11,
     color: COLORS.textMuted,
   },
+  openPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
+  openPickerBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#111111',
+  },
+  prSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  prSearchInput: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    padding: 0,
+  },
+  prCategoryChips: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  prCatChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  prCatChipSelected: {
+    backgroundColor: '#111111',
+    borderColor: '#111111',
+  },
+  prCatChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  prCatChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   prList: {
-    gap: 10,
+    gap: 8,
   },
   prCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 14,
-    borderRadius: 18,
+    padding: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   prLeft: {
-    gap: 2,
+    flex: 1,
+    gap: 4,
+    paddingRight: 8,
   },
   prExName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+  prCardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  prCatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  prCatBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  recentBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  recentBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
   prDateText: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
+  },
+  prRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   prRightPill: {
     alignItems: 'flex-end',
-    backgroundColor: COLORS.primaryGlow,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   prWeightText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111111',
+    fontSize: 13,
+    fontWeight: '900',
+    color: COLORS.textPrimary,
   },
   prRepsText: {
-    fontSize: 10,
-    color: '#333333',
+    fontSize: 9,
+    color: COLORS.textSecondary,
     fontWeight: '600',
+  },
+  prInspectBadge: {
+    backgroundColor: COLORS.primaryGlow,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  prInspectBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#111111',
   },
   emptyPrCard: {
     alignItems: 'center',
