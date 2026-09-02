@@ -673,11 +673,22 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                         </Text>
                       </View>
 
-                      {s.sessionMaxWeight > 0 && !stats.isCardio ? (
+                      {!stats.isCardio && s.sessionMaxWeight > 0 ? (
                         <View style={styles.sessionPill}>
                           <Text style={styles.sessionPillLabel}>MAX</Text>
                           <Text style={styles.sessionPillVal}>
                             {s.sessionMaxWeight} kg{s.sessionMax1RM > 0 ? ` • 1RM ${s.sessionMax1RM}k` : ''}
+                          </Text>
+                        </View>
+                      ) : stats.isCardio ? (
+                        <View style={styles.sessionPill}>
+                          <Text style={styles.sessionPillLabel}>MAX</Text>
+                          <Text style={styles.sessionPillVal}>
+                            {s.sets.find(st => st.avgSpeedKmh)?.avgSpeedKmh
+                              ? `${s.sets.find(st => st.avgSpeedKmh)?.avgSpeedKmh} km/h`
+                              : s.sets.find(st => st.distanceKm)?.distanceKm
+                              ? `${s.sets.find(st => st.distanceKm)?.distanceKm} km`
+                              : 'Kardiyo'}
                           </Text>
                         </View>
                       ) : null}
@@ -756,6 +767,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 6,
+    flexWrap: 'wrap',
   },
   catBadge: {
     paddingHorizontal: 8,
@@ -933,11 +945,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    gap: 6,
+    flexWrap: 'wrap',
   },
   footerInfoItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    flexShrink: 1,
   },
   footerInfoText: {
     fontSize: 11,
@@ -987,11 +1002,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   repGridCell: {
-    flexBasis: '22%',
+    flexBasis: '21%',
     flexGrow: 1,
     backgroundColor: COLORS.surfaceSubtle,
     borderRadius: 12,
     paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1002,10 +1018,11 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   repCellWeight: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
     color: COLORS.primary,
     marginTop: 2,
+    textAlign: 'center',
   },
   repCellPct: {
     fontSize: 10,
