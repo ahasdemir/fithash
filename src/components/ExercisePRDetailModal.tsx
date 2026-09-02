@@ -675,9 +675,9 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
 
                       {s.sessionMaxWeight > 0 && !stats.isCardio ? (
                         <View style={styles.sessionPill}>
-                          <Text style={styles.sessionPillLabel}>En İyi</Text>
+                          <Text style={styles.sessionPillLabel}>MAX</Text>
                           <Text style={styles.sessionPillVal}>
-                            {s.sessionMaxWeight} kg {s.sessionMax1RM > 0 ? `• 1RM ${s.sessionMax1RM}k` : ''}
+                            {s.sessionMaxWeight} kg{s.sessionMax1RM > 0 ? ` • 1RM ${s.sessionMax1RM}k` : ''}
                           </Text>
                         </View>
                       ) : null}
