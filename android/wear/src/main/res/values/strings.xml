@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FitHash</string>
+    <string name="quick_start">Hızlı Başlat</string>
+    <string name="freestyle_workout">Serbest Antrenman</string>
+    <string name="routines">Rutinler</string>
+    <string name="rest_timer">Dinlenme</string>
+    <string name="complete_set">Seti Tamamla</string>
+    <string name="finish_workout">Antrenmanı Bitir</string>
+    <string name="next_exercise">Sonraki Hareket</string>
+    <string name="prev_exercise">Önceki Hareket</string>
+    <string name="weight_kg">Ağırlık (kg)</string>
+    <string name="reps">Tekrar</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fithash_primary">#C6F035</color>
+    <color name="fithash_background">#000000</color>
+    <color name="fithash_surface">#1C1C1E</color>
+    <color name="fithash_surface_subtle">#2C2C2E</color>
+    <color name="fithash_text_primary">#FFFFFF</color>
+    <color name="fithash_text_secondary">#AEAEB2</color>
+    <color name="fithash_danger">#EF4444</color>
+</resources>

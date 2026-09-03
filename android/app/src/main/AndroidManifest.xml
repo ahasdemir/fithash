@@ -71,5 +71,18 @@
         android:name="android.appwidget.provider"
         android:resource="@xml/streak_widget_info" />
     </receiver>
+
+    <!-- Wear OS Phone Listener Service -->
+    <service
+      android:name=".WearPhoneListenerService"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+        <data
+          android:host="*"
+          android:pathPrefix="/fithash"
+          android:scheme="wear" />
+      </intent-filter>
+    </service>
   </application>
 </manifest>

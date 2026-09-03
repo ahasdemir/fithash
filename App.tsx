@@ -43,6 +43,7 @@ import {
   triggerPRNotification,
   triggerStreakMilestoneNotification,
 } from './src/services/notifications';
+import { syncRoutinesToWearable, initWearSyncListener } from './src/services/wearSyncService';
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 import { updateStreakWidget } from './src/services/widgetService';
 
@@ -64,6 +65,14 @@ export default function App() {
     configureNotifications();
     loadAllData();
     restoreActiveSession();
+
+    const unsubscribeWear = initWearSyncListener(() => {
+      loadAllData();
+    });
+
+    return () => {
+      unsubscribeWear();
+    };
   }, []);
 
   useEffect(() => {
@@ -93,6 +102,7 @@ export default function App() {
     setWorkouts(wData);
     setRoutines(rData);
     setPrs(prData);
+    syncRoutinesToWearable(rData);
     if (appSettings.workoutDays) {
       setWorkoutDays(appSettings.workoutDays);
     }
@@ -169,16 +179,19 @@ export default function App() {
   const handleSaveRoutine = async (routine: Routine) => {
     const updated = await saveRoutine(routine);
     setRoutines(updated);
+    syncRoutinesToWearable(updated);
   };
 
   const handleReorderRoutines = async (updatedRoutines: Routine[]) => {
     const updated = await saveRoutinesOrder(updatedRoutines);
     setRoutines(updated);
+    syncRoutinesToWearable(updated);
   };
 
   const handleDeleteRoutine = async (id: string) => {
     const updated = await deleteRoutine(id);
     setRoutines(updated);
+    syncRoutinesToWearable(updated);
   };
 
   const handleDeleteWorkout = async (id: string) => {

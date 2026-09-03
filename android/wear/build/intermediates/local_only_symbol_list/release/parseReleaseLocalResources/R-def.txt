@@ -1,0 +1,21 @@
+R_DEF: Internal format may change without notice
+local
+color fithash_background
+color fithash_danger
+color fithash_primary
+color fithash_surface
+color fithash_surface_subtle
+color fithash_text_primary
+color fithash_text_secondary
+drawable ic_launcher
+string app_name
+string complete_set
+string finish_workout
+string freestyle_workout
+string next_exercise
+string prev_exercise
+string quick_start
+string reps
+string rest_timer
+string routines
+string weight_kg
