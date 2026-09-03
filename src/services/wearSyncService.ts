@@ -1,6 +1,7 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { saveWorkout } from './storage';
+import { AppSettings } from './settings';
 
 const { WearSyncModule } = NativeModules;
 const wearEmitter = WearSyncModule && Platform.OS === 'android' ? new NativeEventEmitter(WearSyncModule) : null;
@@ -8,14 +9,20 @@ const wearEmitter = WearSyncModule && Platform.OS === 'android' ? new NativeEven
 /**
  * Syncs the user's active workout routines to connected Wear OS watch devices.
  */
-export const syncRoutinesToWearable = async (routines: Routine[]): Promise<number> => {
+export const syncRoutinesToWearable = async (
+  routines: Routine[],
+  settings?: Pick<AppSettings, 'defaultRestSeconds' | 'autoStartRestTimer' | 'defaultRir'>
+): Promise<number> => {
   if (Platform.OS !== 'android' || !WearSyncModule) {
     return 0;
   }
 
   try {
     const json = JSON.stringify(routines);
-    const syncedNodesCount: number = await WearSyncModule.syncRoutinesToWatch(json);
+    const syncedNodesCount: number = await WearSyncModule.syncRoutinesToWatch(
+      json,
+      JSON.stringify(settings || null)
+    );
     return syncedNodesCount;
   } catch (error) {
     console.warn('Failed to sync routines to Wear OS device:', error);
@@ -32,11 +39,10 @@ export const initWearSyncListener = (onWorkoutReceived?: (session: WorkoutSessio
     return () => {};
   }
 
-  const subscription = wearEmitter.addListener('onWearWorkoutCompleted', async (event: { sessionJson?: string }) => {
-    if (!event?.sessionJson) return;
-
+  const importWorkout = async (sessionJson?: string) => {
+    if (!sessionJson) return;
     try {
-      const wearSession = JSON.parse(event.sessionJson);
+      const wearSession = JSON.parse(sessionJson);
       if (!wearSession || !wearSession.id) return;
 
       const fullSession: WorkoutSession = {
@@ -58,7 +64,8 @@ export const initWearSyncListener = (onWorkoutReceived?: (session: WorkoutSessio
             setNumber: s.setNumber,
             weight: Number(s.weight) || 0,
             reps: Number(s.reps) || 0,
-            rir: s.rir ?? 1,
+            // RIR is optional on the watch. Never turn an unlogged RIR into a false "1".
+            rir: typeof s.rir === 'number' ? s.rir : undefined,
             completed: Boolean(s.completed),
           })),
         })),
@@ -69,10 +76,21 @@ export const initWearSyncListener = (onWorkoutReceived?: (session: WorkoutSessio
       };
 
       await saveWorkout(fullSession);
+      await WearSyncModule.acknowledgeWearWorkout?.(fullSession.id);
       onWorkoutReceived?.(fullSession);
     } catch (e) {
       console.warn('Error processing Wear OS workout session:', e);
     }
+  };
+
+  // A native listener persists incoming workouts, including when the React app is closed.
+  // Drain that durable inbox at startup as well as processing live events.
+  WearSyncModule.getPendingWearWorkouts?.()
+    .then((sessions: string[] = []) => Promise.all(sessions.map(session => importWorkout(session))))
+    .catch((error: unknown) => console.warn('Failed to read the Wear OS workout inbox:', error));
+
+  const subscription = wearEmitter.addListener('onWearWorkoutCompleted', (event: { sessionJson?: string }) => {
+    void importWorkout(event?.sessionJson);
   });
 
   return () => {

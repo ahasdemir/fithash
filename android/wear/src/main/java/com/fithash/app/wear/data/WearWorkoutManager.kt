@@ -8,6 +8,7 @@ import android.os.VibratorManager
 import android.os.Build
 import com.fithash.app.wear.data.models.*
 import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +31,9 @@ class WearWorkoutManager private constructor(private val context: Context) {
     private val _routines = MutableStateFlow<List<WearRoutine>>(emptyList())
     val routines: StateFlow<List<WearRoutine>> = _routines.asStateFlow()
 
+    private val _settings = MutableStateFlow(WearSettings())
+    val settings: StateFlow<WearSettings> = _settings.asStateFlow()
+
     private val _activeSession = MutableStateFlow<WearWorkoutSession?>(null)
     val activeSession: StateFlow<WearWorkoutSession?> = _activeSession.asStateFlow()
 
@@ -47,6 +51,7 @@ class WearWorkoutManager private constructor(private val context: Context) {
 
     init {
         loadRoutines()
+        loadSettings()
         loadActiveSession()
     }
 
@@ -75,18 +80,33 @@ class WearWorkoutManager private constructor(private val context: Context) {
                 e.printStackTrace()
             }
         }
-        // Default built-in routines fallback
-        _routines.value = getDefaultRoutines()
     }
 
     fun saveSyncedRoutines(routinesJson: String) {
         try {
             val type = object : TypeToken<List<WearRoutine>>() {}.type
             val list: List<WearRoutine> = gson.fromJson(routinesJson, type)
-            if (list.isNotEmpty()) {
-                _routines.value = list
-                prefs.edit().putString("saved_routines", routinesJson).apply()
-            }
+            _routines.value = list
+            prefs.edit().putString("saved_routines", routinesJson).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadSettings() {
+        val json = prefs.getString("synced_settings", null) ?: return
+        try {
+            _settings.value = gson.fromJson(json, WearSettings::class.java) ?: WearSettings()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun saveSyncedSettings(settingsJson: String) {
+        try {
+            val settings = gson.fromJson(settingsJson, WearSettings::class.java) ?: WearSettings()
+            _settings.value = settings
+            prefs.edit().putString("synced_settings", settingsJson).apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -104,7 +124,8 @@ class WearWorkoutManager private constructor(private val context: Context) {
                     setNumber = setNum,
                     weight = rEx.targetWeight,
                     reps = rEx.targetReps,
-                    rir = rEx.targetRir,
+                    rir = null,
+                    targetRir = rEx.targetRir,
                     completed = false
                 )
             }.toMutableList()
@@ -146,9 +167,9 @@ class WearWorkoutManager private constructor(private val context: Context) {
             category = "Göğüs",
             equipment = "Barbell",
             sets = mutableListOf(
-                WearExerciseSet("set_0_1_$now", 1, 60.0, 10, 1, false),
-                WearExerciseSet("set_0_2_$now", 2, 60.0, 10, 1, false),
-                WearExerciseSet("set_0_3_$now", 3, 60.0, 10, 1, false)
+                WearExerciseSet("set_0_1_$now", 1, 60.0, 10, null, _settings.value.defaultRir, false),
+                WearExerciseSet("set_0_2_$now", 2, 60.0, 10, null, _settings.value.defaultRir, false),
+                WearExerciseSet("set_0_3_$now", 3, 60.0, 10, null, _settings.value.defaultRir, false)
             )
         )
 
@@ -171,18 +192,16 @@ class WearWorkoutManager private constructor(private val context: Context) {
         if (exerciseIdx in session.exercises.indices) {
             val ex = session.exercises[exerciseIdx]
             if (setIdx in ex.sets.indices) {
-                val set = ex.sets[setIdx]
-                set.completed = !set.completed
+                val isNowCompleted = !ex.sets[setIdx].completed
 
                 // Vibrate wrist on set completion
                 vibrate(100)
 
-                _activeSession.value = session.copy()
-                saveActiveSession()
+                updateSet(exerciseIdx, setIdx) { it.copy(completed = isNowCompleted) }
 
                 // Start rest timer if completed
-                if (set.completed) {
-                    startRestTimer(90)
+                if (isNowCompleted && _settings.value.autoStartRestTimer) {
+                    startRestTimer(_settings.value.defaultRestSeconds)
                 }
             }
         }
@@ -193,10 +212,9 @@ class WearWorkoutManager private constructor(private val context: Context) {
         if (exerciseIdx in session.exercises.indices) {
             val ex = session.exercises[exerciseIdx]
             if (setIdx in ex.sets.indices) {
-                val current = ex.sets[setIdx].weight
-                ex.sets[setIdx].weight = (current + delta).coerceAtLeast(0.0)
-                _activeSession.value = session.copy()
-                saveActiveSession()
+                updateSet(exerciseIdx, setIdx) { set ->
+                    set.copy(weight = (set.weight + delta).coerceAtLeast(0.0))
+                }
             }
         }
     }
@@ -206,10 +224,9 @@ class WearWorkoutManager private constructor(private val context: Context) {
         if (exerciseIdx in session.exercises.indices) {
             val ex = session.exercises[exerciseIdx]
             if (setIdx in ex.sets.indices) {
-                val current = ex.sets[setIdx].reps
-                ex.sets[setIdx].reps = (current + delta).coerceAtLeast(1)
-                _activeSession.value = session.copy()
-                saveActiveSession()
+                updateSet(exerciseIdx, setIdx) { set ->
+                    set.copy(reps = (set.reps + delta).coerceAtLeast(1))
+                }
             }
         }
     }
@@ -225,13 +242,44 @@ class WearWorkoutManager private constructor(private val context: Context) {
                 setNumber = newNum,
                 weight = lastSet?.weight ?: 20.0,
                 reps = lastSet?.reps ?: 10,
-                rir = lastSet?.rir ?: 1,
+                rir = null,
+                targetRir = lastSet?.targetRir ?: _settings.value.defaultRir,
                 completed = false
             )
-            ex.sets.add(newSet)
-            _activeSession.value = session.copy()
-            saveActiveSession()
+            val nextExercises = session.exercises.mapIndexed { index, exercise ->
+                if (index != exerciseIdx) exercise
+                else exercise.copy(sets = (exercise.sets + newSet).toMutableList())
+            }.toMutableList()
+            updateSession(session.copy(exercises = nextExercises))
         }
+    }
+
+    fun updateSetRir(exerciseIdx: Int, setIdx: Int, rir: Int?) {
+        updateSet(exerciseIdx, setIdx) { it.copy(rir = rir) }
+    }
+
+    private fun updateSet(
+        exerciseIdx: Int,
+        setIdx: Int,
+        transform: (WearExerciseSet) -> WearExerciseSet
+    ) {
+        val session = _activeSession.value ?: return
+        if (exerciseIdx !in session.exercises.indices || setIdx !in session.exercises[exerciseIdx].sets.indices) return
+
+        val nextExercises = session.exercises.mapIndexed { currentExerciseIdx, exercise ->
+            if (currentExerciseIdx != exerciseIdx) exercise
+            else exercise.copy(
+                sets = exercise.sets.mapIndexed { currentSetIdx, set ->
+                    if (currentSetIdx == setIdx) transform(set) else set
+                }.toMutableList()
+            )
+        }.toMutableList()
+        updateSession(session.copy(exercises = nextExercises))
+    }
+
+    private fun updateSession(session: WearWorkoutSession) {
+        _activeSession.value = session
+        saveActiveSession()
     }
 
     fun setExerciseIndex(index: Int) {
@@ -289,7 +337,7 @@ class WearWorkoutManager private constructor(private val context: Context) {
         session.totalVolume = volume
         session.totalSets = totalSets
 
-        // Send to phone via Data Layer
+        // Persist the completed workout in the data layer so it is delivered after reconnection.
         sendCompletedWorkoutToPhone(session)
 
         // Clear active session
@@ -307,15 +355,13 @@ class WearWorkoutManager private constructor(private val context: Context) {
     private fun sendCompletedWorkoutToPhone(session: WearWorkoutSession) {
         scope.launch {
             try {
-                val nodeClient = Wearable.getNodeClient(context)
-                val messageClient = Wearable.getMessageClient(context)
-                val nodes = nodeClient.connectedNodes.await()
                 val json = gson.toJson(session)
-                val data = json.toByteArray(Charsets.UTF_8)
-
-                for (node in nodes) {
-                    messageClient.sendMessage(node.id, "/fithash/workout_completed", data).await()
-                }
+                val request = PutDataMapRequest.create("/fithash/workouts/${session.id}").apply {
+                    dataMap.putString("workoutId", session.id)
+                    dataMap.putString("sessionJson", json)
+                    dataMap.putLong("completedAt", System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+                Wearable.getDataClient(context).putDataItem(request).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }

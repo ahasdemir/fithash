@@ -52,9 +52,10 @@ fun RoutinesListScreen(
             if (routines.isEmpty()) {
                 item {
                     Text(
-                        text = "Henüz kayıtlı rutin yok",
+                        text = "Telefonda rutin oluşturun; saat bağlandığında otomatik eşitlenir.",
                         color = FitHashTextSecondary,
                         fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }

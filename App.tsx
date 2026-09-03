@@ -102,7 +102,7 @@ export default function App() {
     setWorkouts(wData);
     setRoutines(rData);
     setPrs(prData);
-    syncRoutinesToWearable(rData);
+    syncRoutinesToWearable(rData, appSettings);
     if (appSettings.workoutDays) {
       setWorkoutDays(appSettings.workoutDays);
     }
@@ -179,19 +179,19 @@ export default function App() {
   const handleSaveRoutine = async (routine: Routine) => {
     const updated = await saveRoutine(routine);
     setRoutines(updated);
-    syncRoutinesToWearable(updated);
+    syncRoutinesToWearable(updated, await getAppSettings());
   };
 
   const handleReorderRoutines = async (updatedRoutines: Routine[]) => {
     const updated = await saveRoutinesOrder(updatedRoutines);
     setRoutines(updated);
-    syncRoutinesToWearable(updated);
+    syncRoutinesToWearable(updated, await getAppSettings());
   };
 
   const handleDeleteRoutine = async (id: string) => {
     const updated = await deleteRoutine(id);
     setRoutines(updated);
-    syncRoutinesToWearable(updated);
+    syncRoutinesToWearable(updated, await getAppSettings());
   };
 
   const handleDeleteWorkout = async (id: string) => {

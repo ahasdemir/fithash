@@ -22,10 +22,18 @@ data class WearRoutineExercise(
 data class WearExerciseSet(
     val id: String,
     val setNumber: Int,
-    var weight: Double,
-    var reps: Int,
-    var rir: Int = 1,
-    var completed: Boolean = false
+    val weight: Double,
+    val reps: Int,
+    /** Actual RIR is optional: a routine target must never be recorded as user input. */
+    val rir: Int? = null,
+    val targetRir: Int? = null,
+    val completed: Boolean = false
+)
+
+data class WearSettings(
+    val defaultRestSeconds: Int = 90,
+    val autoStartRestTimer: Boolean = true,
+    val defaultRir: Int = 1
 )
 
 data class WearWorkoutExercise(

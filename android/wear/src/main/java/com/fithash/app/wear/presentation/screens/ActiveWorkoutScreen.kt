@@ -28,6 +28,7 @@ fun ActiveWorkoutScreen(
     val restTimerTotal by workoutManager.restTimerTotal.collectAsState()
 
     val listState = rememberScalingLazyListState()
+    var rirPromptSetIdx by remember { mutableStateOf<Int?>(null) }
 
     if (session == null || session!!.exercises.isEmpty()) {
         Box(
@@ -119,7 +120,9 @@ fun ActiveWorkoutScreen(
                 items(currentExercise.sets.size) { setIdx ->
                     val set = currentExercise.sets[setIdx]
                     Card(
-                        onClick = { workoutManager.completeCurrentSet(currentExIdx, setIdx) },
+                        // Completing a set is intentionally only available from the explicit button.
+                        // This prevents a scrolling/tapping mistake from starting a rest timer.
+                        onClick = {},
                         modifier = Modifier.fillMaxWidth(),
                         backgroundPainter = CardDefaults.cardBackgroundPainter(
                             startBackgroundColor = if (set.completed) FitHashSurfaceSubtle else FitHashSurface,
@@ -143,15 +146,24 @@ fun ActiveWorkoutScreen(
                                 )
 
                                 if (set.completed) {
-                                    Text(
-                                        text = "✓ TAMAMLANDI",
-                                        color = FitHashPrimary,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            text = "✓ TAMAMLANDI",
+                                            color = FitHashPrimary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        set.rir?.let { actualRir ->
+                                            Text(
+                                                text = "RIR ${if (actualRir == 3) "3+" else actualRir}",
+                                                color = FitHashTextSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
                                 } else {
                                     Text(
-                                        text = "RIR ${set.rir}",
+                                        text = "Hedef RIR ${set.targetRir ?: "—"}",
                                         color = FitHashTextSecondary,
                                         fontSize = 10.sp
                                     )
@@ -167,7 +179,7 @@ fun ActiveWorkoutScreen(
                                 CompactButton(
                                     onClick = { workoutManager.updateSetWeight(currentExIdx, setIdx, -2.5) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Text("-", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -182,7 +194,7 @@ fun ActiveWorkoutScreen(
                                 CompactButton(
                                     onClick = { workoutManager.updateSetWeight(currentExIdx, setIdx, 2.5) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -197,7 +209,7 @@ fun ActiveWorkoutScreen(
                                 CompactButton(
                                     onClick = { workoutManager.updateSetReps(currentExIdx, setIdx, -1) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Text("-", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -212,7 +224,7 @@ fun ActiveWorkoutScreen(
                                 CompactButton(
                                     onClick = { workoutManager.updateSetReps(currentExIdx, setIdx, 1) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
@@ -220,7 +232,11 @@ fun ActiveWorkoutScreen(
 
                             // Big Complete Button
                             Button(
-                                onClick = { workoutManager.completeCurrentSet(currentExIdx, setIdx) },
+                                onClick = {
+                                    val wasCompleted = set.completed
+                                    workoutManager.completeCurrentSet(currentExIdx, setIdx)
+                                    rirPromptSetIdx = if (wasCompleted) null else setIdx
+                                },
                                 modifier = Modifier.fillMaxWidth().height(30.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     backgroundColor = if (set.completed) FitHashSurfaceSubtle else FitHashPrimary,
@@ -273,6 +289,62 @@ fun ActiveWorkoutScreen(
                     onAddSeconds = { workoutManager.adjustRestTimer(it) },
                     onCancel = { workoutManager.cancelRestTimer() }
                 )
+            }
+
+            // RIR is an optional report of the set just performed. It is never pre-filled
+            // from the routine target, so progression data stays honest.
+            val promptSetIdx = rirPromptSetIdx
+            if (promptSetIdx != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(FitHashBackground.copy(alpha = 0.97f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Set ${promptSetIdx + 1}: RIR?",
+                            color = FitHashTextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "İsteğe bağlı • kalan tekrar",
+                            color = FitHashTextSecondary,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(0, 1, 2, 3).forEach { rir ->
+                                Button(
+                                    onClick = {
+                                        workoutManager.updateSetRir(currentExIdx, promptSetIdx, rir)
+                                        rirPromptSetIdx = null
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        backgroundColor = if (rir == 0) FitHashDanger else FitHashSurface,
+                                        contentColor = FitHashTextPrimary
+                                    )
+                                ) {
+                                    Text(if (rir == 3) "3+" else rir.toString(), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        CompactChip(
+                            onClick = { rirPromptSetIdx = null },
+                            label = { Text("Atla", fontSize = 11.sp) },
+                            colors = ChipDefaults.chipColors(
+                                backgroundColor = FitHashSurfaceSubtle,
+                                contentColor = FitHashTextSecondary
+                            )
+                        )
+                    }
+                }
             }
         }
     }

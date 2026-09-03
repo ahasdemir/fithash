@@ -3,7 +3,6 @@ package com.fithash.app.wear.presentation.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.List
 import androidx.compose.runtime.Composable
@@ -111,29 +110,19 @@ fun HomeScreen(
                 )
             }
 
-            // Quick Freestyle workout button
+            // Routines are authored on the phone and cached here for offline logging.
             item {
                 Chip(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        workoutManager.startFreestyle()
-                        onNavigateToActiveWorkout()
-                    },
+                    onClick = onNavigateToRoutines,
                     label = {
                         Text(
-                            text = "Serbest Başlat",
+                            text = "Telefondaki Rutinler",
                             fontWeight = FontWeight.SemiBold
                         )
                     },
                     secondaryLabel = {
-                        Text(text = "Hızlı Seans")
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.FitnessCenter,
-                            contentDescription = "Freestyle",
-                            tint = FitHashPrimary
-                        )
+                        Text(text = "Çevrimdışıyken de kullanılabilir")
                     },
                     colors = ChipDefaults.chipColors(
                         backgroundColor = FitHashSurface,
