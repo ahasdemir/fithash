@@ -11,6 +11,7 @@ import {
   PanResponder,
   Animated,
   Dimensions,
+  AppState,
 } from 'react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -94,6 +95,34 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       restoreRestTimer();
     }
   }, [visible, session]);
+
+  // Handle app coming to foreground from locked screen
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        if (activeSession) {
+          const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
+          setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+        }
+        const endTime = await getActiveRestTimerEnd();
+        if (endTime !== null) {
+          if (endTime > Date.now()) {
+            const remaining = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+            setRestTimerSeconds(remaining);
+            setShowRestTimer(true);
+          } else {
+            await saveActiveRestTimerEnd(null);
+            cancelRestTimerNotification();
+            setShowRestTimer(false);
+          }
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [activeSession]);
 
   const restoreRestTimer = async () => {
     const endTime = await getActiveRestTimerEnd();
@@ -371,9 +400,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onUpdateSession(updated);
 
     if (isNowCompleted && userSettings.autoStartRestTimer) {
+      const restSecs = userSettings.defaultRestSeconds || 90;
+      const targetEnd = Date.now() + restSecs * 1000;
+      saveActiveRestTimerEnd(targetEnd);
+      scheduleRestTimerNotification(targetEnd);
+      setRestTimerSeconds(restSecs);
       setRestTimerKey(Date.now());
       setShowRestTimer(true);
-      setRestTimerSeconds(userSettings.defaultRestSeconds || 90);
     }
   };
 

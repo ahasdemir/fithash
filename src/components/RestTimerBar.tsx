@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Vibration } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Vibration, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 
@@ -38,6 +38,28 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
     onDeadlineChangeRef.current?.(end);
   }, [initialSeconds]);
 
+  // Handle app coming to foreground from locked screen or background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active' && isActive) {
+        const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
+        if (remaining <= 0) {
+          setSecondsLeft(0);
+          setIsActive(false);
+          onDeadlineChangeRef.current?.(null);
+          Vibration.vibrate([0, 600, 200, 600, 200, 600]);
+          if (onFinishRef.current) onFinishRef.current();
+        } else {
+          setSecondsLeft(remaining);
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive, targetEndTime]);
+
   useEffect(() => {
     let interval: any = null;
     if (isActive) {
@@ -47,7 +69,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
           setSecondsLeft(0);
           setIsActive(false);
           onDeadlineChangeRef.current?.(null);
-          Vibration.vibrate([0, 500, 200, 500]);
+          Vibration.vibrate([0, 600, 200, 600, 200, 600]);
           if (onFinishRef.current) onFinishRef.current();
         } else {
           setSecondsLeft(remaining);

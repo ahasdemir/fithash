@@ -34,11 +34,14 @@ export const configureNotifications = async (): Promise<void> => {
       await Notifications.setNotificationChannelAsync(CHANNEL_TIMERS, {
         name: 'FitHash Dinlenme Zamanlayıcısı',
         importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 500, 200, 500],
+        vibrationPattern: [0, 600, 200, 600, 200, 600],
         enableVibrate: true,
         enableLights: true,
         lightColor: '#C6F035',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true,
+        showBadge: true,
+        sound: 'default',
       });
 
       await Notifications.setNotificationChannelAsync(CHANNEL_ACHIEVEMENTS, {
@@ -49,6 +52,7 @@ export const configureNotifications = async (): Promise<void> => {
         enableLights: true,
         lightColor: '#C6F035',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        sound: 'default',
       });
     }
   } catch (error) {
@@ -81,7 +85,7 @@ const scheduleNotification = async (
     await Notifications.scheduleNotificationAsync({
       identifier,
       content: {
-        sound: true,
+        sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
         vibrate: [0, 250, 250, 250],
         ...content,
@@ -99,15 +103,21 @@ export const scheduleRestTimerNotification = async (endTime: number): Promise<vo
 
   try {
     await Notifications.cancelScheduledNotificationAsync(REST_TIMER_ID);
+  } catch (e) {
+    // Ignore cancellation error
+  }
+
+  try {
     await Notifications.scheduleNotificationAsync({
       identifier: REST_TIMER_ID,
       content: {
         title: '⏰ Dinlenme Süresi Doldu!',
-        body: 'Dinlenmeniz bitti. Bir sonraki setinizi yapmaya hazır mısınız?',
-        data: { type: 'rest_timer_finish' },
-        sound: true,
+        body: 'Dinlenme süreniz bitti. Bir sonraki setinizi yapmaya hazır mısınız?',
+        data: { type: 'rest_timer_finish', endTime },
+        sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 500, 200, 500],
+        vibrate: [0, 600, 200, 600, 200, 600],
+        badge: 1,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -117,7 +127,7 @@ export const scheduleRestTimerNotification = async (endTime: number): Promise<vo
       },
     });
   } catch (error) {
-    console.warn('Failed to schedule finish notification:', error);
+    console.warn('Failed to schedule rest timer notification:', error);
   }
 };
 

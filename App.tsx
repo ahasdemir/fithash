@@ -61,6 +61,7 @@ export default function App() {
   const [summarySession, setSummarySession] = useState<WorkoutSession | null>(null);
 
   useEffect(() => {
+    configureNotifications();
     loadAllData();
     restoreActiveSession();
   }, []);
