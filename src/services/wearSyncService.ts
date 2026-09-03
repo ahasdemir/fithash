@@ -34,7 +34,10 @@ export const syncRoutinesToWearable = async (
  * Initializes the Wear OS event listener on the phone to automatically save completed
  * workouts performed on the watch.
  */
-export const initWearSyncListener = (onWorkoutReceived?: (session: WorkoutSession) => void): (() => void) => {
+export const initWearSyncListener = (
+  onWorkoutReceived?: (session: WorkoutSession) => void,
+  onSyncRequested?: () => void
+): (() => void) => {
   if (!wearEmitter) {
     return () => {};
   }
@@ -89,11 +92,16 @@ export const initWearSyncListener = (onWorkoutReceived?: (session: WorkoutSessio
     .then((sessions: string[] = []) => Promise.all(sessions.map(session => importWorkout(session))))
     .catch((error: unknown) => console.warn('Failed to read the Wear OS workout inbox:', error));
 
-  const subscription = wearEmitter.addListener('onWearWorkoutCompleted', (event: { sessionJson?: string }) => {
+  const subWorkout = wearEmitter.addListener('onWearWorkoutCompleted', (event: { sessionJson?: string }) => {
     void importWorkout(event?.sessionJson);
   });
 
+  const subSync = wearEmitter.addListener('onWearRequestSync', () => {
+    onSyncRequested?.();
+  });
+
   return () => {
-    subscription.remove();
+    subWorkout.remove();
+    subSync.remove();
   };
 };

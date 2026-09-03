@@ -66,9 +66,16 @@ export default function App() {
     loadAllData();
     restoreActiveSession();
 
-    const unsubscribeWear = initWearSyncListener(() => {
-      loadAllData();
-    });
+    const unsubscribeWear = initWearSyncListener(
+      () => {
+        loadAllData();
+      },
+      async () => {
+        const rData = await getRoutines();
+        const appSettings = await getAppSettings();
+        syncRoutinesToWearable(rData, appSettings);
+      }
+    );
 
     return () => {
       unsubscribeWear();

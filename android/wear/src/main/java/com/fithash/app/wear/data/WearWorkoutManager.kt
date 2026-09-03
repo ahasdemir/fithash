@@ -53,6 +53,8 @@ class WearWorkoutManager private constructor(private val context: Context) {
         loadRoutines()
         loadSettings()
         loadActiveSession()
+        syncFromDataClient()
+        requestSyncFromPhone()
     }
 
     companion object {
@@ -80,14 +82,58 @@ class WearWorkoutManager private constructor(private val context: Context) {
                 e.printStackTrace()
             }
         }
+        _routines.value = getDefaultRoutines()
+    }
+
+    fun syncFromDataClient() {
+        scope.launch {
+            try {
+                val dataClient = Wearable.getDataClient(context)
+                val uri = android.net.Uri.parse("wear://*/fithash/state/routines")
+                val buffer = dataClient.getDataItems(uri).await()
+                buffer.forEach { item ->
+                    if (item.uri.path == "/fithash/state/routines") {
+                        val data = com.google.android.gms.wearable.DataMapItem.fromDataItem(item).dataMap
+                        val rJson = data.getString("routinesJson")
+                        if (!rJson.isNullOrBlank()) {
+                            saveSyncedRoutines(rJson)
+                        }
+                        val sJson = data.getString("settingsJson")
+                        if (!sJson.isNullOrBlank() && sJson != "null") {
+                            saveSyncedSettings(sJson)
+                        }
+                    }
+                }
+                buffer.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun requestSyncFromPhone() {
+        scope.launch {
+            try {
+                val nodeClient = Wearable.getNodeClient(context)
+                val messageClient = Wearable.getMessageClient(context)
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, "/fithash/request_sync", ByteArray(0)).await()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun saveSyncedRoutines(routinesJson: String) {
         try {
             val type = object : TypeToken<List<WearRoutine>>() {}.type
             val list: List<WearRoutine> = gson.fromJson(routinesJson, type)
-            _routines.value = list
-            prefs.edit().putString("saved_routines", routinesJson).apply()
+            if (list.isNotEmpty()) {
+                _routines.value = list
+                prefs.edit().putString("saved_routines", routinesJson).apply()
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

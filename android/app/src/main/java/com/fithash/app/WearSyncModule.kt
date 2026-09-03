@@ -39,6 +39,8 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
             try {
                 val nodeClient = Wearable.getNodeClient(reactContext)
                 val dataClient = Wearable.getDataClient(reactContext)
+                val messageClient = Wearable.getMessageClient(reactContext)
+
                 val request = PutDataMapRequest.create("/fithash/state/routines").apply {
                     dataMap.putString("routinesJson", routinesJson)
                     dataMap.putString("settingsJson", settingsJson)
@@ -47,7 +49,18 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
 
                 // DataItems persist locally and are delivered when a paired watch reconnects.
                 dataClient.putDataItem(request).await()
-                promise.resolve(nodeClient.connectedNodes.await().size)
+
+                val nodes = nodeClient.connectedNodes.await()
+                val data = routinesJson.toByteArray(Charsets.UTF_8)
+                for (node in nodes) {
+                    try {
+                        messageClient.sendMessage(node.id, "/fithash/sync_routines", data).await()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
+                promise.resolve(nodes.size)
             } catch (e: Exception) {
                 promise.reject("SYNC_ERROR", e.message, e)
             }

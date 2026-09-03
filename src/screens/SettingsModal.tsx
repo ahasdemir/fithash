@@ -25,7 +25,8 @@ import {
   syncAllWorkoutsToHealthConnect,
   checkHealthConnectPermissions,
 } from '../services/healthConnectService';
-import { getWorkouts, clearCachedAIAnalysis } from '../services/storage';
+import { getWorkouts, getRoutines, clearCachedAIAnalysis } from '../services/storage';
+import { syncRoutinesToWearable } from '../services/wearSyncService';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -275,7 +276,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         visible: true,
         type: 'danger',
         title: 'Hata',
-        message: 'Yedek metni okunamadı! Geçerli bir JSON verisi yapıştırdığınızdan emin olun.',
+        onConfirm: () => setCustomAlert(null),
+      });
+    }
+  };
+
+  const handleSyncWearable = async () => {
+    try {
+      const routines = await getRoutines();
+      const settings = await getAppSettings();
+      const count = await syncRoutinesToWearable(routines, settings);
+      setCustomAlert({
+        visible: true,
+        type: 'success',
+        title: 'Akıllı Saat Eşitlemesi',
+        message: `${routines.length} antrenman rutini ve ayarlarınız akıllı saatinize aktarıldı.`,
+        onConfirm: () => setCustomAlert(null),
+      });
+    } catch (error) {
+      setCustomAlert({
+        visible: true,
+        type: 'danger',
+        title: 'Eşitleme Hatası',
+        message: 'Saatle bağlantı kurulamadı. Saatinizin Bluetooth ile bağlı olduğunu kontrol edin.',
         onConfirm: () => setCustomAlert(null),
       });
     }
@@ -460,6 +483,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Ionicons name="sync" size={18} color="#FFFFFF" />
               <Text style={[styles.importBtnText, { color: '#FFFFFF' }]}>
                 {isSyncingHC ? 'Aktarılıyor...' : 'Tüm Geçmişi Health Connect\'e Aktar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* SECTION: WEAR OS WATCH SYNC */}
+          <View style={styles.bentoSection}>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#C6F035' }]}>
+                <Ionicons name="watch" size={18} color="#111111" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Wear OS Akıllı Saat Senkronizasyonu</Text>
+                <Text style={styles.sectionSub}>Rutinlerinizi ve sayaç ayarlarınızı saatinize aktarın</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.importBtn, { marginTop: 12, backgroundColor: '#C6F035' }]}
+              onPress={handleSyncWearable}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={18} color="#111111" />
+              <Text style={[styles.importBtnText, { color: '#111111', fontWeight: 'bold' }]}>
+                Rutinleri Saate Şimdi Eşitle
               </Text>
             </TouchableOpacity>
           </View>

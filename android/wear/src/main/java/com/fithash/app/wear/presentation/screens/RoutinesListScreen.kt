@@ -27,6 +27,11 @@ fun RoutinesListScreen(
     val routines by workoutManager.routines.collectAsState()
     val listState = rememberScalingLazyListState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        workoutManager.syncFromDataClient()
+        workoutManager.requestSyncFromPhone()
+    }
+
     Scaffold(
         timeText = { TimeText() },
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
@@ -52,7 +57,7 @@ fun RoutinesListScreen(
             if (routines.isEmpty()) {
                 item {
                     Text(
-                        text = "Telefonda rutin oluşturun; saat bağlandığında otomatik eşitlenir.",
+                        text = "Telefonda rutin oluşturun veya eşitleyin.",
                         color = FitHashTextSecondary,
                         fontSize = 12.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -90,6 +95,27 @@ fun RoutinesListScreen(
                         )
                     )
                 }
+            }
+
+            // Sync from Phone Button
+            item {
+                CompactChip(
+                    onClick = {
+                        workoutManager.syncFromDataClient()
+                        workoutManager.requestSyncFromPhone()
+                    },
+                    label = {
+                        Text(
+                            text = "🔄 Telefondan Eşitle",
+                            color = FitHashPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    colors = ChipDefaults.chipColors(
+                        backgroundColor = FitHashSurfaceSubtle
+                    )
+                )
             }
         }
     }

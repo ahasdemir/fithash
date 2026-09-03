@@ -25,6 +25,8 @@ class WearPhoneListenerService : WearableListenerService() {
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == "/fithash/workout_completed") {
             queueWorkout(String(messageEvent.data, Charsets.UTF_8))
+        } else if (messageEvent.path == "/fithash/request_sync") {
+            WearSyncModule.sendEventToJS("onWearRequestSync", null)
         }
     }
 
