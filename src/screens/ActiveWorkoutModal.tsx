@@ -282,6 +282,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const rec = calculateRecommendation(ex.name, ex.id, ex.equipment, ex.category);
     const defaultWeight = rec ? rec.recWeight : 0;
     const isCardio = ex.category === 'Kardiyo';
+    const isIso = isIsometricExercise(ex.name, ex.category);
 
     const newWorkoutEx: WorkoutExercise = {
       id: `wex_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -293,9 +294,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         {
           id: `set_1_${Date.now()}`,
           setNumber: 1,
-          weight: isCardio ? 0 : defaultWeight,
-          reps: isCardio ? 0 : 10,
+          weight: isCardio || isIso ? 0 : defaultWeight,
+          reps: isCardio || isIso ? 0 : 10,
           rir: isCardio ? undefined : 1,
+          durationSeconds: isIso ? 60 : undefined,
           durationMinutes: isCardio ? 15 : undefined,
           distanceKm: isCardio ? 2.5 : undefined,
           completed: false,
@@ -327,6 +329,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onUpdateSession(updated);
   };
 
+  const isIsometricExercise = (name: string, cat?: string) => {
+    return /plank|hollow body|dead bug|bird dog|statik/i.test(name);
+  };
+
   const handleSetChange = (exId: string, setIdx: number, field: keyof ExerciseSet, val: any) => {
     let cleanString = typeof val === 'string' ? val : (val != null ? String(val) : '');
     const isDecimalField = field === 'weight' || field === 'distanceKm';
@@ -340,7 +346,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         cleanString = parts[0] + '.' + parts.slice(1).join('');
       }
       setRawInputMap(prev => ({ ...prev, [rawKey]: cleanString }));
-    } else if ((field === 'reps' || field === 'durationMinutes') && typeof val === 'string') {
+    } else if ((field === 'reps' || field === 'durationMinutes' || field === 'durationSeconds') && typeof val === 'string') {
       cleanString = val.replace(/[^0-9]/g, '');
       setRawInputMap(prev => ({ ...prev, [rawKey]: cleanString }));
     }
@@ -416,13 +422,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       const lastSet = ex.sets[ex.sets.length - 1];
       const newSetNumber = ex.sets.length + 1;
       const isCardio = ex.category === 'Kardiyo';
+      const isIsometric = isIsometricExercise(ex.exerciseName, ex.category);
 
       const newSet: ExerciseSet = {
         id: `set_${newSetNumber}_${Date.now()}`,
         setNumber: newSetNumber,
         weight: lastSet ? lastSet.weight : 0,
-        reps: lastSet ? lastSet.reps : 10,
+        reps: lastSet ? lastSet.reps : (isIsometric ? 0 : 10),
         rir: lastSet ? lastSet.rir : 1,
+        durationSeconds: lastSet?.durationSeconds ?? (isIsometric ? 60 : undefined),
         durationMinutes: lastSet?.durationMinutes ?? (isCardio ? 15 : undefined),
         distanceKm: lastSet?.distanceKm ?? (isCardio ? 2.5 : undefined),
         completed: false,
@@ -478,12 +486,23 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
     session.exercises.forEach(ex => {
       const isCardio = ex.category === 'Kardiyo';
+      const isIso = isIsometricExercise(ex.exerciseName, ex.category);
 
       ex.sets.forEach(s => {
         if (s.completed) {
           totalSetsCount++;
-          if (!isCardio && s.weight > 0) {
-            totalVolume += s.weight * s.reps;
+          if (isIso) {
+            const holdSecs = s.durationSeconds || 60;
+            // Isometric calorie estimation (MET ~4.0 for plank/core holds)
+            totalCaloriesBurned += Math.round(4.0 * 75 * (holdSecs / 3600));
+            if (s.rir !== undefined) {
+              rirSum += s.rir;
+              rirCount++;
+            }
+          } else if (!isCardio) {
+            if (s.weight > 0) {
+              totalVolume += s.weight * s.reps;
+            }
             if (s.rir !== undefined) {
               rirSum += s.rir;
               rirCount++;
@@ -723,10 +742,20 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
                     <Text style={[styles.th, { width: 28, textAlign: 'center' }]}></Text>
                   </View>
+                ) : isIsometricExercise(ex.exerciseName, ex.category) ? (
+                  <View style={styles.tableHeader}>
+                    <Text style={[styles.th, { width: 28 }]}>SET</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>SÜRE (SN)</Text>
+                    <Text style={[styles.th, { width: 58, textAlign: 'center' }]}>RIR</Text>
+                    <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
+                    <Text style={[styles.th, { width: 28, textAlign: 'center' }]}></Text>
+                  </View>
                 ) : (
                   <View style={styles.tableHeader}>
                     <Text style={[styles.th, { width: 28 }]}>SET</Text>
-                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>KG</Text>
+                    <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>
+                      {ex.equipment === 'Vücut Ağırlığı' ? '+KG' : 'KG'}
+                    </Text>
                     <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>TEKRAR</Text>
                     <Text style={[styles.th, { width: 58, textAlign: 'center' }]}>RIR</Text>
                     <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
@@ -736,6 +765,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                 {/* Sets Rows */}
                 {ex.sets.map((set, setIdx) => {
+                  const isIso = isIsometricExercise(ex.exerciseName, ex.category);
+                  const isBodyweight = ex.equipment === 'Vücut Ağırlığı' && !isCardio && !isIso;
+
                   if (isCardio) {
                     const mins = set.durationMinutes || 0;
                     const dist = set.distanceKm || 0;
@@ -800,6 +832,69 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     );
                   }
 
+                  if (isIso) {
+                    const secs = set.durationSeconds !== undefined ? set.durationSeconds : 60;
+                    const durRawKey = `${ex.id}_${setIdx}_durationSeconds`;
+                    const durDisplay = rawInputMap[durRawKey] !== undefined ? rawInputMap[durRawKey] : (secs > 0 ? secs.toString() : '');
+                    const rirVal = set.rir ?? 1;
+                    const rirColor = getRirColor(rirVal);
+
+                    return (
+                      <View key={set.id} style={[styles.tableRow, set.completed && styles.tableRowCompleted]}>
+                        <Text style={styles.setNumberText}>{set.setNumber}</Text>
+
+                        {/* Duration Seconds Input */}
+                        <View style={[styles.inputCell, { flex: 1 }]}>
+                          <TextInput
+                            style={[styles.setNumInput, set.completed && styles.inputCompleted]}
+                            keyboardType="number-pad"
+                            placeholder="60"
+                            placeholderTextColor={COLORS.textMuted}
+                            value={durDisplay}
+                            onChangeText={v => handleSetChange(ex.id, setIdx, 'durationSeconds', v)}
+                          />
+                        </View>
+
+                        {/* RIR pill selector button */}
+                        <TouchableOpacity
+                          style={[
+                            styles.rirPill,
+                            { backgroundColor: rirColor + '20', borderColor: rirColor },
+                          ]}
+                          activeOpacity={0.7}
+                          onPress={() => handleCycleRir(ex.id, setIdx)}
+                        >
+                          <Text style={[styles.rirPillText, { color: rirColor }]}>
+                            RIR {rirVal}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {/* Checkmark Button */}
+                        <TouchableOpacity
+                          style={[
+                            styles.checkBtn,
+                            set.completed && styles.checkBtnCompleted,
+                          ]}
+                          onPress={() => handleToggleSetComplete(ex.id, setIdx)}
+                        >
+                          <Ionicons
+                            name="checkmark"
+                            size={14}
+                            color={set.completed ? '#111111' : COLORS.textMuted}
+                          />
+                        </TouchableOpacity>
+
+                        {/* Delete Set Icon Button */}
+                        <TouchableOpacity
+                          style={styles.deleteSetBtn}
+                          onPress={() => handleRemoveSet(ex.id, setIdx)}
+                        >
+                          <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  }
+
                   const rirVal = set.rir ?? 1;
                   const rirColor = getRirColor(rirVal);
                   const weightRawKey = `${ex.id}_${setIdx}_weight`;
@@ -822,7 +917,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.setNumInput, set.completed && styles.inputCompleted]}
                           keyboardType="decimal-pad"
-                          placeholder={recommendation ? `${recommendation.recWeight}` : "0"}
+                          placeholder={isBodyweight ? "+0" : (recommendation ? `${recommendation.recWeight}` : "0")}
                           placeholderTextColor={COLORS.textMuted}
                           value={weightDisplay}
                           onChangeText={v => handleSetChange(ex.id, setIdx, 'weight', v)}

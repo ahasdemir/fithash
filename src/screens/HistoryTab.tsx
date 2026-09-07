@@ -383,78 +383,115 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                       </View>
 
                       {/* Sets Table Header */}
-                      <View style={styles.setTableHeader}>
-                        <Text style={[styles.setTh, { width: 36 }]}>DURUM</Text>
-                        <Text style={[styles.setTh, { width: 32 }]}>SET</Text>
-                        {isCardio ? (
-                          <>
-                            <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>SÜRE</Text>
-                            <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>MESAFE</Text>
-                            <Text style={[styles.setTh, { flex: 1, textAlign: 'right' }]}>ORT. HIZ</Text>
-                          </>
-                        ) : (
-                          <>
-                            <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>AĞIRLIK</Text>
-                            <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>TEKRAR</Text>
-                            <Text style={[styles.setTh, { width: 50, textAlign: 'right' }]}>RIR</Text>
-                          </>
-                        )}
-                      </View>
-
-                      {/* Sets Table Rows */}
-                      {ex.sets.map(set => {
-                        const isSetCompleted = set.completed;
-
-                        if (isCardio) {
-                          const mins = set.durationMinutes || 0;
-                          const dist = set.distanceKm || 0;
-                          const speed = set.avgSpeedKmh || (mins > 0 && dist > 0 ? ((dist / mins) * 60).toFixed(1) : '-');
-
-                          return (
-                            <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
-                              <View style={{ width: 36, alignItems: 'center' }}>
-                                <Ionicons
-                                  name={isSetCompleted ? "checkmark-circle" : "close-circle"}
-                                  size={16}
-                                  color={isSetCompleted ? "#10B981" : "#EF4444"}
-                                />
-                              </View>
-                              <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
-                              <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
-                                {mins} dk
-                              </Text>
-                              <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
-                                {dist} km
-                              </Text>
-                              <Text style={[styles.setValue, { flex: 1, textAlign: 'right', fontWeight: '800' }, !isSetCompleted && styles.setValueSkipped]}>
-                                {speed} km/h
-                              </Text>
-                            </View>
-                          );
-                        }
+                      {(() => {
+                        const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName) || ex.sets.some(s => s.durationSeconds !== undefined && s.durationSeconds > 0);
+                        const isBw = ex.equipment === 'Vücut Ağırlığı' && !isCardio && !isIso;
 
                         return (
-                          <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
-                            <View style={{ width: 32, alignItems: 'center' }}>
-                              <Ionicons
-                                name={isSetCompleted ? "checkmark-circle" : "close-circle"}
-                                size={16}
-                                color={isSetCompleted ? "#10B981" : "#EF4444"}
-                              />
+                          <>
+                            <View style={styles.setTableHeader}>
+                              <Text style={[styles.setTh, { width: 36 }]}>DURUM</Text>
+                              <Text style={[styles.setTh, { width: 32 }]}>SET</Text>
+                              {isCardio ? (
+                                <>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>SÜRE</Text>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>MESAFE</Text>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'right' }]}>ORT. HIZ</Text>
+                                </>
+                              ) : isIso ? (
+                                <>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>SÜRE</Text>
+                                  <Text style={[styles.setTh, { width: 50, textAlign: 'right' }]}>RIR</Text>
+                                </>
+                              ) : (
+                                <>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>{isBw ? '+AĞIRLIK' : 'AĞIRLIK'}</Text>
+                                  <Text style={[styles.setTh, { flex: 1, textAlign: 'center' }]}>TEKRAR</Text>
+                                  <Text style={[styles.setTh, { width: 50, textAlign: 'right' }]}>RIR</Text>
+                                </>
+                              )}
                             </View>
-                            <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
-                            <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
-                              {set.weight} kg
-                            </Text>
-                            <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
-                              {set.reps} tekrar
-                            </Text>
-                            <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
-                              {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
-                            </Text>
-                          </View>
+
+                            {/* Sets Table Rows */}
+                            {ex.sets.map(set => {
+                              const isSetCompleted = set.completed;
+
+                              if (isCardio) {
+                                const mins = set.durationMinutes || 0;
+                                const dist = set.distanceKm || 0;
+                                const speed = set.avgSpeedKmh || (mins > 0 && dist > 0 ? ((dist / mins) * 60).toFixed(1) : '-');
+
+                                return (
+                                  <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
+                                    <View style={{ width: 36, alignItems: 'center' }}>
+                                      <Ionicons
+                                        name={isSetCompleted ? "checkmark-circle" : "close-circle"}
+                                        size={16}
+                                        color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                      />
+                                    </View>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                    <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {mins} dk
+                                    </Text>
+                                    <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {dist} km
+                                    </Text>
+                                    <Text style={[styles.setValue, { flex: 1, textAlign: 'right', fontWeight: '800' }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {speed} km/h
+                                    </Text>
+                                  </View>
+                                );
+                              }
+
+                              if (isIso) {
+                                const secs = set.durationSeconds !== undefined ? set.durationSeconds : (set.reps || 60);
+
+                                return (
+                                  <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
+                                    <View style={{ width: 32, alignItems: 'center' }}>
+                                      <Ionicons
+                                        name={isSetCompleted ? "checkmark-circle" : "close-circle"}
+                                        size={16}
+                                        color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                      />
+                                    </View>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                    <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {secs} sn
+                                    </Text>
+                                    <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
+                                    </Text>
+                                  </View>
+                                );
+                              }
+
+                              return (
+                                <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
+                                  <View style={{ width: 32, alignItems: 'center' }}>
+                                    <Ionicons
+                                      name={isSetCompleted ? "checkmark-circle" : "close-circle"}
+                                      size={16}
+                                      color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                    />
+                                  </View>
+                                  <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                  <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
+                                    {isBw && set.weight === 0 ? 'Vücut Ağ.' : `${isBw && set.weight > 0 ? '+' : ''}${set.weight} kg`}
+                                  </Text>
+                                  <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
+                                    {set.reps} tekrar
+                                  </Text>
+                                  <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
+                                    {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </>
                         );
-                      })}
+                      })()}
                     </View>
                   );
                 })}

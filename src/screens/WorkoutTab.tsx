@@ -75,12 +75,18 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
     const exercises = routine.exercises.map((rEx, idx) => {
       const exObj = allExercises.find(e => e.id === rEx.exerciseId);
+      const isCardio = rEx.category === 'Kardiyo' || exObj?.category === 'Kardiyo';
+      const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(rEx.exerciseName) || !!rEx.targetDurationSeconds;
+
       const sets = Array.from({ length: rEx.targetSets }, (_, i) => ({
         id: `set_${idx}_${i}_${Date.now()}`,
         setNumber: i + 1,
         weight: rEx.targetWeight || 0,
-        reps: rEx.targetReps || 10,
-        rir: rEx.targetRir ?? 1,
+        reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
+        rir: isCardio ? undefined : (rEx.targetRir ?? 1),
+        durationSeconds: isIso ? (rEx.targetDurationSeconds || 60) : undefined,
+        durationMinutes: isCardio ? (rEx.targetDurationMinutes || 15) : undefined,
+        distanceKm: isCardio ? (rEx.targetDistanceKm || 2.5) : undefined,
         completed: false,
       }));
 

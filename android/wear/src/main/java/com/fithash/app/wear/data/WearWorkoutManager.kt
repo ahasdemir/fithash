@@ -128,13 +128,16 @@ class WearWorkoutManager private constructor(private val context: Context) {
 
     fun saveSyncedRoutines(routinesJson: String) {
         try {
+            android.util.Log.d("FitHashWear", "saveSyncedRoutines received JSON len: ${routinesJson.length}")
             val type = object : TypeToken<List<WearRoutine>>() {}.type
-            val list: List<WearRoutine> = gson.fromJson(routinesJson, type)
+            val list: List<WearRoutine> = gson.fromJson(routinesJson, type) ?: emptyList()
+            android.util.Log.d("FitHashWear", "saveSyncedRoutines parsed ${list.size} routines")
             if (list.isNotEmpty()) {
                 _routines.value = list
                 prefs.edit().putString("saved_routines", routinesJson).apply()
             }
         } catch (e: Exception) {
+            android.util.Log.e("FitHashWear", "Error parsing synced routines", e)
             e.printStackTrace()
         }
     }
@@ -168,10 +171,10 @@ class WearWorkoutManager private constructor(private val context: Context) {
                 WearExerciseSet(
                     id = "set_${exIdx}_${setNum}_$now",
                     setNumber = setNum,
-                    weight = rEx.targetWeight,
+                    weight = rEx.targetWeight ?: 0.0,
                     reps = rEx.targetReps,
                     rir = null,
-                    targetRir = rEx.targetRir,
+                    targetRir = rEx.targetRir ?: 1,
                     completed = false
                 )
             }.toMutableList()
@@ -180,8 +183,8 @@ class WearWorkoutManager private constructor(private val context: Context) {
                 id = "wex_${exIdx}_$now",
                 exerciseId = rEx.exerciseId,
                 exerciseName = rEx.exerciseName,
-                category = rEx.category,
-                equipment = rEx.equipment,
+                category = rEx.category ?: "Genel",
+                equipment = rEx.equipment ?: "Diğer",
                 sets = sets
             )
         }.toMutableList()

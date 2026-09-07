@@ -97,13 +97,16 @@ export const exportWorkoutsCSV = async (): Promise<string> => {
   const workouts = await getWorkouts();
   // UTF-8 BOM for Excel compatibility with Turkish characters
   let csv = '\uFEFF';
-  csv += 'Antrenman,Tarih,Süre (dk),Hareket,Kategori,Ekipman,Set No,Durum,Set Tipi,Ağırlık (kg),Tekrar,RIR,Mesafe (km),Kardiyo Süresi (dk),Yakılan Kalori (kcal),Notlar\n';
+  csv += 'Antrenman,Tarih,Süre (dk),Hareket,Kategori,Ekipman,Set No,Durum,Set Tipi,Ağırlık (kg),Tekrar,İzometrik Süre (sn),RIR,Mesafe (km),Kardiyo Süresi (dk),Yakılan Kalori (kcal),Notlar\n';
 
   workouts.forEach(w => {
     const durationMins = Math.round((w.durationSeconds || 0) / 60);
     const workoutNotes = (w.notes || '').replace(/"/g, '""');
 
     w.exercises.forEach(ex => {
+      const isCardio = ex.category === 'Kardiyo';
+      const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName);
+      const isBodyweight = ex.equipment === 'Vücut Ağırlığı';
       const exNotes = (ex.notes || '').replace(/"/g, '""');
       const combinedNotes = [workoutNotes, exNotes].filter(Boolean).join(' | ');
 
@@ -113,14 +116,23 @@ export const exportWorkoutsCSV = async (): Promise<string> => {
         if (set.isWarmup) setType = 'Isınma';
         if (set.isPR) setType = 'PR';
 
-        const weight = set.weight ?? 0;
-        const reps = set.reps ?? 0;
+        // Weight handling: for bodyweight, 0 means unweighted (or show +kg if added)
+        let weight: string | number = set.weight ?? 0;
+        if (isIso || isCardio) {
+          weight = '';
+        } else if (isBodyweight) {
+          weight = set.weight > 0 ? `+${set.weight}` : 0;
+        }
+
+        // Reps & Duration handling
+        const reps = isIso || isCardio ? '' : (set.reps ?? '');
+        const isoSeconds = isIso ? (set.durationSeconds ?? set.reps ?? '') : (set.durationSeconds ?? '');
         const rir = set.rir !== undefined && set.rir !== null ? set.rir : '';
         const distance = set.distanceKm ?? '';
         const cardioDuration = set.durationMinutes ?? '';
         const calories = set.caloriesBurned ?? '';
 
-        csv += `"${w.name}","${w.date}",${durationMins},"${ex.exerciseName}","${ex.category || ''}","${ex.equipment || ''}",${set.setNumber},"${status}","${setType}",${weight},${reps},${rir},${distance},${cardioDuration},${calories},"${combinedNotes}"\n`;
+        csv += `"${w.name}","${w.date}",${durationMins},"${ex.exerciseName}","${ex.category || ''}","${ex.equipment || ''}",${set.setNumber},"${status}","${setType}","${weight}","${reps}","${isoSeconds}",${rir},${distance},${cardioDuration},${calories},"${combinedNotes}"\n`;
       });
     });
   });

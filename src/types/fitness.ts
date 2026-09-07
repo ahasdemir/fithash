@@ -30,8 +30,9 @@ export interface Exercise {
 export interface ExerciseSet {
   id: string;
   setNumber: number;
-  weight: number; // in kg
+  weight: number; // in kg (or additional kg for bodyweight)
   reps: number;
+  durationSeconds?: number; // for isometric exercises like Plank (in seconds)
   rir?: number;   // Reps In Reserve (Tükenişe kalan tekrar sayısı: 0, 1, 2, 3+)
   completed: boolean;
   isWarmup?: boolean;
@@ -81,6 +82,7 @@ export interface RoutineExercise {
   targetReps: number;
   targetWeight?: number;
   targetRir?: number; // Hedef RIR
+  targetDurationSeconds?: number; // Statik/Plank süresi (sn)
   targetDurationMinutes?: number;
   targetDistanceKm?: number;
 }

@@ -102,7 +102,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
   const handleUpdateTarget = (
     index: number,
-    field: 'targetSets' | 'targetReps' | 'targetRir' | 'targetDurationMinutes' | 'targetDistanceKm',
+    field: 'targetSets' | 'targetReps' | 'targetRir' | 'targetDurationMinutes' | 'targetDistanceKm' | 'targetDurationSeconds',
     delta: number
   ) => {
     setSelectedExercises(prev => {
@@ -111,6 +111,8 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
       if (field === 'targetDurationMinutes') {
         copy[index].targetDurationMinutes = Math.max(5, Math.min(180, (currentVal || 15) + delta * 5));
+      } else if (field === 'targetDurationSeconds') {
+        copy[index].targetDurationSeconds = Math.max(10, Math.min(600, (currentVal || 60) + delta));
       } else if (field === 'targetDistanceKm') {
         const val = Math.max(0.5, Math.min(50, (currentVal || 2.5) + delta * 0.5));
         copy[index].targetDistanceKm = parseFloat(val.toFixed(1));
@@ -278,6 +280,44 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetDistanceKm || 2.5} km</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDistanceKm', 1)}>
+                          <Ionicons name="add" size={12} color="#111111" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName) ? (
+                    <View style={styles.targetsRow}>
+                      {/* Sets */}
+                      <View style={styles.counterBox}>
+                        <Text style={styles.counterLabel}>Set:</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', -1)}>
+                          <Ionicons name="remove" size={12} color="#111111" />
+                        </TouchableOpacity>
+                        <Text style={styles.counterValue}>{ex.targetSets}</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', 1)}>
+                          <Ionicons name="add" size={12} color="#111111" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Isometric Duration Seconds */}
+                      <View style={styles.counterBox}>
+                        <Text style={styles.counterLabel}>Süre (sn):</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationSeconds', -5)}>
+                          <Ionicons name="remove" size={12} color="#111111" />
+                        </TouchableOpacity>
+                        <Text style={styles.counterValue}>{ex.targetDurationSeconds || 60} sn</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationSeconds', 5)}>
+                          <Ionicons name="add" size={12} color="#111111" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* RIR */}
+                      <View style={styles.counterBox}>
+                        <Text style={styles.counterLabel}>Hedef RIR:</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', -1)}>
+                          <Ionicons name="remove" size={12} color="#111111" />
+                        </TouchableOpacity>
+                        <Text style={styles.counterValue}>{ex.targetRir ?? 1}</Text>
+                        <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', 1)}>
                           <Ionicons name="add" size={12} color="#111111" />
                         </TouchableOpacity>
                       </View>

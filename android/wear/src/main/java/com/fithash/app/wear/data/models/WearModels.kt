@@ -1,22 +1,24 @@
 package com.fithash.app.wear.data.models
 
 data class WearRoutine(
-    val id: String,
-    val name: String,
-    val description: String = "",
-    val category: String = "",
+    val id: String = "",
+    val name: String = "",
+    val description: String? = "",
+    val category: String? = "",
     val exercises: List<WearRoutineExercise> = emptyList()
 )
 
 data class WearRoutineExercise(
-    val exerciseId: String,
-    val exerciseName: String,
-    val category: String = "Göğüs",
-    val equipment: String = "Barbell",
+    val exerciseId: String = "",
+    val exerciseName: String = "",
+    val category: String? = "Göğüs",
+    val equipment: String? = "Barbell",
     val targetSets: Int = 3,
     val targetReps: Int = 10,
-    val targetWeight: Double = 0.0,
-    val targetRir: Int = 1
+    val targetWeight: Double? = 0.0,
+    val targetRir: Int? = 1,
+    val targetDurationMinutes: Double? = null,
+    val targetDistanceKm: Double? = null
 )
 
 data class WearExerciseSet(

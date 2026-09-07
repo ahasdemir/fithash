@@ -37,6 +37,13 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
     fun syncRoutinesToWatch(routinesJson: String, settingsJson: String, promise: Promise) {
         scope.launch {
             try {
+                // Save natively so the background service can reply if RN is dead
+                reactContext.getSharedPreferences("fithash_wear_state", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("routinesJson", routinesJson)
+                    .putString("settingsJson", settingsJson)
+                    .apply()
+
                 val nodeClient = Wearable.getNodeClient(reactContext)
                 val dataClient = Wearable.getDataClient(reactContext)
                 val messageClient = Wearable.getMessageClient(reactContext)
@@ -47,7 +54,6 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
                     dataMap.putLong("revision", System.currentTimeMillis())
                 }.asPutDataRequest().setUrgent()
 
-                // DataItems persist locally and are delivered when a paired watch reconnects.
                 dataClient.putDataItem(request).await()
 
                 val nodes = nodeClient.connectedNodes.await()
@@ -98,12 +104,8 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
     }
 
     @ReactMethod
-    fun addListener(eventName: String?) {
-        // Required for React Native built-in EventEmitter calls
-    }
+    fun addListener(eventName: String?) {}
 
     @ReactMethod
-    fun removeListeners(count: Int?) {
-        // Required for React Native built-in EventEmitter calls
-    }
+    fun removeListeners(count: Int?) {}
 }
