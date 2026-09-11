@@ -453,38 +453,42 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                       <Ionicons
                                         name={isSetCompleted ? "checkmark-circle" : "close-circle"}
                                         size={16}
-                                        color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                        color={isSetCompleted ? (set.isWarmup ? "#F97316" : "#10B981") : "#EF4444"}
                                       />
                                     </View>
-                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
+                                      {set.isWarmup ? 'W' : `#${set.setNumber}`}
+                                    </Text>
                                     <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                       {secs} sn
                                     </Text>
-                                    <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
-                                      {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
+                                    <Text style={[styles.setValue, { width: 64, textAlign: 'right', color: set.isWarmup ? '#F97316' : COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
+                                      {isSetCompleted ? (set.isWarmup ? 'Isınma (W)' : set.rir !== undefined ? `RIR ${set.rir}` : '-') : 'Atlandı'}
                                     </Text>
                                   </View>
                                 );
                               }
 
                               return (
-                                <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
+                                <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped, set.isWarmup && { backgroundColor: 'rgba(249, 115, 22, 0.05)' }]}>
                                   <View style={{ width: 32, alignItems: 'center' }}>
                                     <Ionicons
                                       name={isSetCompleted ? "checkmark-circle" : "close-circle"}
                                       size={16}
-                                      color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                      color={isSetCompleted ? (set.isWarmup ? "#F97316" : "#10B981") : "#EF4444"}
                                     />
                                   </View>
-                                  <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                  <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
+                                    {set.isWarmup ? 'W' : `#${set.setNumber}`}
+                                  </Text>
                                   <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                     {isBw && set.weight === 0 ? 'Vücut Ağ.' : `${isBw && set.weight > 0 ? '+' : ''}${set.weight} kg`}
                                   </Text>
                                   <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                     {set.reps} tekrar
                                   </Text>
-                                  <Text style={[styles.setValue, { width: 52, textAlign: 'right', color: COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
-                                    {isSetCompleted ? `RIR ${set.rir ?? 1}` : 'Atlandı'}
+                                  <Text style={[styles.setValue, { width: 64, textAlign: 'right', color: set.isWarmup ? '#F97316' : COLORS.textMuted }, !isSetCompleted && styles.setValueSkipped]}>
+                                    {isSetCompleted ? (set.isWarmup ? 'Isınma (W)' : set.rir !== undefined ? `RIR ${set.rir}` : '-') : 'Atlandı'}
                                   </Text>
                                 </View>
                               );

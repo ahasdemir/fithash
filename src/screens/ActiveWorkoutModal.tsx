@@ -382,9 +382,52 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleCycleRir = (exId: string, setIdx: number) => {
-    const currentRir = session.exercises.find(e => e.id === exId)?.sets[setIdx]?.rir ?? 1;
-    const nextRir = (currentRir + 1) % 4; // 0 -> 1 -> 2 -> 3 -> 0
-    handleSetChange(exId, setIdx, 'rir', nextRir);
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      const copySets = [...ex.sets];
+      const currentSet = copySets[setIdx];
+
+      let nextRir: number | undefined;
+      let nextIsWarmup = false;
+
+      if (currentSet.isWarmup) {
+        // W (Warmup) -> RIR 0 (Tükeniş / Failure)
+        nextRir = 0;
+        nextIsWarmup = false;
+      } else if (currentSet.rir === 0) {
+        // RIR 0 -> RIR 1
+        nextRir = 1;
+        nextIsWarmup = false;
+      } else if (currentSet.rir === 1) {
+        // RIR 1 -> RIR 2
+        nextRir = 2;
+        nextIsWarmup = false;
+      } else if (currentSet.rir === 2) {
+        // RIR 2 -> RIR 3
+        nextRir = 3;
+        nextIsWarmup = false;
+      } else if (currentSet.rir === 3) {
+        // RIR 3 -> Boş / Belirtilmemiş (-)
+        nextRir = undefined;
+        nextIsWarmup = false;
+      } else {
+        // Boş / Undefined (-) -> W (Isınma / Warmup)
+        nextRir = undefined;
+        nextIsWarmup = true;
+      }
+
+      copySets[setIdx] = {
+        ...currentSet,
+        rir: nextRir,
+        isWarmup: nextIsWarmup,
+      };
+
+      return { ...ex, sets: copySets };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
   };
 
   const handleToggleSetComplete = (exId: string, setIdx: number) => {
@@ -429,6 +472,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         setNumber: newSetNumber,
         weight: lastSet ? lastSet.weight : 0,
         reps: lastSet ? lastSet.reps : (isIsometric ? 0 : 10),
+        isWarmup: lastSet ? lastSet.isWarmup : false,
         rir: lastSet ? lastSet.rir : 1,
         durationSeconds: lastSet?.durationSeconds ?? (isIsometric ? 60 : undefined),
         durationMinutes: lastSet?.durationMinutes ?? (isCardio ? 15 : undefined),
@@ -495,7 +539,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             const holdSecs = s.durationSeconds || 60;
             // Isometric calorie estimation (MET ~4.0 for plank/core holds)
             totalCaloriesBurned += Math.round(4.0 * 75 * (holdSecs / 3600));
-            if (s.rir !== undefined) {
+            if (s.rir !== undefined && !s.isWarmup) {
               rirSum += s.rir;
               rirCount++;
             }
@@ -503,7 +547,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             if (s.weight > 0) {
               totalVolume += s.weight * s.reps;
             }
-            if (s.rir !== undefined) {
+            if (s.rir !== undefined && !s.isWarmup) {
               rirSum += s.rir;
               rirCount++;
             }
@@ -548,11 +592,19 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     cancelRestTimerNotification();
   };
 
-  const getRirColor = (rir?: number) => {
+  const getRirColor = (rir?: number, isWarmup?: boolean) => {
+    if (isWarmup) return '#F97316';   // Warm Orange (Warmup)
     if (rir === 0) return '#EF4444'; // Failure / Crimson Red
     if (rir === 1) return '#F59E0B'; // Amber
     if (rir === 2) return '#10B981'; // Emerald
-    return '#3B82F6';                // Muted Blue
+    if (rir === 3) return '#3B82F6'; // Muted Blue
+    return COLORS.textMuted;         // Empty / Undefined
+  };
+
+  const getRirLabel = (rir?: number, isWarmup?: boolean) => {
+    if (isWarmup) return 'W';
+    if (rir !== undefined) return `RIR ${rir}`;
+    return '-';
   };
 
   const handleCancelSession = () => {
@@ -836,12 +888,21 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     const secs = set.durationSeconds !== undefined ? set.durationSeconds : 60;
                     const durRawKey = `${ex.id}_${setIdx}_durationSeconds`;
                     const durDisplay = rawInputMap[durRawKey] !== undefined ? rawInputMap[durRawKey] : (secs > 0 ? secs.toString() : '');
-                    const rirVal = set.rir ?? 1;
-                    const rirColor = getRirColor(rirVal);
+                    const rirColor = getRirColor(set.rir, set.isWarmup);
+                    const rirLabel = getRirLabel(set.rir, set.isWarmup);
 
                     return (
-                      <View key={set.id} style={[styles.tableRow, set.completed && styles.tableRowCompleted]}>
-                        <Text style={styles.setNumberText}>{set.setNumber}</Text>
+                      <View
+                        key={set.id}
+                        style={[
+                          styles.tableRow,
+                          set.completed && styles.tableRowCompleted,
+                          set.isWarmup && styles.tableRowWarmup,
+                        ]}
+                      >
+                        <Text style={[styles.setNumberText, set.isWarmup && styles.setNumberWarmup]}>
+                          {set.isWarmup ? 'W' : set.setNumber}
+                        </Text>
 
                         {/* Duration Seconds Input */}
                         <View style={[styles.inputCell, { flex: 1 }]}>
@@ -859,13 +920,16 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <TouchableOpacity
                           style={[
                             styles.rirPill,
-                            { backgroundColor: rirColor + '20', borderColor: rirColor },
+                            {
+                              backgroundColor: set.rir !== undefined || set.isWarmup ? rirColor + '20' : COLORS.surfaceSubtle,
+                              borderColor: rirColor,
+                            },
                           ]}
                           activeOpacity={0.7}
                           onPress={() => handleCycleRir(ex.id, setIdx)}
                         >
-                          <Text style={[styles.rirPillText, { color: rirColor }]}>
-                            RIR {rirVal}
+                          <Text style={[styles.rirPillText, { color: rirColor, fontWeight: set.isWarmup ? '900' : '800' }]}>
+                            {rirLabel}
                           </Text>
                         </TouchableOpacity>
 
@@ -895,8 +959,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     );
                   }
 
-                  const rirVal = set.rir ?? 1;
-                  const rirColor = getRirColor(rirVal);
+                  const rirColor = getRirColor(set.rir, set.isWarmup);
+                  const rirLabel = getRirLabel(set.rir, set.isWarmup);
                   const weightRawKey = `${ex.id}_${setIdx}_weight`;
                   const repsRawKey = `${ex.id}_${setIdx}_reps`;
                   const weightDisplay = rawInputMap[weightRawKey] !== undefined ? rawInputMap[weightRawKey] : (set.weight > 0 ? set.weight.toString() : '');
@@ -908,9 +972,12 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       style={[
                         styles.tableRow,
                         set.completed && styles.tableRowCompleted,
+                        set.isWarmup && styles.tableRowWarmup,
                       ]}
                     >
-                      <Text style={styles.setNumberText}>{set.setNumber}</Text>
+                      <Text style={[styles.setNumberText, set.isWarmup && styles.setNumberWarmup]}>
+                        {set.isWarmup ? 'W' : set.setNumber}
+                      </Text>
 
                       {/* Weight input */}
                       <View style={styles.inputCell}>
@@ -952,13 +1019,16 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.rirPill,
-                          { backgroundColor: rirColor + '20', borderColor: rirColor },
+                          {
+                            backgroundColor: set.rir !== undefined || set.isWarmup ? rirColor + '20' : COLORS.surfaceSubtle,
+                            borderColor: rirColor,
+                          },
                         ]}
                         activeOpacity={0.7}
                         onPress={() => handleCycleRir(ex.id, setIdx)}
                       >
-                        <Text style={[styles.rirPillText, { color: rirColor }]}>
-                          RIR {rirVal}
+                        <Text style={[styles.rirPillText, { color: rirColor, fontWeight: set.isWarmup ? '900' : '800' }]}>
+                          {rirLabel}
                         </Text>
                       </TouchableOpacity>
 
@@ -1247,12 +1317,19 @@ const styles = StyleSheet.create({
   tableRowCompleted: {
     backgroundColor: COLORS.primaryGlow,
   },
+  tableRowWarmup: {
+    backgroundColor: 'rgba(249, 115, 22, 0.06)',
+  },
   setNumberText: {
     width: 22,
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontWeight: '700',
     fontSize: 12,
+  },
+  setNumberWarmup: {
+    color: '#F97316',
+    fontWeight: '900',
   },
   inputCell: {
     flex: 1,

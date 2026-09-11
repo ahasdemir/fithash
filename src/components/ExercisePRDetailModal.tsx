@@ -75,6 +75,7 @@ export interface ExercisePRStats {
       weight: number;
       reps: number;
       rir?: number;
+      isWarmup?: boolean;
       isPR?: boolean;
       durationMinutes?: number;
       distanceKm?: number;
@@ -148,6 +149,7 @@ export const calculateExercisePRStats = (
             weight: w,
             reps: r,
             rir: s.rir,
+            isWarmup: s.isWarmup,
             isPR: s.isPR,
             durationMinutes: s.durationMinutes,
             distanceKm: s.distanceKm,
@@ -710,9 +712,11 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                               {set.durationMinutes ? `${set.durationMinutes}dk` : ''}
                             </Text>
                           )}
-                          {set.rir !== undefined && (
+                          {set.isWarmup ? (
+                            <Text style={[styles.setChipRir, { backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#F97316' }]}>W</Text>
+                          ) : set.rir !== undefined ? (
                             <Text style={styles.setChipRir}>RIR {set.rir}</Text>
-                          )}
+                          ) : null}
                         </View>
                       ))}
                     </View>
