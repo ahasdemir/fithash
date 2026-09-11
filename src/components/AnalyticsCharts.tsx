@@ -19,10 +19,12 @@ export interface VolumeBucket {
   label: string;
   fullLabel: string;
   volume: number;
+  sets: number;
   workoutCount: number;
   startDate: string;
   endDate: string;
   isPeak?: boolean;
+  isPeakSet?: boolean;
 }
 
 interface AnalyticsChartsProps {
@@ -74,6 +76,12 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
 
     const dayWorkouts = workouts.filter(w => w.date === dateStr);
     const vol = dayWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+    let sets = 0;
+    dayWorkouts.forEach(w => {
+      w.exercises?.forEach(ex => {
+        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+      });
+    });
 
     const dayName = DAY_SHORT_TR[d.getDay()];
     const monthShort = MONTH_SHORT_TR[d.getMonth()];
@@ -84,6 +92,7 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
       label: daysCount <= 7 ? dayName : `${d.getDate()} ${monthShort}`,
       fullLabel: `${d.getDate()} ${monthFull} ${d.getFullYear()}, ${dayName}`,
       volume: vol,
+      sets,
       workoutCount: dayWorkouts.length,
       startDate: dateStr,
       endDate: dateStr,
@@ -112,6 +121,12 @@ const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): V
 
     const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr);
     const vol = rangeWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+    let sets = 0;
+    rangeWorkouts.forEach(w => {
+      w.exercises?.forEach(ex => {
+        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+      });
+    });
 
     // Concise label for X-axis (e.g. "12-18 Oca") to avoid crowding
     let label = '';
@@ -128,6 +143,7 @@ const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): V
       label,
       fullLabel,
       volume: vol,
+      sets,
       workoutCount: rangeWorkouts.length,
       startDate: startStr,
       endDate: endStr,
@@ -155,6 +171,12 @@ const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6):
 
     const monthWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr);
     const vol = monthWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+    let sets = 0;
+    monthWorkouts.forEach(w => {
+      w.exercises?.forEach(ex => {
+        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+      });
+    });
 
     const monthName = MONTH_FULL_TR[month];
     const monthShort = MONTH_SHORT_TR[month];
@@ -164,6 +186,7 @@ const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6):
       label: monthsCount > 6 ? `${monthShort} '${String(year).slice(-2)}` : monthName,
       fullLabel: `${monthName} ${year}`,
       volume: vol,
+      sets,
       workoutCount: monthWorkouts.length,
       startDate: startStr,
       endDate: endStr,
@@ -211,29 +234,33 @@ const getSmartAggregatedVolumeData = (
     }
   }
 
-  // Mark Peak volume
+  // Mark Peak volume and Peak sets
   const maxVol = Math.max(...buckets.map(b => b.volume), 0);
+  const maxSets = Math.max(...buckets.map(b => b.sets), 0);
   buckets.forEach(b => {
     b.isPeak = maxVol > 0 && b.volume === maxVol;
+    b.isPeakSet = maxSets > 0 && b.sets === maxSets;
   });
 
   return buckets;
 };
 
-interface RenderVolumeSvgChartProps {
+interface RenderSvgBarChartProps {
   data: VolumeBucket[];
   containerWidth: number;
   height?: number;
+  valueKey?: 'volume' | 'sets';
   selectedIndex: number | null;
   onSelectIndex: (index: number) => void;
   minBarWidth?: number;
   barGap?: number;
 }
 
-const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
+const RenderSvgBarChart: React.FC<RenderSvgBarChartProps> = ({
   data,
   containerWidth,
   height = 170,
+  valueKey = 'volume',
   selectedIndex,
   onSelectIndex,
   minBarWidth = 28,
@@ -243,19 +270,21 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
 
   if (!data.length) return null;
 
+  const isSets = valueKey === 'sets';
   const PADDING_HORIZ = 16;
   const maxLabelLength = Math.max(...data.map(d => d.label.length), 4);
-  // Optimal step width calculation for compact, balanced spacing without label collision
   const minStepForLabel = maxLabelLength * 6.4 + 4;
   const dynamicMinStepWidth = Math.max(minBarWidth + barGap, minStepForLabel);
 
   const contentWidth = data.length * dynamicMinStepWidth + PADDING_HORIZ * 2;
   const chartWidth = Math.max(containerWidth - 32, contentWidth);
   const stepWidth = chartWidth / data.length;
-  // Increase bar width ratio to 70% for tighter gap between bars
   const barWidth = Math.max(minBarWidth, Math.min(52, stepWidth * 0.70));
 
-  const maxVolume = Math.max(...data.map(d => d.volume), 1000);
+  const maxValue = isSets
+    ? Math.max(...data.map(d => d.sets), 10)
+    : Math.max(...data.map(d => d.volume), 1000);
+
   const baselineY = height - 32;
   const maxBarHeight = height - 55;
 
@@ -283,20 +312,25 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
         <Line x1="0" y1={baselineY} x2={chartWidth} y2={baselineY} stroke={COLORS.border} />
 
         {data.map((item, index) => {
+          const val = isSets ? item.sets : item.volume;
           const x = index * stepWidth + (stepWidth - barWidth) / 2;
-          const barHeight = Math.max(6, (item.volume / maxVolume) * maxBarHeight);
+          const barHeight = val > 0 ? Math.max(6, (val / maxValue) * maxBarHeight) : 4;
           const y = baselineY - barHeight;
           const isSelected = selectedIndex === index;
-          const isPeak = item.isPeak && item.volume > 0;
+          const isPeak = isSets ? (item.isPeakSet && val > 0) : (item.isPeak && val > 0);
 
           let fillColor = COLORS.border;
           if (isSelected) {
             fillColor = COLORS.primary;
           } else if (isPeak) {
             fillColor = '#10B981';
-          } else if (item.volume > 0) {
+          } else if (val > 0) {
             fillColor = '#111111';
           }
+
+          const valText = isSets
+            ? (val > 0 ? `${val}` : '')
+            : (val > 0 ? formatVolumeShort(val) : '');
 
           return (
             <G key={item.id}>
@@ -324,8 +358,8 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
                 />
               )}
 
-              {/* Volume text above bar */}
-              {item.volume > 0 && (
+              {/* Value text above bar */}
+              {valText !== '' && (
                 <SvgText
                   x={x + barWidth / 2}
                   y={Math.max(12, y - (isPeak ? 12 : 6))}
@@ -334,7 +368,7 @@ const RenderVolumeSvgChart: React.FC<RenderVolumeSvgChartProps> = ({
                   fontWeight={isSelected ? '800' : '700'}
                   textAnchor="middle"
                 >
-                  {formatVolumeShort(item.volume)}
+                  {valText}
                 </SvgText>
               )}
 
@@ -373,10 +407,12 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   filterMode,
 }) => {
   const [containerWidth, setContainerWidth] = useState(320);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedSetIndex, setSelectedSetIndex] = useState<number | null>(null);
+  const [selectedVolumeIndex, setSelectedVolumeIndex] = useState<number | null>(null);
 
   // Expand Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMetric, setModalMetric] = useState<'volume' | 'sets'>('sets');
   const [modalResolution, setModalResolution] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [modalSelectedIndex, setModalSelectedIndex] = useState<number | null>(null);
 
@@ -387,33 +423,50 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     }
   };
 
-  // 1. Calculate Main Volume Data using Smart Aggregator
+  // 1. Calculate Main Aggregated Data (volume + sets)
   const volumeData = useMemo(() => {
     return getSmartAggregatedVolumeData(workouts, filterMode);
   }, [workouts, filterMode]);
 
-  // Determine active main bucket (defaults to peak volume or last bucket)
-  const activeIndex = useMemo(() => {
-    if (selectedIndex !== null && selectedIndex < volumeData.length) {
-      return selectedIndex;
+  // Active Set Bucket (defaults to peak sets or last bucket)
+  const activeSetIndex = useMemo(() => {
+    if (selectedSetIndex !== null && selectedSetIndex < volumeData.length) {
+      return selectedSetIndex;
+    }
+    const peakIdx = volumeData.findIndex(b => b.isPeakSet && b.sets > 0);
+    if (peakIdx >= 0) return peakIdx;
+    return Math.max(0, volumeData.length - 1);
+  }, [selectedSetIndex, volumeData]);
+
+  const selectedSetBucket = volumeData[activeSetIndex] || null;
+
+  // Active Volume Bucket (defaults to peak volume or last bucket)
+  const activeVolumeIndex = useMemo(() => {
+    if (selectedVolumeIndex !== null && selectedVolumeIndex < volumeData.length) {
+      return selectedVolumeIndex;
     }
     const peakIdx = volumeData.findIndex(b => b.isPeak && b.volume > 0);
     if (peakIdx >= 0) return peakIdx;
     return Math.max(0, volumeData.length - 1);
-  }, [selectedIndex, volumeData]);
+  }, [selectedVolumeIndex, volumeData]);
 
-  const selectedBucket = volumeData[activeIndex] || null;
+  const selectedVolumeBucket = volumeData[activeVolumeIndex] || null;
 
-  // 2. Muscle Category Breakdown (RP Israetel Hypertrophy Model)
+  // Total sets in the current filtered period
+  const totalPeriodSets = useMemo(() => {
+    return volumeData.reduce((acc, b) => acc + b.sets, 0);
+  }, [volumeData]);
+
+  // 2. Muscle Category Breakdown
   const muscleBreakdown = useMemo(() => {
     const categorySets: Record<string, number> = {};
     const categoryVolume: Record<string, number> = {};
     let grandTotalVol = 0;
 
     workouts.forEach(w => {
-      w.exercises.forEach(ex => {
-        const completedSetsCount = ex.sets.filter(s => s.completed).length;
-        const vol = ex.sets.reduce((acc, s) => (s.completed ? acc + s.weight * s.reps : acc), 0);
+      w.exercises?.forEach(ex => {
+        const completedSetsCount = ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+        const vol = ex.sets?.reduce((acc, s) => (s.completed ? acc + s.weight * s.reps : acc), 0) || 0;
 
         if (completedSetsCount > 0) {
           categorySets[ex.category] = (categorySets[ex.category] || 0) + completedSetsCount;
@@ -435,7 +488,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       .sort((a, b) => b.sets - a.sets);
   }, [workouts]);
 
-  // 3. Modal Volume Data Calculation
+  // 3. Modal Aggregated Data Calculation
   const modalTargetWorkouts = allWorkouts && allWorkouts.length ? allWorkouts : workouts;
 
   const modalVolumeData = useMemo(() => {
@@ -449,8 +502,10 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     }
 
     const maxVol = Math.max(...buckets.map(b => b.volume), 0);
+    const maxSets = Math.max(...buckets.map(b => b.sets), 0);
     buckets.forEach(b => {
       b.isPeak = maxVol > 0 && b.volume === maxVol;
+      b.isPeakSet = maxSets > 0 && b.sets === maxSets;
     });
 
     return buckets;
@@ -460,16 +515,22 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     if (modalSelectedIndex !== null && modalSelectedIndex < modalVolumeData.length) {
       return modalSelectedIndex;
     }
-    const peakIdx = modalVolumeData.findIndex(b => b.isPeak && b.volume > 0);
+    const peakIdx = modalMetric === 'sets'
+      ? modalVolumeData.findIndex(b => b.isPeakSet && b.sets > 0)
+      : modalVolumeData.findIndex(b => b.isPeak && b.volume > 0);
     if (peakIdx >= 0) return peakIdx;
     return Math.max(0, modalVolumeData.length - 1);
-  }, [modalSelectedIndex, modalVolumeData]);
+  }, [modalSelectedIndex, modalVolumeData, modalMetric]);
 
   const modalSelectedBucket = modalVolumeData[modalActiveIndex] || null;
 
   // Modal overall summary metrics
-  const totalPeriodVol = useMemo(() => {
+  const totalModalVol = useMemo(() => {
     return modalVolumeData.reduce((acc, b) => acc + b.volume, 0);
+  }, [modalVolumeData]);
+
+  const totalModalSets = useMemo(() => {
+    return modalVolumeData.reduce((acc, b) => acc + b.sets, 0);
   }, [modalVolumeData]);
 
   const totalPeriodWorkouts = useMemo(() => {
@@ -480,25 +541,156 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     return Math.max(...modalVolumeData.map(b => b.volume), 0);
   }, [modalVolumeData]);
 
+  const modalMaxSets = useMemo(() => {
+    return Math.max(...modalVolumeData.map(b => b.sets), 0);
+  }, [modalVolumeData]);
+
   const avgPeriodVol = useMemo(() => {
-    return modalVolumeData.length ? totalPeriodVol / modalVolumeData.length : 0;
-  }, [modalVolumeData, totalPeriodVol]);
+    return modalVolumeData.length ? totalModalVol / modalVolumeData.length : 0;
+  }, [modalVolumeData, totalModalVol]);
+
+  const avgSetsPerWorkout = useMemo(() => {
+    return totalPeriodWorkouts > 0 ? totalModalSets / totalPeriodWorkouts : 0;
+  }, [totalModalSets, totalPeriodWorkouts]);
 
   return (
     <View style={styles.container}>
-      {/* 1. PRIMARY: Muscle Group Hard Sets Benchmark Bento Card */}
-      <View style={styles.bentoCard}>
+      {/* 1. PRIMARY: Set Count Trend & Muscle Group Distribution Bento Card */}
+      <View style={styles.bentoCard} onLayout={handleLayout}>
+        {/* Card Header with Expand Button */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
-            <Text style={styles.cardTitle}>Kas Grubu Efektif Set Dağılımı</Text>
-            <Text style={styles.cardSubtitle}>RP Hipertrofi Hacim Hedefi (10-20 Set / Hafta)</Text>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.cardTitle}>
+                {filterMode === 'weekly'
+                  ? 'Haftalık Set Dağılımı'
+                  : filterMode === 'monthly'
+                  ? 'Aylık Set Dağılımı'
+                  : 'Tüm Zamanlar Set Dağılımı'}
+              </Text>
+              <View style={styles.badgePill}>
+                <Text style={styles.badgePillText}>
+                  {filterMode === 'weekly'
+                    ? 'Son 7 Gün'
+                    : filterMode === 'monthly'
+                    ? 'Son 30 Gün'
+                    : 'Tüm Zamanlar'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.cardSubtitle}>
+              {totalPeriodSets > 0
+                ? `Bu dönemde toplam ${totalPeriodSets} efektif set tamamlandı`
+                : 'Döneme ait efektif set trendi'}
+            </Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.expandBtn}
+            onPress={() => {
+              setModalMetric('sets');
+              setIsModalOpen(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="expand-outline" size={14} color="#111111" />
+            <Text style={styles.expandBtnText}>Büyüt</Text>
+          </TouchableOpacity>
+        </View>
+
+        {volumeData.length > 0 ? (
+          <View style={styles.chartSection}>
+            {/* Interactive Tooltip Card for Sets */}
+            {selectedSetBucket && (
+              <View style={styles.tooltipCard}>
+                <View style={styles.tooltipHeader}>
+                  <View style={styles.tooltipLeft}>
+                    <Ionicons name="calendar" size={14} color={COLORS.primary} />
+                    <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
+                      {selectedSetBucket.fullLabel}
+                    </Text>
+                  </View>
+                  {selectedSetBucket.isPeakSet && (
+                    <View style={styles.peakBadge}>
+                      <Ionicons name="flame" size={10} color="#10B981" />
+                      <Text style={styles.peakBadgeText}>En Yoğun Gün</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.tooltipBody}>
+                  <View style={styles.tooltipStat}>
+                    <Text style={styles.tooltipLabel}>Efektif Set</Text>
+                    <Text style={styles.tooltipValText}>
+                      {selectedSetBucket.sets > 0 ? `${selectedSetBucket.sets} Set` : '0 Set'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tooltipDivider} />
+
+                  <View style={styles.tooltipStat}>
+                    <Text style={styles.tooltipLabel}>Tamamlanan Seans</Text>
+                    <Text style={styles.tooltipSubText}>
+                      {selectedSetBucket.workoutCount > 0
+                        ? `${selectedSetBucket.workoutCount} Antrenman`
+                        : 'Antrenman yok'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.tooltipDivider} />
+
+                  <View style={styles.tooltipStat}>
+                    <Text style={styles.tooltipLabel}>Kaldırılan Hacim</Text>
+                    <Text style={styles.tooltipSubText}>
+                      {selectedSetBucket.volume > 0
+                        ? `${selectedSetBucket.volume.toLocaleString('tr-TR')} kg`
+                        : '0 kg'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Scrollable SVG Chart for Sets */}
+            <RenderSvgBarChart
+              data={volumeData}
+              containerWidth={containerWidth}
+              height={165}
+              valueKey="sets"
+              selectedIndex={activeSetIndex}
+              onSelectIndex={setSelectedSetIndex}
+              minBarWidth={28}
+              barGap={8}
+            />
+          </View>
+        ) : (
+          <Text style={styles.noDataText}>Henüz antrenman verisi mevcut değil.</Text>
+        )}
+
+        {/* Inner Divider */}
+        <View style={styles.cardInnerDivider} />
+
+        {/* Kas Grubu Kırılımı (Muscle Group Breakdown) */}
+        <View style={styles.muscleSubHeader}>
+          <Text style={styles.muscleSubTitle}>Kas Grubu Dağılımı</Text>
+          <Text style={styles.muscleSubSubtitle}>
+            {filterMode === 'weekly'
+              ? 'RP Hipertrofi Hedefi (10-20 Set / Hafta)'
+              : filterMode === 'monthly'
+              ? 'Aylık Hipertrofi Dağılımı (40-80 Set / Ay)'
+              : 'Tüm Zamanlar Kas Grubu Oranları'}
+          </Text>
         </View>
 
         {muscleBreakdown.length > 0 ? (
           <View style={styles.muscleList}>
             {muscleBreakdown.map(item => {
-              const targetBenchmark = 15;
+              const targetBenchmark =
+                filterMode === 'weekly'
+                  ? 15
+                  : filterMode === 'monthly'
+                  ? 60
+                  : Math.max(...muscleBreakdown.map(m => m.sets), 1);
               const setPercentage = Math.min(100, Math.round((item.sets / targetBenchmark) * 100));
 
               return (
@@ -510,10 +702,13 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.muscleMetaRight}>
-                      <Text style={styles.muscleSetsText}>{item.sets} Sert Set</Text>
+                      <Text style={styles.muscleSetsText}>{item.sets} Set</Text>
+                      <Text style={styles.musclePercentText}>
+                        (%{Math.round((item.sets / (totalPeriodSets || 1)) * 100)})
+                      </Text>
                       {item.volume > 0 && (
                         <Text style={styles.muscleVolText}>
-                          ({item.volume.toLocaleString('tr-TR')} kg)
+                          • {item.volume.toLocaleString('tr-TR')} kg
                         </Text>
                       )}
                     </View>
@@ -537,7 +732,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </View>
 
       {/* 2. SECONDARY: Volume Chart Card (Interactive & Expandable) */}
-      <View style={styles.bentoCard} onLayout={handleLayout}>
+      <View style={styles.bentoCard}>
         {/* Card Header with Expand Button */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
@@ -558,7 +753,10 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
           <TouchableOpacity
             style={styles.expandBtn}
-            onPress={() => setIsModalOpen(true)}
+            onPress={() => {
+              setModalMetric('volume');
+              setIsModalOpen(true);
+            }}
             activeOpacity={0.7}
           >
             <Ionicons name="expand-outline" size={14} color="#111111" />
@@ -568,17 +766,17 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
         {volumeData.length > 0 ? (
           <View style={styles.chartSection}>
-            {/* Interactive Tooltip Card */}
-            {selectedBucket && (
+            {/* Interactive Tooltip Card for Volume */}
+            {selectedVolumeBucket && (
               <View style={styles.tooltipCard}>
                 <View style={styles.tooltipHeader}>
                   <View style={styles.tooltipLeft}>
                     <Ionicons name="calendar" size={14} color={COLORS.primary} />
                     <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
-                      {selectedBucket.fullLabel}
+                      {selectedVolumeBucket.fullLabel}
                     </Text>
                   </View>
-                  {selectedBucket.isPeak && (
+                  {selectedVolumeBucket.isPeak && (
                     <View style={styles.peakBadge}>
                       <Ionicons name="trophy" size={10} color="#10B981" />
                       <Text style={styles.peakBadgeText}>Zirve Hacim</Text>
@@ -590,8 +788,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   <View style={styles.tooltipStat}>
                     <Text style={styles.tooltipLabel}>Kaldırılan Hacim</Text>
                     <Text style={styles.tooltipValText}>
-                      {selectedBucket.volume > 0
-                        ? `${selectedBucket.volume.toLocaleString('tr-TR')} kg`
+                      {selectedVolumeBucket.volume > 0
+                        ? `${selectedVolumeBucket.volume.toLocaleString('tr-TR')} kg`
                         : '0 kg'}
                     </Text>
                   </View>
@@ -601,8 +799,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   <View style={styles.tooltipStat}>
                     <Text style={styles.tooltipLabel}>Tamamlanan Seans</Text>
                     <Text style={styles.tooltipSubText}>
-                      {selectedBucket.workoutCount > 0
-                        ? `${selectedBucket.workoutCount} Antrenman`
+                      {selectedVolumeBucket.workoutCount > 0
+                        ? `${selectedVolumeBucket.workoutCount} Antrenman`
                         : 'Antrenman yok'}
                     </Text>
                   </View>
@@ -610,13 +808,14 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               </View>
             )}
 
-            {/* Scrollable SVG Chart */}
-            <RenderVolumeSvgChart
+            {/* Scrollable SVG Chart for Volume */}
+            <RenderSvgBarChart
               data={volumeData}
               containerWidth={containerWidth}
               height={170}
-              selectedIndex={activeIndex}
-              onSelectIndex={setSelectedIndex}
+              valueKey="volume"
+              selectedIndex={activeVolumeIndex}
+              onSelectIndex={setSelectedVolumeIndex}
               minBarWidth={28}
               barGap={8}
             />
@@ -638,11 +837,21 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderTitleRow}>
               <View style={styles.modalTitleIconBg}>
-                <Ionicons name="analytics" size={20} color="#111111" />
+                <Ionicons
+                  name={modalMetric === 'sets' ? 'layers-outline' : 'analytics'}
+                  size={20}
+                  color="#111111"
+                />
               </View>
               <View>
-                <Text style={styles.modalTitle}>Toplam Yük Analizi</Text>
-                <Text style={styles.modalSubtitle}>Kaldırılan tonaj & detaylı trend incelemesi</Text>
+                <Text style={styles.modalTitle}>
+                  {modalMetric === 'sets' ? 'Efektif Set Analizi' : 'Toplam Yük Analizi'}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {modalMetric === 'sets'
+                    ? 'Tamamlanan setler & periyot trendi'
+                    : 'Kaldırılan tonaj & detaylı trend incelemesi'}
+                </Text>
               </View>
             </View>
 
@@ -655,6 +864,36 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
           </View>
 
           <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+            {/* Metric Switcher Segmented Pills */}
+            <View style={styles.metricSwitcherContainer}>
+              <Text style={styles.metricSwitcherLabel}>ANALİZ METRİĞİ</Text>
+              <View style={styles.metricSwitcherBar}>
+                <TouchableOpacity
+                  style={[styles.metricBtn, modalMetric === 'sets' && styles.metricBtnSelected]}
+                  onPress={() => {
+                    setModalMetric('sets');
+                    setModalSelectedIndex(null);
+                  }}
+                >
+                  <Text style={[styles.metricBtnText, modalMetric === 'sets' && styles.metricBtnTextSelected]}>
+                    Efektif Set
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.metricBtn, modalMetric === 'volume' && styles.metricBtnSelected]}
+                  onPress={() => {
+                    setModalMetric('volume');
+                    setModalSelectedIndex(null);
+                  }}
+                >
+                  <Text style={[styles.metricBtnText, modalMetric === 'volume' && styles.metricBtnTextSelected]}>
+                    Toplam Tonaj (kg)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Resolution Selector Segmented Pills */}
             <View style={styles.resSwitcherContainer}>
               <Text style={styles.resSwitcherLabel}>GÖRÜNÜM PERİYODU</Text>
@@ -684,18 +923,25 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             <View style={styles.modalChartCard}>
               <View style={styles.modalChartHeader}>
                 <Text style={styles.modalChartTitle}>
-                  {modalResolution === 'daily'
-                    ? 'Son 30 Günlük Dağılım'
+                  {modalMetric === 'sets'
+                    ? modalResolution === 'daily'
+                      ? 'Son 30 Günlük Set Dağılımı'
+                      : modalResolution === 'weekly'
+                      ? 'Son 12 Haftalık Set Trendi'
+                      : 'Son 12 Aylık Set Trendi'
+                    : modalResolution === 'daily'
+                    ? 'Son 30 Günlük Yük Dağılımı'
                     : modalResolution === 'weekly'
-                    ? 'Son 12 Haftalık Trend'
-                    : 'Son 12 Aylık Trend'}
+                    ? 'Son 12 Haftalık Yük Trendi'
+                    : 'Son 12 Aylık Yük Trendi'}
                 </Text>
               </View>
 
-              <RenderVolumeSvgChart
+              <RenderSvgBarChart
                 data={modalVolumeData}
                 containerWidth={containerWidth + 40}
                 height={220}
+                valueKey={modalMetric}
                 selectedIndex={modalActiveIndex}
                 onSelectIndex={setModalSelectedIndex}
                 minBarWidth={32}
@@ -713,7 +959,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                       {modalSelectedBucket.fullLabel}
                     </Text>
                   </View>
-                  {modalSelectedBucket.isPeak && (
+                  {(modalMetric === 'sets' ? modalSelectedBucket.isPeakSet : modalSelectedBucket.isPeak) && (
                     <View style={styles.peakPill}>
                       <Ionicons name="trophy" size={12} color="#111111" />
                       <Text style={styles.peakPillText}>Zirve Periyot</Text>
@@ -722,35 +968,71 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 </View>
 
                 <View style={styles.modalMetricGrid}>
-                  <View style={styles.modalMetricBox}>
-                    <Text style={styles.modalMetricLabel}>Toplam Kaldırılan</Text>
-                    <Text style={styles.modalMetricVal}>
-                      {modalSelectedBucket.volume.toLocaleString('tr-TR')} kg
-                    </Text>
-                  </View>
+                  {modalMetric === 'sets' ? (
+                    <>
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Efektif Set</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.sets} Set
+                        </Text>
+                      </View>
 
-                  <View style={styles.modalMetricBox}>
-                    <Text style={styles.modalMetricLabel}>Tamamlanan Seans</Text>
-                    <Text style={styles.modalMetricVal}>
-                      {modalSelectedBucket.workoutCount} Antrenman
-                    </Text>
-                  </View>
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Tamamlanan Seans</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.workoutCount} Antrenman
+                        </Text>
+                      </View>
 
-                  <View style={styles.modalMetricBox}>
-                    <Text style={styles.modalMetricLabel}>Seans Başı Ort.</Text>
-                    <Text style={styles.modalMetricVal}>
-                      {modalSelectedBucket.workoutCount > 0
-                        ? `${Math.round(modalSelectedBucket.volume / modalSelectedBucket.workoutCount).toLocaleString('tr-TR')} kg`
-                        : '0 kg'}
-                    </Text>
-                  </View>
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Seans Başı Ort.</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.workoutCount > 0
+                            ? `${(modalSelectedBucket.sets / modalSelectedBucket.workoutCount).toFixed(1)} Set`
+                            : '0 Set'}
+                        </Text>
+                      </View>
 
-                  <View style={styles.modalMetricBox}>
-                    <Text style={styles.modalMetricLabel}>Zirveye Oranı</Text>
-                    <Text style={styles.modalMetricVal}>
-                      %{modalMaxVol > 0 ? Math.round((modalSelectedBucket.volume / modalMaxVol) * 100) : 0}
-                    </Text>
-                  </View>
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Zirveye Oranı</Text>
+                        <Text style={styles.modalMetricVal}>
+                          %{modalMaxSets > 0 ? Math.round((modalSelectedBucket.sets / modalMaxSets) * 100) : 0}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Toplam Kaldırılan</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.volume.toLocaleString('tr-TR')} kg
+                        </Text>
+                      </View>
+
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Tamamlanan Seans</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.workoutCount} Antrenman
+                        </Text>
+                      </View>
+
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Seans Başı Ort.</Text>
+                        <Text style={styles.modalMetricVal}>
+                          {modalSelectedBucket.workoutCount > 0
+                            ? `${Math.round(modalSelectedBucket.volume / modalSelectedBucket.workoutCount).toLocaleString('tr-TR')} kg`
+                            : '0 kg'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.modalMetricBox}>
+                        <Text style={styles.modalMetricLabel}>Zirveye Oranı</Text>
+                        <Text style={styles.modalMetricVal}>
+                          %{modalMaxVol > 0 ? Math.round((modalSelectedBucket.volume / modalMaxVol) * 100) : 0}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             )}
@@ -759,37 +1041,75 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             <View style={styles.modalSummarySection}>
               <Text style={styles.modalSectionTitle}>PERFORMANS ÖZET METRİKLERİ</Text>
               <View style={styles.modalSummaryGrid}>
-                <View style={styles.modalSummarySquare}>
-                  <Ionicons name="barbell-outline" size={18} color="#111111" />
-                  <Text style={styles.modalSummaryVal}>
-                    {(totalPeriodVol / 1000).toFixed(1)} <Text style={styles.modalSummaryUnit}>Ton</Text>
-                  </Text>
-                  <Text style={styles.modalSummarySub}>Toplam Kaldırılan Yük</Text>
-                </View>
+                {modalMetric === 'sets' ? (
+                  <>
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="layers-outline" size={18} color="#111111" />
+                      <Text style={styles.modalSummaryVal}>
+                        {totalModalSets} <Text style={styles.modalSummaryUnit}>Set</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Toplam Efektif Set</Text>
+                    </View>
 
-                <View style={styles.modalSummarySquare}>
-                  <Ionicons name="trophy-outline" size={18} color="#10B981" />
-                  <Text style={styles.modalSummaryVal}>
-                    {formatVolumeShort(modalMaxVol)} <Text style={styles.modalSummaryUnit}>kg</Text>
-                  </Text>
-                  <Text style={styles.modalSummarySub}>En Yüksek Hacim</Text>
-                </View>
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="flame-outline" size={18} color="#10B981" />
+                      <Text style={styles.modalSummaryVal}>
+                        {modalMaxSets} <Text style={styles.modalSummaryUnit}>Set</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>En Yüksek Periyot</Text>
+                    </View>
 
-                <View style={styles.modalSummarySquare}>
-                  <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
-                  <Text style={styles.modalSummaryVal}>
-                    {formatVolumeShort(Math.round(avgPeriodVol))} <Text style={styles.modalSummaryUnit}>kg</Text>
-                  </Text>
-                  <Text style={styles.modalSummarySub}>Ortalama Periyot Yükü</Text>
-                </View>
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
+                      <Text style={styles.modalSummaryVal}>
+                        {avgSetsPerWorkout.toFixed(1)} <Text style={styles.modalSummaryUnit}>Set</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Seans Başı Ortalama</Text>
+                    </View>
 
-                <View style={styles.modalSummarySquare}>
-                  <Ionicons name="flame-outline" size={18} color="#EF4444" />
-                  <Text style={styles.modalSummaryVal}>
-                    {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
-                  </Text>
-                  <Text style={styles.modalSummarySub}>Toplam Antrenman</Text>
-                </View>
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="barbell-outline" size={18} color="#EF4444" />
+                      <Text style={styles.modalSummaryVal}>
+                        {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Toplam Antrenman</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="barbell-outline" size={18} color="#111111" />
+                      <Text style={styles.modalSummaryVal}>
+                        {(totalModalVol / 1000).toFixed(1)} <Text style={styles.modalSummaryUnit}>Ton</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Toplam Kaldırılan Yük</Text>
+                    </View>
+
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="trophy-outline" size={18} color="#10B981" />
+                      <Text style={styles.modalSummaryVal}>
+                        {formatVolumeShort(modalMaxVol)} <Text style={styles.modalSummaryUnit}>kg</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>En Yüksek Hacim</Text>
+                    </View>
+
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
+                      <Text style={styles.modalSummaryVal}>
+                        {formatVolumeShort(Math.round(avgPeriodVol))} <Text style={styles.modalSummaryUnit}>kg</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Ortalama Periyot Yükü</Text>
+                    </View>
+
+                    <View style={styles.modalSummarySquare}>
+                      <Ionicons name="flame-outline" size={18} color="#EF4444" />
+                      <Text style={styles.modalSummaryVal}>
+                        {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
+                      </Text>
+                      <Text style={styles.modalSummarySub}>Toplam Antrenman</Text>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           </ScrollView>
@@ -948,6 +1268,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 20,
   },
+  cardInnerDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 14,
+  },
+  muscleSubHeader: {
+    marginBottom: 12,
+    gap: 2,
+  },
+  muscleSubTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  muscleSubSubtitle: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+  },
   muscleList: {
     gap: 14,
   },
@@ -985,6 +1323,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#111111',
+  },
+  musclePercentText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
   muscleVolText: {
     fontSize: 11,
@@ -1045,6 +1388,42 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
     paddingBottom: 40,
+  },
+  metricSwitcherContainer: {
+    gap: 6,
+  },
+  metricSwitcherLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    letterSpacing: 0.8,
+  },
+  metricSwitcherBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 100,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.soft,
+  },
+  metricBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 100,
+  },
+  metricBtnSelected: {
+    backgroundColor: '#111111',
+  },
+  metricBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  metricBtnTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   resSwitcherContainer: {
     gap: 6,
