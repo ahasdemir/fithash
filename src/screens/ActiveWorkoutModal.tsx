@@ -246,11 +246,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     return null;
   };
 
-  const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
-    // Toggle minimal recent stats view state for this exercise
+  const handleToggleRecView = (exId: string) => {
+    // Single tap only toggles between recommendation badge label and last stats preview
     setToggledRecs(prev => ({ ...prev, [exId]: !prev[exId] }));
+  };
 
-    // Reset raw input overrides for this exercise so newly applied values show cleanly
+  const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
+    // Fill recommendation targets into sets (triggered on long press or explicit apply)
     setRawInputMap(prev => {
       const next = { ...prev };
       Object.keys(next).forEach(k => {
@@ -422,7 +424,20 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         isWarmup: nextIsWarmup,
       };
 
-      return { ...ex, sets: copySets };
+      // Çalışma setlerini 1, 2, 3... ve ısınma setlerini bağımsız olarak yeniden numaralandır
+      let workingCounter = 0;
+      let warmupCounter = 0;
+      const reindexedSets = copySets.map(s => {
+        if (s.isWarmup) {
+          warmupCounter++;
+          return { ...s, setNumber: warmupCounter };
+        } else {
+          workingCounter++;
+          return { ...s, setNumber: workingCounter };
+        }
+      });
+
+      return { ...ex, sets: reindexedSets };
     });
 
     const updated = { ...session, exercises: updatedExercises };
@@ -463,23 +478,36 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       const lastSet = ex.sets[ex.sets.length - 1];
-      const newSetNumber = ex.sets.length + 1;
       const isCardio = ex.category === 'Kardiyo';
       const isIsometric = isIsometricExercise(ex.exerciseName, ex.category);
 
       const newSet: ExerciseSet = {
-        id: `set_${newSetNumber}_${Date.now()}`,
-        setNumber: newSetNumber,
+        id: `set_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        setNumber: 1, // aşağıda reindexedSets ile belirlenecek
         weight: lastSet ? lastSet.weight : 0,
         reps: lastSet ? lastSet.reps : (isIsometric ? 0 : 10),
-        isWarmup: lastSet ? lastSet.isWarmup : false,
-        rir: lastSet ? lastSet.rir : 1,
+        isWarmup: false,
+        rir: lastSet && !lastSet.isWarmup ? lastSet.rir : 1,
         durationSeconds: lastSet?.durationSeconds ?? (isIsometric ? 60 : undefined),
         durationMinutes: lastSet?.durationMinutes ?? (isCardio ? 15 : undefined),
         distanceKm: lastSet?.distanceKm ?? (isCardio ? 2.5 : undefined),
         completed: false,
       };
-      return { ...ex, sets: [...ex.sets, newSet] };
+
+      const newSets = [...ex.sets, newSet];
+      let workingCounter = 0;
+      let warmupCounter = 0;
+      const reindexedSets = newSets.map(s => {
+        if (s.isWarmup) {
+          warmupCounter++;
+          return { ...s, setNumber: warmupCounter };
+        } else {
+          workingCounter++;
+          return { ...s, setNumber: workingCounter };
+        }
+      });
+
+      return { ...ex, sets: reindexedSets };
     });
 
     const updated = { ...session, exercises: updatedExercises };
@@ -500,11 +528,19 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         });
         return ex;
       }
-      const copySets = ex.sets.filter((_, i) => i !== setIdx).map((s, i) => ({
-        ...s,
-        setNumber: i + 1,
-      }));
-      return { ...ex, sets: copySets };
+      const remainingSets = ex.sets.filter((_, i) => i !== setIdx);
+      let workingCounter = 0;
+      let warmupCounter = 0;
+      const reindexedSets = remainingSets.map(s => {
+        if (s.isWarmup) {
+          warmupCounter++;
+          return { ...s, setNumber: warmupCounter };
+        } else {
+          workingCounter++;
+          return { ...s, setNumber: workingCounter };
+        }
+      });
+      return { ...ex, sets: reindexedSets };
     });
 
     const updated = { ...session, exercises: updatedExercises };
@@ -747,6 +783,28 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
                     </View>
 
+                    {/* Machine / Cable Pulley Ratio Selector */}
+                    {ex.equipment === 'Kablo' && (
+                      <TouchableOpacity
+                        style={styles.pulleyRatioBtn}
+                        onPress={() => {
+                          const ratios = ['1:1', '2:1', '1:2'];
+                          const currentIdx = ratios.indexOf(ex.pulleyRatio || '1:1');
+                          const nextRatio = ratios[(currentIdx + 1) % ratios.length];
+                          const updatedExs = session.exercises.map(item =>
+                            item.id === ex.id ? { ...item, pulleyRatio: nextRatio } : item
+                          );
+                          const updated = { ...session, exercises: updatedExs };
+                          setSession(updated);
+                          onUpdateSession(updated);
+                        }}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="git-commit-outline" size={11} color={COLORS.textPrimary} />
+                        <Text style={styles.pulleyRatioText}>{ex.pulleyRatio || '1:1'}</Text>
+                      </TouchableOpacity>
+                    )}
+
                     {recommendation && (() => {
                       const isToggled = !!toggledRecs[ex.id];
                       const recentStatsText = recommendation.lastWeight > 0
@@ -755,30 +813,43 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       const displayText = isToggled ? recentStatsText : recommendation.badgeLabel;
 
                       return (
-                        <TouchableOpacity
-                          style={[styles.recBadgePill, isToggled && styles.recBadgePillToggled]}
-                          activeOpacity={0.8}
-                          onPress={() => handleApplyRecommendation(ex.id, recommendation)}
-                        >
-                          <Ionicons
-                            name={
-                              isToggled
-                                ? 'stats-chart-outline'
-                                : (recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
-                                  ? 'trending-up'
-                                  : recommendation.actionType === 'MORE_REPS'
-                                  ? 'add-circle-outline'
-                                  : recommendation.actionType === 'LESS_WEIGHT'
-                                  ? 'trending-down'
-                                  : 'shield-checkmark-outline')
-                            }
-                            size={12}
-                            color={isToggled ? COLORS.textPrimary : '#111111'}
-                          />
-                          <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
-                            {displayText}
-                          </Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <TouchableOpacity
+                            style={[styles.recBadgePill, isToggled && styles.recBadgePillToggled]}
+                            activeOpacity={0.8}
+                            onPress={() => handleToggleRecView(ex.id)}
+                            onLongPress={() => handleApplyRecommendation(ex.id, recommendation)}
+                          >
+                            <Ionicons
+                              name={
+                                isToggled
+                                  ? 'stats-chart-outline'
+                                  : (recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
+                                    ? 'trending-up'
+                                    : recommendation.actionType === 'MORE_REPS'
+                                    ? 'add-circle-outline'
+                                    : recommendation.actionType === 'LESS_WEIGHT'
+                                    ? 'trending-down'
+                                    : 'shield-checkmark-outline')
+                              }
+                              size={12}
+                              color={isToggled ? COLORS.textPrimary : '#111111'}
+                            />
+                            <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
+                              {displayText}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.applyRecIconBtn}
+                            activeOpacity={0.8}
+                            onPress={() => handleApplyRecommendation(ex.id, recommendation)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="sparkles" size={13} color="#111111" />
+                            <Text style={styles.applyRecIconBtnText}>Doldur</Text>
+                          </TouchableOpacity>
+                        </View>
                       );
                     })()}
                   </View>
@@ -819,6 +890,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                 {ex.sets.map((set, setIdx) => {
                   const isIso = isIsometricExercise(ex.exerciseName, ex.category);
                   const isBodyweight = ex.equipment === 'Vücut Ağırlığı' && !isCardio && !isIso;
+                  const workingSetIndex = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup).length;
+                  const displaySetNumber = set.isWarmup ? 'W' : (workingSetIndex || set.setNumber);
 
                   if (isCardio) {
                     const mins = set.durationMinutes || 0;
@@ -831,7 +904,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                     return (
                       <View key={set.id} style={[styles.tableRow, set.completed && styles.tableRowCompleted]}>
-                        <Text style={styles.setNumberText}>{set.setNumber}</Text>
+                        <Text style={styles.setNumberText}>{displaySetNumber}</Text>
 
                         {/* Duration Minutes Input */}
                         <View style={styles.inputCell}>
@@ -901,7 +974,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         ]}
                       >
                         <Text style={[styles.setNumberText, set.isWarmup && styles.setNumberWarmup]}>
-                          {set.isWarmup ? 'W' : set.setNumber}
+                          {displaySetNumber}
                         </Text>
 
                         {/* Duration Seconds Input */}
@@ -976,7 +1049,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       ]}
                     >
                       <Text style={[styles.setNumberText, set.isWarmup && styles.setNumberWarmup]}>
-                        {set.isWarmup ? 'W' : set.setNumber}
+                        {displaySetNumber}
                       </Text>
 
                       {/* Weight input */}
@@ -1285,6 +1358,38 @@ const styles = StyleSheet.create({
   recBadgeTextToggled: {
     color: COLORS.textPrimary,
     fontWeight: '600',
+  },
+  applyRecIconBtn: {
+    height: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 8,
+    borderRadius: 100,
+  },
+  applyRecIconBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111111',
+    lineHeight: 14,
+  },
+  pulleyRatioBtn: {
+    height: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 8,
+    borderRadius: 100,
+  },
+  pulleyRatioText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    lineHeight: 14,
   },
   exVolumeText: {
     color: COLORS.textMuted,
