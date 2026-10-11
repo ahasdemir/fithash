@@ -30,6 +30,7 @@ import { syncRoutinesToWearable } from '../services/wearSyncService';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -210,7 +211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
       if (typeof document !== 'undefined') {
         // Web Platform Download
-        const blob = new Blob([exportContent], { type: `${mimeType};charset=utf-8;` });
+        const blob = new Blob([exportContent], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -257,6 +258,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handlePickBackupFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/json', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const fileAsset = result.assets[0];
+      const selectedFile = new File(fileAsset.uri);
+      const text = await selectedFile.text();
+
+      if (!text || !text.trim()) {
+        throw new Error('Seçilen dosya boş veya okunamadı.');
+      }
+
+      await importFullDataJSON(text.trim());
+      setShowImportModal(false);
+      setImportText('');
+      onDataReload();
+      setCustomAlert({
+        visible: true,
+        type: 'success',
+        title: 'Başarılı!',
+        message: 'Antrenman geçmişi, programlar, egzersizler ve rekorlar seçilen dosyadan başarıyla geri yüklendi.',
+        onConfirm: () => setCustomAlert(null),
+      });
+    } catch (error) {
+      setCustomAlert({
+        visible: true,
+        type: 'danger',
+        title: 'Hata',
+        message: error instanceof Error ? error.message : 'Yedek dosyası okunurken veya geri yüklenirken bir hata oluştu.',
+        onConfirm: () => setCustomAlert(null),
+      });
+    }
+  };
+
   const handleImportSubmit = async () => {
     if (!importText.trim()) return;
     try {
@@ -268,7 +310,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         visible: true,
         type: 'success',
         title: 'Başarılı!',
-        message: 'Antrenman geçmişi, ana sayfa programları, ek hareketler ve rekorlar geri yüklendi.',
+        message: 'Antrenman geçmişi, programlar, egzersizler, rekorlar ve uygulama ayarları başarıyla geri yüklendi.',
         onConfirm: () => setCustomAlert(null),
       });
     } catch (error) {
@@ -276,6 +318,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         visible: true,
         type: 'danger',
         title: 'Hata',
+        message: error instanceof Error ? error.message : 'Yedek dosyası içe aktarılırken bir hata oluştu.',
         onConfirm: () => setCustomAlert(null),
       });
     }
@@ -615,6 +658,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Text style={styles.importInstruction}>
                   Daha önce dışa aktardığınız JSON yedek metnini aşağıdaki alana yapıştırın:
                 </Text>
+
+                <View style={{ gap: 10, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={styles.pickFileBtn}
+                    onPress={handlePickBackupFile}
+                  >
+                    <Ionicons name="folder-open" size={18} color="#111111" />
+                    <Text style={styles.pickFileBtnText}>Dosyadan Seç (.json)</Text>
+                  </TouchableOpacity>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 4 }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: COLORS.border }} />
+                    <Text style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: '600' }}>VEYA METİN YAPIŞTIR</Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: COLORS.border }} />
+                  </View>
+                </View>
 
                 <TextInput
                   style={styles.importInput}
@@ -959,6 +1018,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     marginVertical: 10,
+  },
+  pickFileBtn: {
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  pickFileBtnText: {
+    color: '#111111',
+    fontWeight: '800',
+    fontSize: 13,
   },
   importInput: {
     backgroundColor: COLORS.surfaceSubtle,
