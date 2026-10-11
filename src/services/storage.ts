@@ -202,7 +202,12 @@ export const saveWorkout = async (workout: WorkoutSession): Promise<WorkoutSessi
     }
 
     await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(updatedWorkouts));
-    await updatePRsFromWorkout(workout);
+    // When editing an existing workout, full recalculation is needed because values might have decreased or changed
+    if (existingIndex >= 0) {
+      await recalculateAllPRs(updatedWorkouts);
+    } else {
+      await updatePRsFromWorkout(workout);
+    }
     return updatedWorkouts;
   } catch (error) {
     console.error('Error saving workout:', error);
@@ -526,6 +531,17 @@ export const calculateUserStats = (
     }
 
     workout.exercises.forEach(ex => {
+      if (ex.category === 'Kardiyo') {
+        ex.sets.forEach(s => {
+          if (s.completed) {
+            completedSetsCount++;
+            totalSets++;
+            totalActiveSeconds += (s.durationMinutes || 0) * 60;
+          }
+        });
+        return;
+      }
+
       totalPlannedSetsCount += ex.sets.length;
       ex.sets.forEach(s => {
         if (s.completed) {
@@ -535,17 +551,13 @@ export const calculateUserStats = (
           if (ex.category && muscleGroupDistribution[ex.category] !== undefined) {
             muscleGroupDistribution[ex.category]++;
           }
+          totalActiveSeconds += 45; // 45s TUT per completed weight set
 
-          if (ex.category === 'Kardiyo') {
-            totalActiveSeconds += (s.durationMinutes || 0) * 60;
-          } else {
-            totalActiveSeconds += 45; // 45s TUT per completed weight set
-          }
-          if (s.rir !== undefined) {
+          if (s.rir !== undefined && !s.isWarmup) {
             totalRirSum += s.rir;
             totalRirCount++;
           }
-          if ((s.rir === undefined || s.rir <= 3) && !s.isWarmup) {
+          if (!s.isWarmup) {
             totalHardSets++;
           }
         }

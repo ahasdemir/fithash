@@ -11,12 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, Routine } from '../types/fitness';
+import { EditWorkoutModal } from '../components/EditWorkoutModal';
 
 interface HistoryTabProps {
   workouts: WorkoutSession[];
   routines?: Routine[];
   onDeleteWorkout: (id: string) => void;
   onReuseWorkout: (workout: WorkoutSession) => void;
+  onUpdateWorkout?: (workout: WorkoutSession) => void;
 }
 
 export const HistoryTab: React.FC<HistoryTabProps> = ({
@@ -24,9 +26,11 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   routines = [],
   onDeleteWorkout,
   onReuseWorkout,
+  onUpdateWorkout,
 }) => {
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutSession | null>(null);
   const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSession | null>(null);
+  const [workoutToEdit, setWorkoutToEdit] = useState<WorkoutSession | null>(null);
 
   const formatDuration = (secs: number) => {
     const mins = Math.floor(secs / 60);
@@ -77,13 +81,23 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     <Text style={styles.dateText}>{session.date}</Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.trashBtn}
-                    onPress={() => setWorkoutToDelete(session)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                  </TouchableOpacity>
+                  <View style={styles.cardHeaderRight}>
+                    <TouchableOpacity
+                      style={styles.editCardBtn}
+                      onPress={() => setWorkoutToEdit(session)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="pencil-outline" size={17} color={COLORS.primary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.trashBtn}
+                      onPress={() => setWorkoutToDelete(session)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <TouchableOpacity
@@ -210,6 +224,22 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* Edit Workout Modal outside Detail Modal */}
+      <EditWorkoutModal
+        visible={!!workoutToEdit}
+        workout={workoutToEdit}
+        onClose={() => setWorkoutToEdit(null)}
+        onSave={updated => {
+          setWorkoutToEdit(null);
+          if (onUpdateWorkout) {
+            onUpdateWorkout(updated);
+          }
+          if (selectedWorkout && selectedWorkout.id === updated.id) {
+            setSelectedWorkout(updated);
+          }
+        }}
+      />
 
       {/* RICH WORKOUT DETAIL MODAL */}
       {selectedWorkout && (() => {
@@ -413,8 +443,10 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                             </View>
 
                             {/* Sets Table Rows */}
-                            {ex.sets.map(set => {
+                            {ex.sets.map((set, setIdx) => {
                               const isSetCompleted = set.completed;
+                              const workingSetIndex = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup).length;
+                              const setNumberDisplay = set.isWarmup ? 'W' : `#${workingSetIndex || set.setNumber}`;
 
                               if (isCardio) {
                                 const mins = set.durationMinutes || 0;
@@ -430,7 +462,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                         color={isSetCompleted ? "#10B981" : "#EF4444"}
                                       />
                                     </View>
-                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{set.setNumber}</Text>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{workingSetIndex || set.setNumber}</Text>
                                     <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                       {mins} dk
                                     </Text>
@@ -457,7 +489,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                       />
                                     </View>
                                     <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
-                                      {set.isWarmup ? 'W' : `#${set.setNumber}`}
+                                      {setNumberDisplay}
                                     </Text>
                                     <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                       {secs} sn
@@ -479,7 +511,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                     />
                                   </View>
                                   <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
-                                    {set.isWarmup ? 'W' : `#${set.setNumber}`}
+                                    {setNumberDisplay}
                                   </Text>
                                   <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                     {isBw && set.weight === 0 ? 'Vücut Ağ.' : `${isBw && set.weight > 0 ? '+' : ''}${set.weight} kg`}
@@ -516,7 +548,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                           </View>
                         </View>
                         <Text style={styles.skippedExSub}>
-                          Program Hedefi: {re.targetSets} Set x {re.targetReps} Tekrar {re.targetWeight ? `• ${re.targetWeight} kg` : ''}
+                          Program Hedefi: {re.targetWarmupSets ? `${re.targetWarmupSets}W + ` : ''}{re.targetSets} Set x {re.targetReps} Tekrar {re.targetWeight ? `• ${re.targetWeight} kg` : ''}
                         </Text>
                       </View>
                     ))}
@@ -539,6 +571,18 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  style={styles.editWorkoutModalBtn}
+                  onPress={() => {
+                    const w = selectedWorkout;
+                    setSelectedWorkout(null);
+                    setWorkoutToEdit(w);
+                  }}
+                >
+                  <Ionicons name="pencil-outline" size={16} color="#111111" />
+                  <Text style={styles.editWorkoutModalText}>Düzenle</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={styles.reuseBtn}
                   onPress={() => {
                     const workout = selectedWorkout;
@@ -547,7 +591,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   }}
                 >
                   <Ionicons name="refresh" size={16} color="#111111" />
-                  <Text style={styles.reuseBtnText}>Antrenmanı Tekrar Yap</Text>
+                  <Text style={styles.reuseBtnText}>Tekrar Yap</Text>
                 </TouchableOpacity>
               </View>
             </SafeAreaView>
@@ -619,6 +663,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editCardBtn: {
+    padding: 6,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   trashBtn: {
     padding: 6,
@@ -1043,5 +1097,22 @@ const styles = StyleSheet.create({
   skippedExSub: {
     fontSize: 12,
     color: COLORS.textMuted,
+  },
+  editWorkoutModalBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  editWorkoutModalText: {
+    color: COLORS.textPrimary,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

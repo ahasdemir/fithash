@@ -208,6 +208,13 @@ export default function App() {
     setPrs(updatedPrs);
   };
 
+  const handleUpdateWorkout = async (updatedWorkout: WorkoutSession) => {
+    const updated = await saveWorkout(updatedWorkout);
+    setWorkouts(updated);
+    const updatedPrs = await getPersonalRecords();
+    setPrs(updatedPrs);
+  };
+
   const handleReuseWorkout = (pastSession: WorkoutSession) => {
     const newSession: WorkoutSession = {
       id: `session_${Date.now()}`,
@@ -278,6 +285,7 @@ export default function App() {
               routines={routines}
               onDeleteWorkout={handleDeleteWorkout}
               onReuseWorkout={handleReuseWorkout}
+              onUpdateWorkout={handleUpdateWorkout}
             />
           )}
 
