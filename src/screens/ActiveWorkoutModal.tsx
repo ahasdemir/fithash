@@ -21,6 +21,7 @@ import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
+import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/progressionEngine';
@@ -56,6 +57,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [toggledRecs, setToggledRecs] = useState<Record<string, boolean>>({});
   const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
+  const [selectedPRExercise, setSelectedPRExercise] = useState<Exercise | null>(null);
+  const lastRecTapTimeRef = useRef<Record<string, number>>({});
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -247,8 +250,33 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleToggleRecView = (exId: string) => {
-    // Single tap only toggles between recommendation badge label and last stats preview
     setToggledRecs(prev => ({ ...prev, [exId]: !prev[exId] }));
+  };
+
+  const handleRecPress = (exId: string, rec: SmartOverloadRecommendation) => {
+    const now = Date.now();
+    const lastTap = lastRecTapTimeRef.current[exId] || 0;
+    const DOUBLE_TAP_DELAY = 300; // ms
+
+    if (now - lastTap < DOUBLE_TAP_DELAY) {
+      // Double tap -> Fill sets with recommendation!
+      handleApplyRecommendation(exId, rec);
+      lastRecTapTimeRef.current[exId] = 0;
+    } else {
+      // Single tap -> Toggle view between recommendation badge label and last stats preview
+      lastRecTapTimeRef.current[exId] = now;
+      handleToggleRecView(exId);
+    }
+  };
+
+  const handleOpenExercisePR = (ex: WorkoutExercise) => {
+    setSelectedPRExercise({
+      id: ex.exerciseId,
+      name: ex.exerciseName,
+      category: ex.category,
+      equipment: ex.equipment,
+      isCustom: false,
+    });
   };
 
   const handleApplyRecommendation = (exId: string, rec: SmartOverloadRecommendation) => {
@@ -777,33 +805,11 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     </View>
                   </View>
 
-                  {/* Bottom Row: Muscle Group Tag & Full Recommendation Tag on the Same Line */}
+                  {/* Bottom Row: Muscle Group Tag & Recommendation Tag */}
                   <View style={styles.exMetaRow}>
                     <View style={[styles.catBadge, { backgroundColor: catColor + '15' }]}>
                       <Text style={[styles.catBadgeText, { color: catColor }]}>{ex.category}</Text>
                     </View>
-
-                    {/* Machine / Cable Pulley Ratio Selector */}
-                    {ex.equipment === 'Kablo' && (
-                      <TouchableOpacity
-                        style={styles.pulleyRatioBtn}
-                        onPress={() => {
-                          const ratios = ['1:1', '2:1', '1:2'];
-                          const currentIdx = ratios.indexOf(ex.pulleyRatio || '1:1');
-                          const nextRatio = ratios[(currentIdx + 1) % ratios.length];
-                          const updatedExs = session.exercises.map(item =>
-                            item.id === ex.id ? { ...item, pulleyRatio: nextRatio } : item
-                          );
-                          const updated = { ...session, exercises: updatedExs };
-                          setSession(updated);
-                          onUpdateSession(updated);
-                        }}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      >
-                        <Ionicons name="git-commit-outline" size={11} color={COLORS.textPrimary} />
-                        <Text style={styles.pulleyRatioText}>{ex.pulleyRatio || '1:1'}</Text>
-                      </TouchableOpacity>
-                    )}
 
                     {recommendation && (() => {
                       const isToggled = !!toggledRecs[ex.id];
@@ -813,43 +819,31 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       const displayText = isToggled ? recentStatsText : recommendation.badgeLabel;
 
                       return (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <TouchableOpacity
-                            style={[styles.recBadgePill, isToggled && styles.recBadgePillToggled]}
-                            activeOpacity={0.8}
-                            onPress={() => handleToggleRecView(ex.id)}
-                            onLongPress={() => handleApplyRecommendation(ex.id, recommendation)}
-                          >
-                            <Ionicons
-                              name={
-                                isToggled
-                                  ? 'stats-chart-outline'
-                                  : (recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
-                                    ? 'trending-up'
-                                    : recommendation.actionType === 'MORE_REPS'
-                                    ? 'add-circle-outline'
-                                    : recommendation.actionType === 'LESS_WEIGHT'
-                                    ? 'trending-down'
-                                    : 'shield-checkmark-outline')
-                              }
-                              size={12}
-                              color={isToggled ? COLORS.textPrimary : '#111111'}
-                            />
-                            <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
-                              {displayText}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={styles.applyRecIconBtn}
-                            activeOpacity={0.8}
-                            onPress={() => handleApplyRecommendation(ex.id, recommendation)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Ionicons name="sparkles" size={13} color="#111111" />
-                            <Text style={styles.applyRecIconBtnText}>Doldur</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                          style={[styles.recBadgePill, isToggled && styles.recBadgePillToggled]}
+                          activeOpacity={0.8}
+                          onPress={() => handleRecPress(ex.id, recommendation)}
+                          onLongPress={() => handleOpenExercisePR(ex)}
+                        >
+                          <Ionicons
+                            name={
+                              isToggled
+                                ? 'stats-chart-outline'
+                                : (recommendation.actionType === 'MORE_WEIGHT' || recommendation.actionType === 'AGGRESSIVE_MORE_WEIGHT'
+                                  ? 'trending-up'
+                                  : recommendation.actionType === 'MORE_REPS'
+                                  ? 'add-circle-outline'
+                                  : recommendation.actionType === 'LESS_WEIGHT'
+                                  ? 'trending-down'
+                                  : 'shield-checkmark-outline')
+                            }
+                            size={12}
+                            color={isToggled ? COLORS.textPrimary : '#111111'}
+                          />
+                          <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
+                            {displayText}
+                          </Text>
+                        </TouchableOpacity>
                       );
                     })()}
                   </View>
@@ -1159,6 +1153,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         {customAlert && (
           <CustomAlertModal
             {...customAlert}
+          />
+        )}
+
+        {selectedPRExercise && (
+          <ExercisePRDetailModal
+            visible={!!selectedPRExercise}
+            exercise={selectedPRExercise}
+            workouts={pastWorkouts}
+            onClose={() => setSelectedPRExercise(null)}
           />
         )}
       </Animated.View>

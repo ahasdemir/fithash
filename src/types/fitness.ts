@@ -37,7 +37,6 @@ export interface ExerciseSet {
   completed: boolean;
   isWarmup?: boolean;
   isPR?: boolean;
-  pulleyRatio?: string; // Optional machine/cable pulley ratio tag (e.g. '1:1', '2:1', '1:2')
   // Cardio Fields
   durationMinutes?: number;
   distanceKm?: number;
@@ -51,8 +50,6 @@ export interface WorkoutExercise {
   exerciseName: string;
   category: MuscleCategory;
   equipment: EquipmentType;
-  pulleyRatio?: string; // e.g. '1:1', '2:1', '1:2'
-  machineModel?: string; // e.g. 'Life Fitness', 'Technogym', 'Matrix', 'Custom'
   sets: ExerciseSet[];
   notes?: string;
 }
