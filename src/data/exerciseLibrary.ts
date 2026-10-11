@@ -147,7 +147,20 @@ export const INITIAL_EXERCISES: Exercise[] = [
   { id: 'ex_cardio_sled_push', name: 'Sled Push', category: 'Kardiyo', equipment: 'Diğer', targetMuscle: 'Tüm Bacak, Kalça & Kardiyo', instructions: 'Kızak tutacaklarına dayanıp kalçayı alçakta tutarak adımlarla kızağı ileri doğru itin.' },
   { id: 'ex_cardio_jumprope', name: 'İp Atlama', category: 'Kardiyo', equipment: 'Vücut Ağırlığı', targetMuscle: 'Tüm Vücut & Kalf', instructions: 'Tempolu ip atlama ile yüksek kalori yakımı.' },
   { id: 'ex_cardio_swimming', name: 'Yüzme', category: 'Kardiyo', equipment: 'Vücut Ağırlığı', targetMuscle: 'Tüm Vücut & Kardiyo', instructions: 'Havuzda serbest stil yüzme ile yüksek kalori ve tüm vücut kardiyosu.' },
-  { id: 'ex_cardio_boxing', name: 'Boks / Kum Torbası', category: 'Kardiyo', equipment: 'Diğer', targetMuscle: 'Kardiyo & Omuz/Core', instructions: 'Kum torbasında tempolu yumruk kombinasyonları ile yüksek yoğunluklu kardiyo.' },
+  // --- EK DAHİLİ EGZERSİZLER (STANDARDIZED) ---
+  { id: 'ex_horizontal_leg_press', name: 'Horizontal Leg Press', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Ön Bacak & Kalça', instructions: 'Yatay leg press makinesinde sırtı dayayıp platformu bacaklarla geriye doğru itin.' },
+  { id: 'ex_anterior_tibialis_raise', name: 'Anterior Tibialis Raise', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Kaval Kemiği (Tibialis Anterior)', instructions: 'Tibialis makinesinde veya topukları sabitleyerek ayak parmak uçlarını yukarı kaldırın.' },
+  { id: 'ex_db_romanian_deadlift', name: 'Dumbbell Romanian Deadlift', category: 'Bacak', equipment: 'Dumbbell', targetMuscle: 'Hamstring & Glute', instructions: 'Dambıllarla kalçayı geriye verip dizleri hafif bükerek arka bacağı esnetip doğrulun.' },
+  { id: 'ex_hip_thrust_mch', name: 'Hip Thrust Machine', category: 'Bacak', equipment: 'Makine', targetMuscle: 'Glute (Kalça)', instructions: 'Kalça itiş makinesinde kemeri/pedi kalçaya sabitleyip patlayıcı şekilde yukarı itin.' },
+  { id: 'ex_machine_lateral_raise', name: 'Machine Lateral Raise', category: 'Omuz', equipment: 'Makine', targetMuscle: 'Yan Omuz', instructions: 'Omuz yana açış makinesinde dirseklerle pedleri omuz hizasına kadar yana kaldırın.' },
+  { id: 'ex_single_arm_triceps_pushdown', name: 'Single-Arm Triceps Pushdown', category: 'Arka Kol', equipment: 'Kablo', targetMuscle: 'Triceps (Lateral & Medial Baş)', instructions: 'Kablo makarasında tek kolla tutamağı aşağı doğru kontrollü bastırıp dirseği kilitleyin.' },
+  { id: 'ex_triceps_press_mch', name: 'Triceps Press MCH', category: 'Arka Kol', equipment: 'Makine', targetMuscle: 'Triceps', instructions: 'Oturarak triceps pres makinesinde tutacakları aşağı doğru kollar düzleşene kadar itin.' },
+  { id: 'ex_chest_press_mch', name: 'Chest Press MCH', category: 'Göğüs', equipment: 'Makine', targetMuscle: 'Orta Göğüs', instructions: 'Göğüs pres makinesinde tutacakları göğüs hizasından öne doğru sıkıştırarak itin.' },
+  { id: 'ex_smith_bench_press', name: 'Smith Machine Bench Press', category: 'Göğüs', equipment: 'Makine', targetMuscle: 'Orta Göğüs', instructions: 'Smith makinesinde barı düz benchte göğse kontrollü indirip yukarı itin.' },
+  { id: 'ex_smith_incline_bench_press', name: 'Smith Machine Incline Bench Press', category: 'Göğüs', equipment: 'Makine', targetMuscle: 'Üst Göğüs', instructions: 'Smith makinesinde eğimli sehpada barı üst göğse indirip yukarı presleyin.' },
+  { id: 'ex_single_arm_machine_row', name: 'Single-Arm Machine Row', category: 'Sırt', equipment: 'Makine', targetMuscle: 'Kanat & Orta Sırt', instructions: 'Sırt makinesinde tek kolla göğüs desteğine yaslanarak kolu karnınıza doğru çekin.' },
+  { id: 'ex_assisted_chin_up', name: 'Assisted Chin Up', category: 'Sırt', equipment: 'Makine', targetMuscle: 'Kanat & Biceps', instructions: 'Destekli makinede ters tutuşla çeneyi bara doğru çekerek kanat ve kolları sıkıştırın.' },
+  { id: 'ex_seated_row_mch', name: 'Seated Row MCH', category: 'Sırt', equipment: 'Makine', targetMuscle: 'Orta Sırt & Kanat', instructions: 'Oturarak kürek makinesinde tutacakları gövdeye doğru çekip sırtı sıkıştırın.' },
 ];
 
 export const DEFAULT_ROUTINES: Routine[] = [
