@@ -81,23 +81,13 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     <Text style={styles.dateText}>{session.date}</Text>
                   </View>
 
-                  <View style={styles.cardHeaderRight}>
-                    <TouchableOpacity
-                      style={styles.editCardBtn}
-                      onPress={() => setWorkoutToEdit(session)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="pencil-outline" size={17} color={COLORS.primary} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.trashBtn}
-                      onPress={() => setWorkoutToDelete(session)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.trashBtn}
+                    onPress={() => setWorkoutToDelete(session)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                  </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -663,16 +653,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  editCardBtn: {
-    padding: 6,
-    borderRadius: 100,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   trashBtn: {
     padding: 6,
