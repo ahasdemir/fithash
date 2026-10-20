@@ -13,6 +13,7 @@ import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession } from '../types/fitness';
+import { getMondayOfWeek } from '../services/storage';
 
 export interface VolumeBucket {
   id: string;
@@ -64,6 +65,92 @@ const formatVolumeShort = (vol: number): string => {
 };
 
 /**
+ * Generates 7 Daily Buckets for the CURRENT CALENDAR WEEK (Pazartesi to Pazar)
+ */
+const getCalendarWeekBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
+  const buckets: VolumeBucket[] = [];
+  const now = new Date();
+  const monday = getMondayOfWeek(now);
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const dateStr = formatISODate(d);
+
+    const dayWorkouts = workouts.filter(w => w.date === dateStr && w.completed !== false);
+    const vol = dayWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+    let sets = 0;
+    dayWorkouts.forEach(w => {
+      w.exercises?.forEach(ex => {
+        if (ex.category === 'Kardiyo') return; // Exclude cardio from weightlifting sets
+        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+      });
+    });
+
+    const dayName = DAY_SHORT_TR[d.getDay()];
+    const monthFull = MONTH_FULL_TR[d.getMonth()];
+
+    buckets.push({
+      id: dateStr,
+      label: dayName,
+      fullLabel: `${d.getDate()} ${monthFull} ${d.getFullYear()}, ${dayName}`,
+      volume: vol,
+      sets,
+      workoutCount: dayWorkouts.length,
+      startDate: dateStr,
+      endDate: dateStr,
+    });
+  }
+
+  return buckets;
+};
+
+/**
+ * Generates Weekly Buckets for the CURRENT CALENDAR MONTH (1st to last day of month)
+ */
+const getCurrentMonthWeeklyBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
+  const buckets: VolumeBucket[] = [];
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+
+  const ranges = [
+    { start: 1, end: 7, label: `1-7 ${MONTH_SHORT_TR[month]}` },
+    { start: 8, end: 14, label: `8-14 ${MONTH_SHORT_TR[month]}` },
+    { start: 15, end: 21, label: `15-21 ${MONTH_SHORT_TR[month]}` },
+    { start: 22, end: lastDayOfMonth, label: `22-${lastDayOfMonth} ${MONTH_SHORT_TR[month]}` },
+  ];
+
+  ranges.forEach(r => {
+    const startStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(r.start).padStart(2, '0')}`;
+    const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(r.end).padStart(2, '0')}`;
+
+    const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
+    const vol = rangeWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+    let sets = 0;
+    rangeWorkouts.forEach(w => {
+      w.exercises?.forEach(ex => {
+        if (ex.category === 'Kardiyo') return;
+        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+      });
+    });
+
+    buckets.push({
+      id: `${startStr}_${endStr}`,
+      label: r.label,
+      fullLabel: `${r.start} - ${r.end} ${MONTH_FULL_TR[month]} ${year}`,
+      volume: vol,
+      sets,
+      workoutCount: rangeWorkouts.length,
+      startDate: startStr,
+      endDate: endStr,
+    });
+  });
+
+  return buckets;
+};
+
+/**
  * Generates Daily Buckets for a given number of days ending today
  */
 const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): VolumeBucket[] => {
@@ -74,11 +161,12 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     const dateStr = formatISODate(d);
 
-    const dayWorkouts = workouts.filter(w => w.date === dateStr);
+    const dayWorkouts = workouts.filter(w => w.date === dateStr && w.completed !== false);
     const vol = dayWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
     let sets = 0;
     dayWorkouts.forEach(w => {
       w.exercises?.forEach(ex => {
+        if (ex.category === 'Kardiyo') return;
         sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
       });
     });
@@ -119,11 +207,12 @@ const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): V
     const startStr = formatISODate(startD);
     const endStr = formatISODate(endD);
 
-    const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr);
+    const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
     const vol = rangeWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
     let sets = 0;
     rangeWorkouts.forEach(w => {
       w.exercises?.forEach(ex => {
+        if (ex.category === 'Kardiyo') return;
         sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
       });
     });
@@ -169,11 +258,12 @@ const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6):
     const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-    const monthWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr);
+    const monthWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
     const vol = monthWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
     let sets = 0;
     monthWorkouts.forEach(w => {
       w.exercises?.forEach(ex => {
+        if (ex.category === 'Kardiyo') return;
         sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
       });
     });
@@ -206,11 +296,11 @@ const getSmartAggregatedVolumeData = (
   let buckets: VolumeBucket[] = [];
 
   if (filterMode === 'weekly') {
-    // 7 Daily Buckets
-    buckets = getDailyBuckets(workouts, 7);
+    // Current Calendar Week: Pazartesi -> Pazar (7 days)
+    buckets = getCalendarWeekBuckets(workouts);
   } else if (filterMode === 'monthly') {
-    // 5 Weekly Buckets for last ~30 days
-    buckets = getWeeklyBuckets(workouts, 5);
+    // Current Calendar Month: 1 -> last day in ~weekly chunks
+    buckets = getCurrentMonthWeeklyBuckets(workouts);
   } else {
     // 'all' Mode: Automatically group into Weekly or Monthly periods based on span
     if (!workouts.length) {
@@ -580,8 +670,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             </View>
             <Text style={styles.cardSubtitle}>
               {totalPeriodSets > 0
-                ? `Bu dönemde toplam ${totalPeriodSets} efektif set tamamlandı`
-                : 'Döneme ait efektif set trendi'}
+                ? `Bu dönemde toplam ${totalPeriodSets} çalışma seti tamamlandı`
+                : 'Döneme ait çalışma seti trendi'}
             </Text>
           </View>
 
@@ -620,7 +710,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
                 <View style={styles.tooltipBody}>
                   <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Efektif Set</Text>
+                    <Text style={styles.tooltipLabel}>Çalışma Seti</Text>
                     <Text style={styles.tooltipValText}>
                       {selectedSetBucket.sets > 0 ? `${selectedSetBucket.sets} Set` : '0 Set'}
                     </Text>
@@ -845,11 +935,11 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               </View>
               <View>
                 <Text style={styles.modalTitle}>
-                  {modalMetric === 'sets' ? 'Efektif Set Analizi' : 'Toplam Yük Analizi'}
+                  {modalMetric === 'sets' ? 'Çalışma Seti Analizi' : 'Toplam Yük Analizi'}
                 </Text>
                 <Text style={styles.modalSubtitle}>
                   {modalMetric === 'sets'
-                    ? 'Tamamlanan setler & periyot trendi'
+                    ? 'Tamamlanan çalışma setleri & periyot trendi'
                     : 'Kaldırılan tonaj & detaylı trend incelemesi'}
                 </Text>
               </View>
@@ -876,7 +966,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   }}
                 >
                   <Text style={[styles.metricBtnText, modalMetric === 'sets' && styles.metricBtnTextSelected]}>
-                    Efektif Set
+                    Çalışma Seti
                   </Text>
                 </TouchableOpacity>
 
@@ -971,7 +1061,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   {modalMetric === 'sets' ? (
                     <>
                       <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Efektif Set</Text>
+                        <Text style={styles.modalMetricLabel}>Çalışma Seti</Text>
                         <Text style={styles.modalMetricVal}>
                           {modalSelectedBucket.sets} Set
                         </Text>
@@ -1048,7 +1138,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                       <Text style={styles.modalSummaryVal}>
                         {totalModalSets} <Text style={styles.modalSummaryUnit}>Set</Text>
                       </Text>
-                      <Text style={styles.modalSummarySub}>Toplam Efektif Set</Text>
+                      <Text style={styles.modalSummarySub}>Toplam Çalışma Seti</Text>
                     </View>
 
                     <View style={styles.modalSummarySquare}>

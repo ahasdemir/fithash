@@ -91,6 +91,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       exerciseName: ex.name,
       category: ex.category,
       equipment: ex.equipment,
+      targetWarmupSets: 0,
       targetSets: isCardio ? 1 : 3,
       targetReps: isCardio ? 1 : 10,
       targetDurationMinutes: isCardio ? 15 : undefined,
@@ -102,7 +103,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
   const handleUpdateTarget = (
     index: number,
-    field: 'targetSets' | 'targetReps' | 'targetRir' | 'targetDurationMinutes' | 'targetDistanceKm' | 'targetDurationSeconds',
+    field: 'targetSets' | 'targetReps' | 'targetRir' | 'targetDurationMinutes' | 'targetDistanceKm' | 'targetDurationSeconds' | 'targetWarmupSets',
     delta: number
   ) => {
     setSelectedExercises(prev => {
@@ -116,6 +117,8 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       } else if (field === 'targetDistanceKm') {
         const val = Math.max(0.5, Math.min(50, (currentVal || 2.5) + delta * 0.5));
         copy[index].targetDistanceKm = parseFloat(val.toFixed(1));
+      } else if (field === 'targetWarmupSets') {
+        copy[index].targetWarmupSets = Math.max(0, Math.min(5, (currentVal || 0) + delta));
       } else {
         const minVal = field === 'targetRir' ? 0 : 1;
         const maxVal = field === 'targetRir' ? 3 : 100;
@@ -286,9 +289,21 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                     </View>
                   ) : /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName) ? (
                     <View style={styles.targetsRow}>
+                      {/* Warmup Sets */}
+                      <View style={[styles.counterBox, (ex.targetWarmupSets || 0) > 0 && styles.counterBoxWarmup]}>
+                        <Text style={[styles.counterLabel, (ex.targetWarmupSets || 0) > 0 && styles.counterLabelWarmup]}>Isınma:</Text>
+                        <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', -1)}>
+                          <Ionicons name="remove" size={12} color="#111111" />
+                        </TouchableOpacity>
+                        <Text style={[styles.counterValue, (ex.targetWarmupSets || 0) > 0 && styles.counterValueWarmup]}>{ex.targetWarmupSets || 0}</Text>
+                        <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', 1)}>
+                          <Ionicons name="add" size={12} color="#111111" />
+                        </TouchableOpacity>
+                      </View>
+
                       {/* Sets */}
                       <View style={styles.counterBox}>
-                        <Text style={styles.counterLabel}>Set:</Text>
+                        <Text style={styles.counterLabel}>Çalışma Seti:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', -1)}>
                           <Ionicons name="remove" size={12} color="#111111" />
                         </TouchableOpacity>
@@ -324,9 +339,21 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                     </View>
                   ) : (
                     <View style={styles.targetsRow}>
+                      {/* Warmup Sets */}
+                      <View style={[styles.counterBox, (ex.targetWarmupSets || 0) > 0 && styles.counterBoxWarmup]}>
+                        <Text style={[styles.counterLabel, (ex.targetWarmupSets || 0) > 0 && styles.counterLabelWarmup]}>Isınma:</Text>
+                        <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', -1)}>
+                          <Ionicons name="remove" size={12} color="#111111" />
+                        </TouchableOpacity>
+                        <Text style={[styles.counterValue, (ex.targetWarmupSets || 0) > 0 && styles.counterValueWarmup]}>{ex.targetWarmupSets || 0}</Text>
+                        <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', 1)}>
+                          <Ionicons name="add" size={12} color="#111111" />
+                        </TouchableOpacity>
+                      </View>
+
                       {/* Sets */}
                       <View style={styles.counterBox}>
-                        <Text style={styles.counterLabel}>Set:</Text>
+                        <Text style={styles.counterLabel}>Çalışma Seti:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', -1)}>
                           <Ionicons name="remove" size={12} color="#111111" />
                         </TouchableOpacity>
@@ -568,6 +595,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     minWidth: 18,
     textAlign: 'center',
+  },
+  counterBoxWarmup: {
+    borderColor: '#F97316',
+    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+  },
+  counterLabelWarmup: {
+    color: '#EA580C',
+    fontWeight: '700',
+  },
+  counterBtnWarmup: {
+    backgroundColor: '#F97316',
+  },
+  counterValueWarmup: {
+    color: '#C2410C',
+    fontWeight: '900',
   },
   emptyAddBox: {
     alignItems: 'center',

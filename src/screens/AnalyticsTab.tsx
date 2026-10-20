@@ -13,7 +13,7 @@ import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
-import { calculateUserStats } from '../services/storage';
+import { calculateUserStats, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
@@ -33,13 +33,31 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   const [prSearchQuery, setPrSearchQuery] = useState('');
   const [selectedPRCategory, setSelectedPRCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
 
-  const filteredWorkouts = workouts.filter(w => {
-    if (filterMode === 'all') return true;
-    const dateObj = new Date(w.date);
+  const filteredWorkouts = useMemo(() => {
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - dateObj.getTime()) / (1000 * 3600 * 24));
-    return filterMode === 'weekly' ? diffDays <= 7 : diffDays <= 30;
-  });
+    const currentMonday = getMondayOfWeek(now);
+    const currentMondayStr = getLocalDateString(currentMonday);
+    const currentSunday = new Date(currentMonday);
+    currentSunday.setDate(currentSunday.getDate() + 6);
+    const currentSundayStr = getLocalDateString(currentSunday);
+
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const currentMonthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const currentMonthEndStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+
+    return workouts.filter(w => {
+      if (w.completed === false) return false;
+      if (filterMode === 'weekly') {
+        return w.date >= currentMondayStr && w.date <= currentSundayStr;
+      }
+      if (filterMode === 'monthly') {
+        return w.date >= currentMonthStartStr && w.date <= currentMonthEndStr;
+      }
+      return true;
+    });
+  }, [workouts, filterMode]);
 
   const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
 
@@ -188,7 +206,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
       {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
       <View style={styles.bentoGrid}>
-        {/* 1. Hard Sets (Efektif Set Sayısı - RIR 0-3) */}
+        {/* 1. Working Sets (Çalışma Seti Sayısı) */}
         <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
           <View style={styles.metricIconBg}>
             <Ionicons name="barbell" size={18} color="#111111" />
@@ -196,7 +214,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           <Text style={styles.metricValue}>
             {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
           </Text>
-          <Text style={styles.metricLabel}>Sert Setler (RIR 0-3)</Text>
+          <Text style={styles.metricLabel}>Çalışma Setleri</Text>
         </View>
 
         {/* 2. Workout Compliance Rate (%) */}

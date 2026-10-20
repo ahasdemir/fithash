@@ -439,9 +439,9 @@ export const generateLocalCoachAnalysis = (
   }
 
   const prCount = Object.keys(prs).length;
-  let summary = `Son seanslarınızda toplam ${stats.totalHardSets} sert set (RIR 0-3) ve ${stats.activeWorkTimeMinutes} dk aktif gerilim altında çalışma süresi tamamlandı. Program uyum oranınız %${stats.avgWorkoutCompliance}.`;
+  let summary = `Son seanslarınızda toplam ${stats.totalHardSets} çalışma seti ve ${stats.activeWorkTimeMinutes} dk aktif gerilim altında çalışma süresi tamamlandı. Program uyum oranınız %${stats.avgWorkoutCompliance}.`;
   let overloadTip = 'Gelecek antrenmanda RIR 1-2 aralığında kalarak en az 1 ana harekette +2.5kg veya +1 tekrar artış hedefleyin.';
-  let muscleBalance = 'İtiş, çekiş, bacak ve kardiyo seansları arasında efektif sert set dağılımı aktif şekilde ilerliyor.';
+  let muscleBalance = 'İtiş, çekiş, bacak ve kardiyo seansları arasında çalışma seti dağılımı aktif şekilde ilerliyor.';
   let score = 85;
 
   if (stats.streakDays >= 3) {

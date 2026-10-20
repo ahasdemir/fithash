@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getWorkouts, getRoutines, getExercises, getPersonalRecords, recalculateAllPRs } from './storage';
+import { getWorkouts, getRoutines, getExercises, getPersonalRecords, recalculateAllPRs, clearCachedAIAnalysis } from './storage';
 import { WorkoutSession, Routine, Exercise, PersonalRecord } from '../types/fitness';
+import { INITIAL_EXERCISES } from '../data/exerciseLibrary';
 
 const SETTINGS_KEY = '@fithash_settings_v1';
 const DELETED_ROUTINES_KEY = '@fitness_deleted_routines_v1';
@@ -60,34 +61,75 @@ export const saveAppSettings = async (settings: Partial<AppSettings>): Promise<A
 export interface FullAppDataBackup {
   version: string;
   exportedAt: string;
-  /** Antrenman geçmişi */
+  /** Workout history */
   workouts: WorkoutSession[];
-  /** Ana sayfada gösterilen programlar (varsayılanlar ve kullanıcı ekledikleri) */
+  /** Routines on home screen */
   routines: Routine[];
-  /** Hareket kütüphanesi (varsayılanlar ve kullanıcı ekledikleri) */
+  /** Exercise library (both built-in and custom) */
   exercises: Exercise[];
+  /** User-created custom exercises */
+  customExercises?: Exercise[];
+  /** Personal records */
   prs: Record<string, PersonalRecord>;
-  /** Kullanıcının ana sayfadan kaldırdığı varsayılan programlar */
+  /** Deleted default routine IDs */
   deletedRoutineIds?: string[];
+  /** User preferences & streak targets */
+  settings?: AppSettings;
 }
 
+const CATEGORY_TRANSLATIONS: Record<string, string> = {
+  'Göğüs': 'Chest',
+  'Sırt': 'Back',
+  'Bacak': 'Legs',
+  'Omuz': 'Shoulders',
+  'Ön Kol': 'Biceps',
+  'Arka Kol': 'Triceps',
+  'Karın': 'Core',
+  'Kardiyo': 'Cardio',
+};
+
+const EQUIPMENT_TRANSLATIONS: Record<string, string> = {
+  'Barbell': 'Barbell',
+  'Dumbbell': 'Dumbbell',
+  'Makine': 'Machine',
+  'Kablo': 'Cable',
+  'Vücut Ağırlığı': 'Bodyweight',
+  'Kardiyo Cihazı': 'Cardio Machine',
+  'Diğer': 'Other',
+};
+
 export const exportFullDataJSON = async (): Promise<string> => {
-  const [workouts, routines, exercises, prs, deletedRoutinesJson] = await Promise.all([
+  const [
+    workouts,
+    routines,
+    allExercises,
+    prs,
+    deletedRoutinesJson,
+    customExercisesJson,
+    settings,
+  ] = await Promise.all([
     getWorkouts(),
     getRoutines(),
     getExercises(),
     getPersonalRecords(),
     AsyncStorage.getItem(DELETED_ROUTINES_KEY),
+    AsyncStorage.getItem(STORAGE_KEYS.EXERCISES),
+    getAppSettings(),
   ]);
 
+  const deletedRoutineIds: string[] = deletedRoutinesJson ? JSON.parse(deletedRoutinesJson) : [];
+  const customExercises: Exercise[] = customExercisesJson ? JSON.parse(customExercisesJson) : [];
+
   const backup: FullAppDataBackup = {
-    version: '2.0.0',
+    version: '2.1.0',
     exportedAt: new Date().toISOString(),
     workouts,
     routines,
-    exercises,
+    exercises: allExercises,
+    customExercises,
     prs,
-    deletedRoutineIds: deletedRoutinesJson ? JSON.parse(deletedRoutinesJson) : [],
+    deletedRoutineIds,
+    settings,
   };
 
   return JSON.stringify(backup, null, 2);
@@ -95,26 +137,32 @@ export const exportFullDataJSON = async (): Promise<string> => {
 
 export const exportWorkoutsCSV = async (): Promise<string> => {
   const workouts = await getWorkouts();
-  // UTF-8 BOM for Excel compatibility with Turkish characters
-  let csv = '\uFEFF';
-  csv += 'Antrenman,Tarih,Süre (dk),Hareket,Kategori,Ekipman,Set No,Durum,Set Tipi,Ağırlık (kg),Tekrar,İzometrik Süre (sn),RIR,Mesafe (km),Kardiyo Süresi (dk),Yakılan Kalori (kcal),Notlar\n';
+  let csv = 'Workout,Date,Duration (min),Exercise,Category,Equipment,Set Number,Status,Set Type,Weight (kg),Reps,Isometric Hold (s),RIR,Distance (km),Speed (km/h),Cardio Duration (min),Calories Burned (kcal),Notes\n';
 
   workouts.forEach(w => {
     const durationMins = Math.round((w.durationSeconds || 0) / 60);
     const workoutNotes = (w.notes || '').replace(/"/g, '""');
+    const workoutName = (w.name || '').replace(/"/g, '""');
 
     w.exercises.forEach(ex => {
-      const isCardio = ex.category === 'Kardiyo';
-      const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName);
-      const isBodyweight = ex.equipment === 'Vücut Ağırlığı';
+      const isCardio = ex.category === 'Kardiyo' || (ex.category as string) === 'Cardio';
+      const isIso = /plank|hollow body|dead bug|bird dog|statik|isometric|static/i.test(ex.exerciseName);
+      const isBodyweight = ex.equipment === 'Vücut Ağırlığı' || (ex.equipment as string) === 'Bodyweight';
       const exNotes = (ex.notes || '').replace(/"/g, '""');
-      const combinedNotes = [workoutNotes, exNotes].filter(Boolean).join(' | ');
+      const combinedNotes = [workoutNotes, exNotes].filter(Boolean).join(' | ').replace(/"/g, '""');
 
-      ex.sets.forEach(set => {
-        const status = set.completed ? 'Tamamlandı' : 'Atlandı';
+      const exName = (ex.exerciseName || '').replace(/"/g, '""');
+      const category = (CATEGORY_TRANSLATIONS[ex.category] || ex.category || '').replace(/"/g, '""');
+      const equipment = (EQUIPMENT_TRANSLATIONS[ex.equipment] || ex.equipment || '').replace(/"/g, '""');
+
+      ex.sets.forEach((set, setIdx) => {
+        const status = set.completed ? 'Completed' : 'Skipped';
         let setType = 'Normal';
-        if (set.isWarmup) setType = 'Isınma';
+        if (set.isWarmup) setType = 'Warmup';
         if (set.isPR) setType = 'PR';
+
+        const workingSetNum = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup).length;
+        const setNumberDisplay = set.isWarmup ? 'W' : (workingSetNum || set.setNumber);
 
         // Weight handling: for bodyweight, 0 means unweighted (or show +kg if added)
         let weight: string | number = set.weight ?? 0;
@@ -129,10 +177,11 @@ export const exportWorkoutsCSV = async (): Promise<string> => {
         const isoSeconds = isIso ? (set.durationSeconds ?? set.reps ?? '') : (set.durationSeconds ?? '');
         const rir = set.rir !== undefined && set.rir !== null ? set.rir : '';
         const distance = set.distanceKm ?? '';
+        const speed = set.avgSpeedKmh ?? '';
         const cardioDuration = set.durationMinutes ?? '';
         const calories = set.caloriesBurned ?? '';
 
-        csv += `"${w.name}","${w.date}",${durationMins},"${ex.exerciseName}","${ex.category || ''}","${ex.equipment || ''}",${set.setNumber},"${status}","${setType}","${weight}","${reps}","${isoSeconds}",${rir},${distance},${cardioDuration},${calories},"${combinedNotes}"\n`;
+        csv += `"${workoutName}","${w.date}",${durationMins},"${exName}","${category}","${equipment}","${setNumberDisplay}","${status}","${setType}","${weight}","${reps}","${isoSeconds}",${rir},${distance},${speed},${cardioDuration},${calories},"${combinedNotes}"\n`;
       });
     });
   });
@@ -143,35 +192,56 @@ export const exportWorkoutsCSV = async (): Promise<string> => {
 export const importFullDataJSON = async (jsonString: string): Promise<boolean> => {
   try {
     const backup: FullAppDataBackup = JSON.parse(jsonString);
+    if (!backup || typeof backup !== 'object') {
+      throw new Error('Invalid backup file: Root element must be an object.');
+    }
     if (!backup.workouts || !Array.isArray(backup.workouts)) {
-      throw new Error('Geçersiz yedek dosyası formatı!');
+      throw new Error('Invalid backup file: Missing or invalid "workouts" data array.');
     }
 
-    if (backup.workouts) {
-      await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(backup.workouts));
-    }
-    if (backup.routines) {
+    // 1. Workouts
+    await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(backup.workouts));
+
+    // 2. Routines (if present)
+    if (backup.routines && Array.isArray(backup.routines)) {
       await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(backup.routines));
     }
-    if (backup.exercises) {
-      await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(backup.exercises));
+
+    // 3. Custom Exercises
+    if (backup.customExercises && Array.isArray(backup.customExercises)) {
+      await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(backup.customExercises));
+    } else if (backup.exercises && Array.isArray(backup.exercises)) {
+      // Backward compatibility: Extract user custom exercises from full exercise list
+      const initialIds = new Set(INITIAL_EXERCISES.map(e => e.id));
+      const customOnly = backup.exercises.filter(e => e.isCustom || !initialIds.has(e.id));
+      await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(customOnly));
     }
-    if (backup.prs) {
+
+    // 4. PR records
+    if (backup.prs && typeof backup.prs === 'object') {
       await AsyncStorage.setItem(STORAGE_KEYS.PRS, JSON.stringify(backup.prs));
     }
     
-    // PR kayıtlarını yedeklenen tüm antrenman verisi üzerinden doğrula ve yeniden hesapla
+    // Recalculate & verify all PR records against the imported workout history
     if (backup.workouts && backup.workouts.length > 0) {
       await recalculateAllPRs(backup.workouts);
     }
 
-    // v2 yedekleri, ana sayfadan silinen varsayılan programları da saklar.
+    // 5. Deleted default routine IDs
     if (backup.deletedRoutineIds && Array.isArray(backup.deletedRoutineIds)) {
       await AsyncStorage.setItem(
         DELETED_ROUTINES_KEY,
         JSON.stringify(backup.deletedRoutineIds)
       );
     }
+
+    // 6. App settings (timer preferences, workout days, streak history)
+    if (backup.settings && typeof backup.settings === 'object') {
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(backup.settings));
+    }
+
+    // 7. Clear cached AI analysis so analytics recompute freshly
+    await clearCachedAIAnalysis();
 
     return true;
   } catch (error) {

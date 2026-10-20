@@ -77,13 +77,28 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       const exObj = allExercises.find(e => e.id === rEx.exerciseId);
       const isCardio = rEx.category === 'Kardiyo' || exObj?.category === 'Kardiyo';
       const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(rEx.exerciseName) || !!rEx.targetDurationSeconds;
+      const warmupCount = rEx.targetWarmupSets || 0;
 
-      const sets = Array.from({ length: rEx.targetSets }, (_, i) => ({
+      const warmupSets = Array.from({ length: warmupCount }, (_, i) => ({
+        id: `set_${idx}_w_${i}_${Date.now()}`,
+        setNumber: i + 1,
+        weight: 0,
+        reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
+        rir: undefined,
+        isWarmup: true,
+        durationSeconds: isIso ? (rEx.targetDurationSeconds || 60) : undefined,
+        durationMinutes: isCardio ? (rEx.targetDurationMinutes || 15) : undefined,
+        distanceKm: isCardio ? (rEx.targetDistanceKm || 2.5) : undefined,
+        completed: false,
+      }));
+
+      const workingSets = Array.from({ length: rEx.targetSets }, (_, i) => ({
         id: `set_${idx}_${i}_${Date.now()}`,
         setNumber: i + 1,
         weight: rEx.targetWeight || 0,
         reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
         rir: isCardio ? undefined : (rEx.targetRir ?? 1),
+        isWarmup: false,
         durationSeconds: isIso ? (rEx.targetDurationSeconds || 60) : undefined,
         durationMinutes: isCardio ? (rEx.targetDurationMinutes || 15) : undefined,
         distanceKm: isCardio ? (rEx.targetDistanceKm || 2.5) : undefined,
@@ -96,7 +111,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         exerciseName: rEx.exerciseName,
         category: rEx.category,
         equipment: rEx.equipment,
-        sets,
+        sets: [...warmupSets, ...workingSets],
       };
     });
 
@@ -272,7 +287,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               {routine.exercises.slice(0, 4).map((ex, idx) => (
                 <View key={idx} style={styles.exPill}>
                   <Text style={styles.exPillText}>
-                    {ex.exerciseName} ({ex.targetSets}x{ex.targetReps})
+                    {ex.exerciseName} ({ex.targetWarmupSets ? `${ex.targetWarmupSets}W + ` : ''}{ex.targetSets}x{ex.targetReps})
                   </Text>
                 </View>
               ))}
