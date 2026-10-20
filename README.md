@@ -6,7 +6,7 @@ FitHash gives strength athletes, powerlifters, and bodybuilders complete control
 
 ---
 
-## 🌟 Key Features
+##  Key Features
 
 * **Workout Logging & Progressive Overload Engine:**
   * Track sets, reps, weight, RPE (Rating of Perceived Exertion), and rest times.
@@ -22,11 +22,10 @@ FitHash gives strength athletes, powerlifters, and bodybuilders complete control
 * **Local-First & Data Sovereignty:**
   * All workouts, templates, and measurements stored locally via `@react-native-async-storage`.
   * One-tap full JSON backup export and import functionality.
-  * Integration pipelines with Excel (`Body Measurements.xlsx`) and Obsidian.
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 * **Framework:** React Native 0.81 + Expo SDK 54
 * **Language:** TypeScript 5.3
@@ -37,7 +36,7 @@ FitHash gives strength athletes, powerlifters, and bodybuilders complete control
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -80,7 +79,7 @@ cd android
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```
 fitness-tracker/
@@ -100,6 +99,6 @@ fitness-tracker/
 
 ---
 
-## 📄 License
+##  License
 
 MIT License. Designed and maintained for personal fitness tracking and open-source contribution.
