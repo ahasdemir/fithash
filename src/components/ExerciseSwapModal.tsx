@@ -55,15 +55,9 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
       animationType="slide"
       transparent
       onRequestClose={onClose}
-      statusBarTranslucent
     >
       <View style={styles.overlay}>
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={styles.sheetContainer}>
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -187,18 +181,19 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
   },
   sheetContainer: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '85%',
-    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '92%',
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 0,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   header: {
     flexDirection: 'row',

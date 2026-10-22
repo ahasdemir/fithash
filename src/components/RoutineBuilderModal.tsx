@@ -284,15 +284,14 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                         </TouchableOpacity>
                       </View>
 
-                      {/* Biomechanical Exercise Swap Button */}
+                      {/* Biomechanical Exercise Swap Button (Icon Only) */}
                       {!isCardio && (
                         <TouchableOpacity
-                          style={styles.swapExBtn}
+                          style={styles.swapExIconBtn}
                           onPress={() => setSwappingIndex(index)}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="swap-horizontal" size={14} color={COLORS.primaryText} />
-                          <Text style={styles.swapExBtnText}>Değiştir</Text>
+                          <Ionicons name="swap-horizontal" size={16} color={COLORS.primary} />
                         </TouchableOpacity>
                       )}
 
@@ -620,6 +619,15 @@ const styles = StyleSheet.create({
   },
   reorderBtnDisabled: {
     opacity: 0.3,
+  },
+  swapExIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   swapExBtn: {
     flexDirection: 'row',
