@@ -894,9 +894,9 @@ export const calculateDynamicRestSeconds = (
 ): number => {
   let standardBase = baseRestSeconds;
 
-  // If intensity can be inferred, calibrate baseRestSeconds according to formula
-  if (weight && e1rm && e1rm > 0) {
-    const intensity = weight / e1rm;
+  // If intensity can be inferred, calibrate baseRestSeconds according to formula with safe bounds
+  if (weight && weight > 0 && e1rm && e1rm > 0) {
+    const intensity = Math.min(1.0, Math.max(0, weight / e1rm));
     if (axialLoadingIndex >= 2) {
       standardBase = intensity >= 0.80 ? 180 : 120;
     } else if (axialLoadingIndex === 1) {

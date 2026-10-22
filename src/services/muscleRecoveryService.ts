@@ -121,8 +121,8 @@ export function calculateAllMuscleRecovery(
         const wTime = w.endTime || (w.startTime ? w.startTime + (w.durationSeconds || 3600) * 1000 : new Date(w.date).getTime());
         const hoursAgo = (nowMs - wTime) / (1000 * 3600);
 
-        // Only consider fatigue within past 7 days (168 hours)
-        if (hoursAgo < 168) {
+        // Only consider valid past workouts within past 7 days (0 <= hoursAgo < 168)
+        if (hoursAgo >= 0 && hoursAgo < 168) {
           w.exercises?.forEach(ex => {
             if (ex.category === cat) {
               const completedSets = ex.sets?.filter(s => s.completed && !s.isWarmup) || [];

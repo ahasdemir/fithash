@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -44,10 +44,10 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
 
   if (!sourceExercise) return null;
 
-  const candidates: ExerciseSubstitutionCandidate[] = getExerciseSubstitutes(
-    sourceExercise,
-    allExercises
-  );
+  const candidates: ExerciseSubstitutionCandidate[] = useMemo(() => {
+    if (!sourceExercise) return [];
+    return getExerciseSubstitutes(sourceExercise, allExercises);
+  }, [sourceExercise, allExercises]);
 
   return (
     <Modal
