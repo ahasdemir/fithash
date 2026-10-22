@@ -134,6 +134,38 @@ export interface UserStats {
   weeklyVolumeKg: number;
   weeklyWorkouts: number;
   muscleGroupDistribution: Record<MuscleCategory, number>;
+  weeklyHardSetsByMuscle?: Record<MuscleCategory, number>;
   todaySteps?: number;
   todayActiveCalories?: number;
 }
+
+// --- Progressive Overload & Dynamic Double Progression Types ---
+export type OverloadActionType = 
+  | 'MORE_WEIGHT' 
+  | 'MORE_REPS' 
+  | 'MAINTAIN' 
+  | 'LESS_WEIGHT' 
+  | 'AGGRESSIVE_MORE_WEIGHT' 
+  | 'DELOAD';
+
+export interface SetDynamicTarget {
+  setNumber: number;
+  targetWeight: number;
+  targetReps: number;
+  targetRir: number;
+  previousWeight?: number;
+  previousReps?: number;
+  previousRir?: number;
+  status: 'INCREASE_WEIGHT' | 'INCREASE_REPS' | 'MAINTAIN' | 'DELOAD' | 'REDUCE_WEIGHT';
+  reason: string;
+}
+
+export interface PlateauHistory {
+  exerciseId: string;
+  consecutiveStagnantSessions: number;
+  isStagnant: boolean;
+  isDeloadRecommended: boolean;
+  lastSessionE1RMs: number[];
+  recommendationNote?: string;
+}
+

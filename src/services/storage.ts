@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats, MuscleCategory } from '../types/fitness';
 import { INITIAL_EXERCISES, DEFAULT_ROUTINES } from '../data/exerciseLibrary';
+import { calculateAutoregulatedE1RM } from './progressionEngine';
 
 const STORAGE_KEYS = {
   EXERCISES: '@fitness_exercises_v1',
@@ -309,7 +310,7 @@ const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
         // Ağırlık PR Kontrolü
         if (set.weight && set.weight > 0) {
           const reps = set.reps || 1;
-          const estimated1RM = Math.round(set.weight * (1 + reps / 30));
+          const estimated1RM = Math.round(calculateAutoregulatedE1RM(set.weight, reps, set.rir ?? 1));
 
           if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
             maxW = set.weight;
@@ -399,7 +400,7 @@ export const recalculateAllPRs = async (
 
           if (set.weight && set.weight > 0) {
             const reps = set.reps || 1;
-            const estimated1RM = Math.round(set.weight * (1 + reps / 30));
+            const estimated1RM = Math.round(calculateAutoregulatedE1RM(set.weight, reps, set.rir ?? 1));
 
             if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
               maxW = set.weight;
@@ -587,6 +588,7 @@ export const calculateUserStats = (
     weeklyVolumeKg,
     weeklyWorkouts,
     muscleGroupDistribution,
+    weeklyHardSetsByMuscle: muscleGroupDistribution,
   };
 };
 

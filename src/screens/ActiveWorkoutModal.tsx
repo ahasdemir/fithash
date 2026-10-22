@@ -291,11 +291,18 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
-      const copySets = ex.sets.map((s, idx) => {
+      
+      // If DELOAD recommendation provides a custom number of sets (e.g. 50% volume cut)
+      let setsToApply = ex.sets;
+      if (rec.actionType === 'DELOAD' && rec.setTargets && rec.setTargets.length > 0) {
+        setsToApply = ex.sets.slice(0, rec.setTargets.length);
+      }
+
+      const copySets = setsToApply.map((s, idx) => {
         const setTarget = rec.setTargets && rec.setTargets[idx];
         return {
           ...s,
-          weight: rec.recWeight > 0 ? rec.recWeight : s.weight,
+          weight: setTarget ? setTarget.weight : (rec.recWeight > 0 ? rec.recWeight : s.weight),
           reps: setTarget ? setTarget.reps : (rec.recReps > 0 ? rec.recReps : s.reps),
           rir: setTarget ? setTarget.targetRir : (s.rir ?? 1),
         };
@@ -833,12 +840,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                                   ? 'trending-up'
                                   : recommendation.actionType === 'MORE_REPS'
                                   ? 'add-circle-outline'
+                                  : recommendation.actionType === 'DELOAD'
+                                  ? 'refresh-circle-outline'
                                   : recommendation.actionType === 'LESS_WEIGHT'
                                   ? 'trending-down'
                                   : 'shield-checkmark-outline')
                             }
                             size={12}
-                            color={isToggled ? COLORS.textPrimary : '#111111'}
+                            color={isToggled ? COLORS.textPrimary : (recommendation.actionType === 'DELOAD' ? COLORS.warning || '#f59e0b' : '#111111')}
                           />
                           <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
                             {displayText}
@@ -1051,7 +1060,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.setNumInput, set.completed && styles.inputCompleted]}
                           keyboardType="decimal-pad"
-                          placeholder={isBodyweight ? "+0" : (recommendation ? `${recommendation.recWeight}` : "0")}
+                          placeholder={
+                            isBodyweight
+                              ? "+0"
+                              : recommendation?.setTargets?.[setIdx]
+                              ? `${recommendation.setTargets[setIdx].weight}`
+                              : (recommendation ? `${recommendation.recWeight}` : "0")
+                          }
                           placeholderTextColor={COLORS.textMuted}
                           value={weightDisplay}
                           onChangeText={v => handleSetChange(ex.id, setIdx, 'weight', v)}

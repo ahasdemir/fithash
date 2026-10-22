@@ -118,6 +118,37 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
             ))}
           </View>
 
+          {/* Weekly Muscle Volume Landmarks (MEV / MAV / MRV) */}
+          {analysis.weeklyHardSetsByMuscle && Object.keys(analysis.weeklyHardSetsByMuscle).length > 0 && (
+            <View style={styles.recsBox}>
+              <View style={styles.tipTitleRow}>
+                <Ionicons name="barbell-outline" size={14} color="#111111" />
+                <Text style={styles.tipTitle}>Haftalık Efektif Hacim (MEV / MAV / MRV)</Text>
+              </View>
+              {Object.entries(analysis.weeklyHardSetsByMuscle).map(([muscle, item]) => {
+                if (item.hardSets === 0) return null;
+                const statusColor = 
+                  item.status === 'OVER_MRV' 
+                    ? COLORS.danger 
+                    : item.status === 'MAV' 
+                    ? COLORS.primary 
+                    : item.status === 'MRV' 
+                    ? (COLORS.warning || '#f59e0b') 
+                    : COLORS.textMuted;
+
+                return (
+                  <View key={muscle} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textPrimary }}>{muscle}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: statusColor }}>{item.hardSets} Sert Set</Text>
+                      <Text style={{ fontSize: 11, color: COLORS.textMuted }}>• {item.label}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           {/* Refresh Button */}
           <TouchableOpacity
             style={[styles.refreshBtn, justRefreshed && styles.refreshBtnSuccess]}
