@@ -1,4 +1,4 @@
-import { WorkoutSession, PersonalRecord, UserStats, ExerciseSet, OverloadActionType, SetDynamicTarget, PlateauHistory, MuscleCategory } from '../types/fitness';
+import { WorkoutSession, PersonalRecord, UserStats, ExerciseSet, OverloadActionType, SetDynamicTarget, PlateauHistory, MuscleCategory, BiomechanicalProfile, MesocyclePhase, MesocycleState, IntraWorkoutBackOffRecommendation } from '../types/fitness';
 import { calculateUserStats } from './storage';
 
 export interface SetTargetRecommendation {
@@ -704,11 +704,29 @@ export const generateLocalCoachAnalysis = (
   if (prCount >= 3) score += 3;
   if (overMrvGroups.length > 0) score -= 6; // Penalize overtraining
 
+  // Biomechanical & Fatigue Analysis across recent sessions
+  let highAxialCount = 0;
+  let lengthenedBiasedCount = 0;
+  workouts.slice(0, 3).forEach(w => {
+    w.exercises?.forEach(ex => {
+      const p = getBiomechanicalProfile(ex.exerciseName, ex.equipment, ex.category);
+      if (p.axialLoadingIndex >= 2) highAxialCount++;
+      if (p.resistanceProfile === 'LENGTHENED' || p.stimulusMultiplier >= 1.25) lengthenedBiasedCount++;
+    });
+  });
+
   const recs = [
     `Haftalık sert setleriniz (RIR ≤ 3) kas gelişimini tetikleyen efektif aralıkta.`,
     `Dinamik Çift Aşamalı Yükleme (DDP) ile her seti bağımsız takip edin; hafif dambıllarda mikro yükleme uygulayın.`,
     `Aynı kiloda 3 seans üst üste takılma yaşanırsa sistem otomatik Deload (yarı hacim, -%10 yük) önerecektir.`
   ];
+
+  if (highAxialCount >= 3) {
+    recs.push(`Yüksek aksiyel yükleme (omurga basısı) tespit edildi: Ağır serbest bileşiklerde dinlenme süresini dinamik olarak 3+ dakikaya çıkarın.`);
+  }
+  if (lengthenedBiasedCount >= 4) {
+    recs.push(`Gerilmiş pozisyonda yüksek mekanik gerilim (Lengthened-Biased) tespit edildi: Kas toparlanma süresini 48-72 saat olarak koruyun.`);
+  }
 
   return {
     summary,
@@ -720,3 +738,328 @@ export const generateLocalCoachAnalysis = (
     weeklyHardSetsByMuscle: volumeLandmarks,
   };
 };
+
+/**
+ * ============================================================================
+ * PHASE 2: ADVANCED BIOMECHANICS, DYNAMIC REST & MESOCYCLE AUTOREGULATION
+ * ============================================================================
+ */
+
+/**
+ * 1. Get Biomechanical Profile for any exercise based on movement characteristics,
+ * spinal axial compression, resistance profile (stretch bias), and fatigue decay.
+ */
+export const getBiomechanicalProfile = (
+  exerciseName: string,
+  equipment: string = '',
+  category: string = ''
+): BiomechanicalProfile => {
+  const name = exerciseName.toLowerCase();
+  const eq = equipment.toLowerCase();
+  const cat = category.toLowerCase();
+
+  // A. High Axial Free-Weight Compounds (Ai = 3)
+  // Conventional/Sumo Deadlift, Back Squat, Good Mornings, Standing OHP, Barbell Bent-over Row
+  if (
+    name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl') ||
+    (name.includes('squat') && !name.includes('split') && !name.includes('hack') && !name.includes('pendulum') && !name.includes('belt') && !name.includes('goblet') && !name.includes('sissy') && !name.includes('v-squat')) ||
+    name.includes('good morning') ||
+    (name.includes('overhead') && eq.includes('barbell') && !name.includes('seated')) ||
+    (name.includes('bent-over') || name.includes('bent over')) && eq.includes('barbell')
+  ) {
+    return {
+      axialLoadingIndex: 3,
+      resistanceProfile: 'LENGTHENED',
+      stimulusMultiplier: 1.25,
+      decayConstantLambda: 0.085,
+      standardRestSeconds: 180,
+    };
+  }
+
+  // B. Moderate Axial / Extreme Lengthened Tension Lower (Ai = 2)
+  // RDL, Romanian Deadlift, Front Squat, Bulgarian Split Squat, Walking Lunges
+  if (
+    name.includes('romanian deadlift') ||
+    name.includes('rdl') ||
+    name.includes('front squat') ||
+    name.includes('bulgarian') ||
+    name.includes('lunge') ||
+    name.includes('goblet')
+  ) {
+    return {
+      axialLoadingIndex: 2,
+      resistanceProfile: 'LENGTHENED',
+      stimulusMultiplier: 1.40, // High stretch tension on glutes/hamstrings
+      decayConstantLambda: 0.075,
+      standardRestSeconds: 150,
+    };
+  }
+
+  // C. Low Axial / Non-Spinal Compound (Ai = 1)
+  // Leg Press, Hack Squat, Chest-Supported T-Bar Row, Seated DB OHP, Bench Press, Dips, Pulldowns
+  if (
+    name.includes('leg press') ||
+    name.includes('hack squat') ||
+    name.includes('pendulum') ||
+    name.includes('belt squat') ||
+    name.includes('t-bar') ||
+    name.includes('bench press') ||
+    name.includes('chest press') ||
+    name.includes('pulldown') ||
+    name.includes('pull-up') ||
+    name.includes('pullup') ||
+    name.includes('chin-up') ||
+    name.includes('chinup') ||
+    name.includes('dip') ||
+    name.includes('seated row') ||
+    name.includes('row') ||
+    (eq.includes('barbell') || eq.includes('dumbbell'))
+  ) {
+    const isLengthened = name.includes('incline') || name.includes('camber') || name.includes('deficit');
+    return {
+      axialLoadingIndex: 1,
+      resistanceProfile: isLengthened ? 'LENGTHENED' : 'UNIFORM',
+      stimulusMultiplier: isLengthened ? 1.25 : 1.15,
+      decayConstantLambda: 0.060,
+      standardRestSeconds: 120,
+    };
+  }
+
+  // D. Lengthened-Biased Pure Isolations (Ai = 0)
+  // Seated Leg Curl, Incline DB Curl, Overhead Triceps Extension, Bayesian Curl, Deep Flyes
+  if (
+    name.includes('seated leg curl') ||
+    name.includes('incline') && name.includes('curl') ||
+    name.includes('overhead') && (name.includes('triceps') || name.includes('extension')) ||
+    name.includes('bayesian') ||
+    name.includes('fly') ||
+    name.includes('pullover')
+  ) {
+    return {
+      axialLoadingIndex: 0,
+      resistanceProfile: 'LENGTHENED',
+      stimulusMultiplier: 1.35,
+      decayConstantLambda: 0.045,
+      standardRestSeconds: 90,
+    };
+  }
+
+  // E. Shortened-Biased Isolations (Ai = 0)
+  // Pec Deck peak, Cable Kickback, Hip Thrust lockout, Standing Calf Raise top
+  if (
+    name.includes('pec deck') ||
+    name.includes('kickback') ||
+    name.includes('hip thrust') ||
+    name.includes('abductor') ||
+    name.includes('adductor') ||
+    name.includes('shrug')
+  ) {
+    return {
+      axialLoadingIndex: 0,
+      resistanceProfile: 'SHORTENED',
+      stimulusMultiplier: 1.05,
+      decayConstantLambda: 0.040,
+      standardRestSeconds: 60,
+    };
+  }
+
+  // F. Default Uniform Pure Peripheral Isolation
+  const isIsolation = cat.includes('omuz') || cat.includes('ön kol') || cat.includes('arka kol') || cat.includes('karın');
+  return {
+    axialLoadingIndex: 0,
+    resistanceProfile: 'UNIFORM',
+    stimulusMultiplier: 1.10,
+    decayConstantLambda: isIsolation ? 0.040 : 0.055,
+    standardRestSeconds: isIsolation ? 75 : 90,
+  };
+};
+
+/**
+ * 2. Dynamic Rest Interval Scaling Model:
+ * Implements: T_rest_recommended = T_rest_base * (1 + 0.15 * (3 - RIR)) * (1 + 0.10 * axialIndex)
+ *
+ * Base rest rules (from Spec 2.2):
+ * - Ai >= 2 & I_rel >= 0.80 -> 180s
+ * - Ai >= 2 & I_rel < 0.80  -> 120s
+ * - Ai = 1                  -> 120s
+ * - Ai = 0 & compound       -> 90s
+ * - Ai = 0 & isolation      -> 60 - 75s
+ */
+export const calculateDynamicRestSeconds = (
+  baseRestSeconds: number,
+  rir: number = 2,
+  axialLoadingIndex: 0 | 1 | 2 | 3 = 0,
+  weight?: number,
+  e1rm?: number
+): number => {
+  let standardBase = baseRestSeconds;
+
+  // If intensity can be inferred, calibrate baseRestSeconds according to formula
+  if (weight && e1rm && e1rm > 0) {
+    const intensity = weight / e1rm;
+    if (axialLoadingIndex >= 2) {
+      standardBase = intensity >= 0.80 ? 180 : 120;
+    } else if (axialLoadingIndex === 1) {
+      standardBase = 120;
+    }
+  }
+
+  const safeRir = Math.max(0, Math.min(5, rir));
+  const rirFactor = 1 + 0.15 * (3 - safeRir);
+  const axialFactor = 1 + 0.10 * axialLoadingIndex;
+
+  const calculated = Math.round(standardBase * rirFactor * axialFactor);
+  // Sensible lower/upper bounds (45s to 360s)
+  return Math.max(45, Math.min(360, calculated));
+};
+
+/**
+ * 3. Exponential Fatigue Decay Rep Prediction:
+ * R_k = round( R_1 * exp(-lambda * (k - 1)) * (T_rest / T_standard)^gamma )
+ *
+ * gamma = 0.25 (Rest Sensitivity Exponent)
+ */
+export const predictFatigueDecayReps = (
+  topSetReps: number,
+  setIndex: number, // 1-based set number: 1, 2, 3...
+  lambda: number = 0.06,
+  actualRestSeconds?: number,
+  standardRestSeconds: number = 90
+): number => {
+  if (topSetReps <= 0) return 0;
+  if (setIndex <= 1) return topSetReps;
+
+  const restSeconds = actualRestSeconds !== undefined && actualRestSeconds > 0 ? actualRestSeconds : standardRestSeconds;
+  const restFactor = Math.pow(Math.max(0.4, Math.min(2.0, restSeconds / standardRestSeconds)), 0.25);
+  const decayExponent = -lambda * (setIndex - 1);
+  const predicted = topSetReps * Math.exp(decayExponent) * restFactor;
+
+  return Math.max(1, Math.round(predicted));
+};
+
+/**
+ * 4. Suggest Back-Off Weight Drop:
+ * If fatigue decay predicts next set reps will fall below minReps bracket bound,
+ * automatically recommend 5% to 8% weight reduction to preserve hypertrophy volume.
+ */
+export const suggestBackOffWeightDrop = (
+  predictedReps: number,
+  minReps: number,
+  currentWeight: number,
+  equipment: string = '',
+  axialIndex: 0 | 1 | 2 | 3 = 0
+): IntraWorkoutBackOffRecommendation => {
+  const targetRepRange: [number, number] = [minReps, minReps + 4];
+
+  if (predictedReps >= minReps || currentWeight <= 0) {
+    return {
+      shouldDropWeight: false,
+      currentWeight,
+      recommendedWeight: currentWeight,
+      predictedReps,
+      targetRepRange,
+      dropPercentage: 0,
+      reason: `Neuromuscular decay normal: Rep fall-off (${predictedReps} reps) is within target bracket (≥ ${minReps} reps). Maintain ${currentWeight} kg.`,
+    };
+  }
+
+  // Axial movements experience greater systemic fatigue -> 8% drop, isolated movements -> 5% - 7.5%
+  const dropPct = axialIndex >= 2 ? 0.08 : 0.065;
+  const rawDroppedWeight = currentWeight * (1 - dropPct);
+
+  // Round according to equipment step size
+  const step = calculateLoadIncrement('drop_calc', equipment, currentWeight);
+  const recommendedWeight = Math.max(step, Math.round(rawDroppedWeight / step) * step);
+
+  return {
+    shouldDropWeight: true,
+    currentWeight,
+    recommendedWeight: parseFloat(recommendedWeight.toFixed(1)),
+    predictedReps,
+    targetRepRange,
+    dropPercentage: Math.round(dropPct * 100),
+    reason: `Intra-workout fatigue detected: Predicted reps (${predictedReps}) drop below min bracket (${minReps}). Back-off drop of ~${Math.round(dropPct * 100)}% recommended to stay in effective hypertrophy bracket.`,
+  };
+};
+
+/**
+ * 5. Mesocycle Phase & Target RIR Helper:
+ * Guides the user through a 4 to 6 week hypertrophy mesocycle:
+ * - Week 1: Accumulation 1 -> 3 RIR (Establish clean motor pattern at MEV)
+ * - Week 2: Accumulation 2 -> 2 RIR (DDP progressive overload)
+ * - Week 3: Accumulation 3 -> 2 RIR (MAV volume ramp)
+ * - Week 4: Peak Overload  -> 1 RIR (MAV Upper)
+ * - Week 5: Overreaching   -> 0 - 1 RIR (MRV limit test)
+ * - Deload: Planned/Reactive -> 4 RIR (50% volume, -10% load)
+ */
+export const getMesocyclePhaseTarget = (
+  phase: MesocyclePhase | string,
+  weekNumber: number = 1
+): {
+  phase: MesocyclePhase;
+  targetRir: number;
+  volumeFocus: string;
+  intensityDescription: string;
+} => {
+  switch (phase) {
+    case 'ACCUMULATION_W1':
+      return {
+        phase: 'ACCUMULATION_W1',
+        targetRir: 3,
+        volumeFocus: 'Minimum Etkili Hacim (MEV)',
+        intensityDescription: 'RIR 3 - Temiz hareket formu ve başlangıç yükleme temeli.',
+      };
+    case 'ACCUMULATION_W2':
+      return {
+        phase: 'ACCUMULATION_W2',
+        targetRir: 2,
+        volumeFocus: 'Erken Birikim (MEV + 2 set)',
+        intensityDescription: 'RIR 2 - Dinamik çift aşamalı yükleme ile tekrar/ağırlık artışı.',
+      };
+    case 'ACCUMULATION_W3':
+      return {
+        phase: 'ACCUMULATION_W3',
+        targetRir: 2,
+        volumeFocus: 'Orta Birikim (MAV Alt Sınır)',
+        intensityDescription: 'RIR 2 - Temel bileşik hareketlerde set hacmini artırma.',
+      };
+    case 'ACCUMULATION_W4':
+      return {
+        phase: 'ACCUMULATION_W4',
+        targetRir: 1,
+        volumeFocus: 'Zirve Yükleme (MAV Üst Sınır)',
+        intensityDescription: 'RIR 1 - Yüksek efor ve hipertrofi zirve uyarımı.',
+      };
+    case 'OVERREACHING':
+      return {
+        phase: 'OVERREACHING',
+        targetRir: 0,
+        volumeFocus: 'Maksimum Toparlanabilir Hacim (MRV)',
+        intensityDescription: 'RIR 0-1 - Tam tükeniş testi ve overreaching mikro döngüsü.',
+      };
+    case 'REACTIVE_DELOAD':
+      return {
+        phase: 'REACTIVE_DELOAD',
+        targetRir: 4,
+        volumeFocus: 'Reaktif Deload (%50 Hacim, -%10 Yük)',
+        intensityDescription: 'RIR 4 - Akut platodan ve yüksek yorgunluktan toparlanma.',
+      };
+    case 'PLANNED_DELOAD':
+    default:
+      if (weekNumber === 1) {
+        return {
+          phase: 'ACCUMULATION_W1',
+          targetRir: 3,
+          volumeFocus: 'Minimum Etkili Hacim (MEV)',
+          intensityDescription: 'RIR 3 - Temiz form ve başlangıç yükleme temeli.',
+        };
+      }
+      return {
+        phase: 'PLANNED_DELOAD',
+        targetRir: 4,
+        volumeFocus: 'Planlı Deload (%50 Hacim, -%10 Yük)',
+        intensityDescription: 'RIR 4-5 - Santral sinir sistemi ve bağ dokusu tam toparlanması.',
+      };
+  }
+};
+

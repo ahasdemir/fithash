@@ -24,7 +24,15 @@ import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertM
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
-import { calculateSmartAutoregulatedOverload, SmartOverloadRecommendation } from '../services/progressionEngine';
+import {
+  calculateSmartAutoregulatedOverload,
+  SmartOverloadRecommendation,
+  getBiomechanicalProfile,
+  calculateDynamicRestSeconds,
+  predictFatigueDecayReps,
+  suggestBackOffWeightDrop,
+  getHypertrophyRepBracket
+} from '../services/progressionEngine';
 import { getAppSettings } from '../services/settings';
 
 interface ActiveWorkoutModalProps {
@@ -482,6 +490,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   const handleToggleSetComplete = (exId: string, setIdx: number) => {
     let isNowCompleted = false;
+    let completedExercise: WorkoutExercise | undefined;
+    let completedSet: ExerciseSet | undefined;
+
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       const copySets = [...ex.sets];
@@ -491,6 +502,42 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         ...copySets[setIdx],
         completed: isNowCompleted,
       };
+
+      // Autoregulation: If set was completed and there is a subsequent set,
+      // evaluate intra-workout neuromuscular fatigue decay and suggest back-off weight drop if needed.
+      if (isNowCompleted && setIdx < copySets.length - 1) {
+        const nextSet = copySets[setIdx + 1];
+        if (!nextSet.completed && !nextSet.isWarmup) {
+          const finishedSet = copySets[setIdx];
+          const biomech = getBiomechanicalProfile(ex.exerciseName, ex.equipment, ex.category);
+          const repBracket = getHypertrophyRepBracket(ex.exerciseName, ex.equipment, ex.category);
+          const predictedNextReps = predictFatigueDecayReps(
+            finishedSet.reps,
+            nextSet.setNumber || (setIdx + 2),
+            biomech.decayConstantLambda,
+            biomech.standardRestSeconds,
+            biomech.standardRestSeconds
+          );
+          const backOff = suggestBackOffWeightDrop(
+            predictedNextReps,
+            repBracket.minReps,
+            finishedSet.weight,
+            ex.equipment,
+            biomech.axialLoadingIndex
+          );
+
+          if (backOff.shouldDropWeight && nextSet.weight >= finishedSet.weight) {
+            copySets[setIdx + 1] = {
+              ...nextSet,
+              weight: backOff.recommendedWeight,
+              reps: Math.max(repBracket.minReps, nextSet.reps),
+            };
+          }
+        }
+      }
+
+      completedExercise = ex;
+      completedSet = copySets[setIdx];
       return { ...ex, sets: copySets };
     });
 
@@ -498,8 +545,21 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     setSession(updated);
     onUpdateSession(updated);
 
-    if (isNowCompleted && userSettings.autoStartRestTimer) {
-      const restSecs = userSettings.defaultRestSeconds || 90;
+    if (isNowCompleted && userSettings.autoStartRestTimer && completedExercise) {
+      const isCardio = completedExercise.category === 'Kardiyo';
+      let restSecs = userSettings.defaultRestSeconds || 90;
+
+      if (!isCardio && completedSet) {
+        const biomech = getBiomechanicalProfile(completedExercise.exerciseName, completedExercise.equipment, completedExercise.category);
+        const setRir = completedSet.rir ?? 2;
+        // Dynamically scale rest time based on base rest, RIR proximity to failure, and axial load index
+        restSecs = calculateDynamicRestSeconds(
+          userSettings.defaultRestSeconds || biomech.standardRestSeconds,
+          setRir,
+          biomech.axialLoadingIndex
+        );
+      }
+
       const targetEnd = Date.now() + restSecs * 1000;
       saveActiveRestTimerEnd(targetEnd);
       scheduleRestTimerNotification(targetEnd);

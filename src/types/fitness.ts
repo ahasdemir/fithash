@@ -25,6 +25,11 @@ export interface Exercise {
   instructions?: string;
   targetMuscle?: string;
   isCustom?: boolean;
+  // Biomechanical & Hypertrophy Attributes (Phase 2 Spec)
+  axialLoadingIndex?: 0 | 1 | 2 | 3;
+  resistanceProfile?: 'LENGTHENED' | 'UNIFORM' | 'SHORTENED';
+  stimulusMultiplier?: number; // 1.0 to 1.4
+  decayConstantLambda?: number; // 0.04 to 0.085
 }
 
 export interface ExerciseSet {
@@ -168,4 +173,44 @@ export interface PlateauHistory {
   lastSessionE1RMs: number[];
   recommendationNote?: string;
 }
+
+// --- Mesocycle Periodization & Biomechanics (Phase 2 Spec) ---
+export type MesocyclePhase =
+  | 'ACCUMULATION_W1'
+  | 'ACCUMULATION_W2'
+  | 'ACCUMULATION_W3'
+  | 'ACCUMULATION_W4'
+  | 'OVERREACHING'
+  | 'REACTIVE_DELOAD'
+  | 'PLANNED_DELOAD';
+
+export interface BiomechanicalProfile {
+  axialLoadingIndex: 0 | 1 | 2 | 3; // 0: Pure peripheral, 1: Low axial, 2: Moderate, 3: Heavy Spinal Compression
+  resistanceProfile: 'LENGTHENED' | 'UNIFORM' | 'SHORTENED';
+  stimulusMultiplier: number; // 1.0 (Shortened) to 1.4 (Lengthened/Loaded stretch)
+  decayConstantLambda: number; // 0.040 to 0.085
+  standardRestSeconds: number; // Prescribed baseline rest (e.g. 60-180s)
+}
+
+export interface MesocycleState {
+  id: string;
+  name: string;
+  currentPhase: MesocyclePhase;
+  currentWeek: number; // 1 to 6
+  targetRir: number; // 3, 2, 1, 0, or 4
+  startDate: string;
+  accumulatedFatigueScore?: number;
+  notes?: string;
+}
+
+export interface IntraWorkoutBackOffRecommendation {
+  shouldDropWeight: boolean;
+  currentWeight: number;
+  recommendedWeight: number;
+  predictedReps: number;
+  targetRepRange: [number, number];
+  dropPercentage: number;
+  reason: string;
+}
+
 
