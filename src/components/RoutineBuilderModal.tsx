@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import { Routine, RoutineExercise, Exercise } from '../types/fitness';
 import { ExercisePickerModal } from './ExercisePickerModal';
+import { ExerciseSwapModal } from './ExerciseSwapModal';
 import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
+import { getExercises } from '../services/storage';
 
 interface RoutineBuilderModalProps {
   visible: boolean;
@@ -34,7 +36,15 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
   const [category, setCategory] = useState('Özel Program');
   const [selectedExercises, setSelectedExercises] = useState<RoutineExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [swappingIndex, setSwappingIndex] = useState<number | null>(null);
+  const [allAvailableExercises, setAllAvailableExercises] = useState<Exercise[]>([]);
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      getExercises().then(data => setAllAvailableExercises(data));
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (initialRoutine) {
@@ -131,6 +141,29 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
   const handleRemoveExercise = (index: number) => {
     setSelectedExercises(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSwapExerciseSelect = (newEx: Exercise, recommendedWeight: number) => {
+    if (swappingIndex === null) return;
+    const isCardio = newEx.category === 'Kardiyo';
+
+    setSelectedExercises(prev => {
+      const copy = [...prev];
+      const old = copy[swappingIndex];
+      copy[swappingIndex] = {
+        ...old,
+        exerciseId: newEx.id,
+        exerciseName: newEx.name,
+        category: newEx.category,
+        equipment: newEx.equipment,
+        targetWeight: recommendedWeight > 0 ? recommendedWeight : old.targetWeight,
+        targetSets: isCardio ? 1 : old.targetSets,
+        targetReps: isCardio ? 1 : old.targetReps,
+        targetRir: isCardio ? undefined : (old.targetRir ?? 1),
+      };
+      return copy;
+    });
+    setSwappingIndex(null);
   };
 
   const handleMoveExercise = (index: number, direction: -1 | 1) => {
@@ -250,6 +283,18 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                           <Ionicons name="chevron-down" size={16} color={index === selectedExercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
                         </TouchableOpacity>
                       </View>
+
+                      {/* Biomechanical Exercise Swap Button */}
+                      {!isCardio && (
+                        <TouchableOpacity
+                          style={styles.swapExBtn}
+                          onPress={() => setSwappingIndex(index)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="swap-horizontal" size={14} color={COLORS.primaryText} />
+                          <Text style={styles.swapExBtnText}>Değiştir</Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={styles.deleteExBtn}
@@ -424,6 +469,27 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
         onSelectExercise={handleAddExercise}
       />
 
+      {/* Biomechanical Exercise Substitution Modal */}
+      <ExerciseSwapModal
+        visible={swappingIndex !== null}
+        sourceExercise={
+          swappingIndex !== null && selectedExercises[swappingIndex]
+            ? {
+                id: selectedExercises[swappingIndex].exerciseId,
+                name: selectedExercises[swappingIndex].exerciseName,
+                category: selectedExercises[swappingIndex].category,
+                equipment: selectedExercises[swappingIndex].equipment,
+                lastWeight: selectedExercises[swappingIndex].targetWeight,
+                lastReps: selectedExercises[swappingIndex].targetReps,
+                lastRir: selectedExercises[swappingIndex].targetRir,
+              }
+            : null
+        }
+        allExercises={allAvailableExercises}
+        onSelectSwap={handleSwapExerciseSelect}
+        onClose={() => setSwappingIndex(null)}
+      />
+
       {customAlert && (
         <CustomAlertModal
           {...customAlert}
@@ -554,6 +620,23 @@ const styles = StyleSheet.create({
   },
   reorderBtnDisabled: {
     opacity: 0.3,
+  },
+  swapExBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  swapExBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   deleteExBtn: {
     padding: 5,

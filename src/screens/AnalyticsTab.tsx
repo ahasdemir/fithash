@@ -13,6 +13,8 @@ import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
+import { MuscleRecoveryHeatmap } from '../components/MuscleRecoveryHeatmap';
+import { calculateAllMuscleRecovery } from '../services/muscleRecoveryService';
 import { calculateUserStats, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
 interface AnalyticsTabProps {
@@ -60,6 +62,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   }, [workouts, filterMode]);
 
   const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
+
+  // Visual Muscle Recovery State across all muscle groups
+  const muscleRecoveryMap = useMemo(() => {
+    return calculateAllMuscleRecovery(workouts);
+  }, [workouts]);
 
   // Egzersiz PR Listesi: Antrenman geçmişi ve kaydedilen PR'ları birleştirir
   const allExercisePRItems = useMemo(() => {
@@ -302,6 +309,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           </View>
         </View>
       )}
+
+      {/* Visual Muscle Recovery Heatmap (Hevy & FitNotes Model) */}
+      <MuscleRecoveryHeatmap recoveryMap={muscleRecoveryMap} />
 
       {/* SVG Charts (Hard Sets Distribution at top, Volume Chart below) */}
       <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />

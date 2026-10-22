@@ -49,6 +49,12 @@ export interface ExerciseSet {
   caloriesBurned?: number;
 }
 
+export interface ExerciseFeedback {
+  pumpRating?: 1 | 2 | 3;       // 1: Low / Düşük, 2: Moderate / İdeal, 3: Skin-splitting / Maksimum
+  sorenessRating?: 1 | 2 | 3;   // 1: None / Erken Toparlandı, 2: Optimal / Zamanında, 3: Excessive / Aşırı Ağrılı
+  jointAcheRating?: 0 | 1 | 2;  // 0: None / Ağrısız, 1: Mild / Hafif Rahatsızlık, 2: Painful/Limiting / Ağrılı & Engelleyici
+}
+
 export interface WorkoutExercise {
   id: string;
   exerciseId: string;
@@ -57,6 +63,7 @@ export interface WorkoutExercise {
   equipment: EquipmentType;
   sets: ExerciseSet[];
   notes?: string;
+  feedback?: ExerciseFeedback;
 }
 
 export interface WorkoutSession {
@@ -175,6 +182,12 @@ export interface PlateauHistory {
 }
 
 // --- Mesocycle Periodization & Biomechanics (Phase 2 Spec) ---
+export interface HypertrophyFeedbackAdaptation {
+  setDelta: number; // e.g. +1, 0, -1, -2
+  action: 'ADD_SET' | 'MAINTAIN' | 'REDUCE_SET' | 'DELOAD_OR_SWAP';
+  reason: string;
+}
+
 export type MesocyclePhase =
   | 'ACCUMULATION_W1'
   | 'ACCUMULATION_W2'

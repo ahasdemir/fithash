@@ -1,4 +1,4 @@
-import { WorkoutSession, PersonalRecord, UserStats, ExerciseSet, OverloadActionType, SetDynamicTarget, PlateauHistory, MuscleCategory, BiomechanicalProfile, MesocyclePhase, MesocycleState, IntraWorkoutBackOffRecommendation } from '../types/fitness';
+import { WorkoutSession, PersonalRecord, UserStats, ExerciseSet, OverloadActionType, SetDynamicTarget, PlateauHistory, MuscleCategory, BiomechanicalProfile, MesocyclePhase, MesocycleState, IntraWorkoutBackOffRecommendation, ExerciseFeedback, HypertrophyFeedbackAdaptation } from '../types/fitness';
 import { calculateUserStats } from './storage';
 
 export interface SetTargetRecommendation {
@@ -1061,5 +1061,67 @@ export const getMesocyclePhaseTarget = (
         intensityDescription: 'RIR 4-5 - Santral sinir sistemi ve bağ dokusu tam toparlanması.',
       };
   }
+};
+
+/**
+ * 6. RP Hypertrophy Volume Adaptation Rule:
+ * - If pump=3 & soreness<=2 & jointAche=0 -> +1 set next week (MAV volume accumulation)
+ * - If soreness=3 OR jointAche>=2 -> -1 to -2 sets next week or trigger exercise swap / deload
+ * - Otherwise maintain volume or minor adaptation
+ */
+export const calculateHypertrophyVolumeAdaptation = (
+  feedback?: ExerciseFeedback
+): HypertrophyFeedbackAdaptation => {
+  if (!feedback) {
+    return {
+      setDelta: 0,
+      action: 'MAINTAIN',
+      reason: 'Geri bildirim belirtilmedi. Mevcut set hacmi korunuyor.',
+    };
+  }
+
+  const { pumpRating = 2, sorenessRating = 2, jointAcheRating = 0 } = feedback;
+
+  // Limiting joint pain or severe fatigue/soreness -> Deload or swap
+  if (jointAcheRating >= 2) {
+    return {
+      setDelta: -2,
+      action: 'DELOAD_OR_SWAP',
+      reason: 'Eklemlerde ağrı/rahatsızlık yüksek. Aşırı yıpranmayı önlemek için -2 set azaltın veya biyomekanik alternatif egzersize geçin.',
+    };
+  }
+
+  if (sorenessRating === 3) {
+    return {
+      setDelta: -1,
+      action: 'REDUCE_SET',
+      reason: 'Aşırı kas ağrısı (DOMS) ve toparlanma yetersizliği. Gelecek hafta -1 set azaltarak toparlanmayı destekleyin.',
+    };
+  }
+
+  // Peak pump, manageable soreness, healthy joints -> Volume accumulation (MAV)
+  if (pumpRating === 3 && sorenessRating <= 2 && jointAcheRating === 0) {
+    return {
+      setDelta: 1,
+      action: 'ADD_SET',
+      reason: 'Maksimum pump, sıfır eklem ağrısı ve optimal toparlanma. MAV uyarımı için gelecek hafta +1 çalışma seti ekleyin.',
+    };
+  }
+
+  // Low pump and low soreness -> May need slight volume bump or exercise intensity check
+  if (pumpRating === 1 && sorenessRating === 1 && jointAcheRating === 0) {
+    return {
+      setDelta: 1,
+      action: 'ADD_SET',
+      reason: 'Düşük pump ve hızlı toparlanma tespit edildi (MEV altı). Uyarımı artırmak için +1 set ekleyin.',
+    };
+  }
+
+  // Standard maintain
+  return {
+    setDelta: 0,
+    action: 'MAINTAIN',
+    reason: 'İdeal pump ve toparlanma dengesi. Mevcut set sayısını koruyarak progresif aşırı yüklemeye odaklanın.',
+  };
 };
 

@@ -17,12 +17,14 @@ import {
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
-import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise } from '../types/fitness';
+import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, ExerciseFeedback } from '../types/fitness';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
-import { getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
+import { ExerciseSwapModal } from '../components/ExerciseSwapModal';
+import { ExerciseRPFeedback } from '../components/ExerciseRPFeedback';
+import { getExercises, getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import {
   calculateSmartAutoregulatedOverload,
@@ -66,6 +68,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [toggledRecs, setToggledRecs] = useState<Record<string, boolean>>({});
   const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
   const [selectedPRExercise, setSelectedPRExercise] = useState<Exercise | null>(null);
+  const [swappingExercise, setSwappingExercise] = useState<{ exercise: WorkoutExercise; index: number } | null>(null);
+  const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const lastRecTapTimeRef = useRef<Record<string, number>>({});
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
@@ -91,6 +95,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         setElapsedSeconds(elapsed > 0 ? elapsed : 0);
       }
       getWorkouts().then(data => setPastWorkouts(data));
+      getExercises().then(data => setAvailableExercises(data));
       getAppSettings().then(s => {
         setUserSettings({
           defaultRestSeconds: s.defaultRestSeconds ?? 90,
@@ -643,6 +648,45 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onUpdateSession(updated);
   };
 
+  const handleSwapExerciseSelect = (newEx: Exercise, recommendedWeight: number) => {
+    if (!swappingExercise) return;
+    const { exercise: oldEx } = swappingExercise;
+
+    const isCardio = newEx.category === 'Kardiyo';
+    const isIso = isIsometricExercise(newEx.name, newEx.category);
+
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== oldEx.id) return ex;
+
+      return {
+        ...ex,
+        exerciseId: newEx.id,
+        exerciseName: newEx.name,
+        category: newEx.category,
+        equipment: newEx.equipment,
+        sets: ex.sets.map(s => ({
+          ...s,
+          weight: recommendedWeight > 0 ? recommendedWeight : (isCardio || isIso ? 0 : s.weight),
+        })),
+      };
+    });
+
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+    setSwappingExercise(null);
+  };
+
+  const handleUpdateExerciseFeedback = (exId: string, feedback: ExerciseFeedback) => {
+    const updatedExercises = session.exercises.map(ex => {
+      if (ex.id !== exId) return ex;
+      return { ...ex, feedback };
+    });
+    const updated = { ...session, exercises: updatedExercises };
+    setSession(updated);
+    onUpdateSession(updated);
+  };
+
   const handleRemoveExercise = (exId: string) => {
     const updatedExercises = session.exercises.filter(ex => ex.id !== exId);
     const updated = { ...session, exercises: updatedExercises };
@@ -842,6 +886,18 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     <View style={styles.exCardHeaderRight}>
                       {!isCardio && exVolume > 0 && (
                         <Text style={styles.exVolumeText}>{exVolume} kg</Text>
+                      )}
+
+                      {/* Biomechanical Exercise Swap Button (Jeff Nippard Model) */}
+                      {!isCardio && (
+                        <TouchableOpacity
+                          style={styles.swapExBtn}
+                          onPress={() => setSwappingExercise({ exercise: ex, index: exIndex })}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="swap-horizontal" size={15} color={COLORS.primaryText} />
+                          <Text style={styles.swapExBtnText}>Değiştir</Text>
+                        </TouchableOpacity>
                       )}
 
                       {session.exercises.length > 1 && (
@@ -1206,6 +1262,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     <Text style={styles.addSetBtnText}>Set Ekle</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* RP Hypertrophy Feedback (Pump / Soreness / Joint Ache) */}
+                {!isCardio && ex.sets.some(s => s.completed) && (
+                  <ExerciseRPFeedback
+                    feedback={ex.feedback}
+                    onChangeFeedback={(fb) => handleUpdateExerciseFeedback(ex.id, fb)}
+                    exerciseName={ex.exerciseName}
+                  />
+                )}
               </View>
             );
           })}
@@ -1223,6 +1288,27 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           visible={showExercisePicker}
           onClose={() => setShowExercisePicker(false)}
           onSelectExercise={handleAddExercise}
+        />
+
+        {/* Biomechanical Exercise Swap Modal */}
+        <ExerciseSwapModal
+          visible={!!swappingExercise}
+          sourceExercise={
+            swappingExercise
+              ? {
+                  id: swappingExercise.exercise.exerciseId,
+                  name: swappingExercise.exercise.exerciseName,
+                  category: swappingExercise.exercise.category,
+                  equipment: swappingExercise.exercise.equipment,
+                  lastWeight: Math.max(0, ...swappingExercise.exercise.sets.map(s => s.weight)),
+                  lastReps: swappingExercise.exercise.sets[0]?.reps || 10,
+                  lastRir: swappingExercise.exercise.sets[0]?.rir ?? 1,
+                }
+              : null
+          }
+          allExercises={availableExercises}
+          onSelectSwap={handleSwapExerciseSelect}
+          onClose={() => setSwappingExercise(null)}
         />
 
         {customAlert && (
@@ -1472,8 +1558,25 @@ const styles = StyleSheet.create({
   exVolumeText: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
-    marginRight: 2,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  swapExBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  swapExBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   tableHeader: {
     flexDirection: 'row',
