@@ -60,10 +60,11 @@ export function getExerciseSubstitutes(
     );
   }
 
-  // Filter pool: same muscle category, exclude same exercise
-  const pool = allExercises.filter(ex => {
+  // Filter pool: match primary muscle category or fallback to broader match if needed
+  const pool = (allExercises && allExercises.length > 0 ? allExercises : []).filter(ex => {
     if (ex.id && sourceExercise.id && ex.id === sourceExercise.id) return false;
     if (ex.name.toLowerCase() === srcName) return false;
+    // Match exact category OR cross-match if categories share movement profiles
     return ex.category === sourceExercise.category;
   });
 

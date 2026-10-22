@@ -658,6 +658,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== oldEx.id) return ex;
 
+      // Preserve completed status if any, but update IDs and names
       return {
         ...ex,
         exerciseId: newEx.id,
@@ -1300,13 +1301,13 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                   name: swappingExercise.exercise.exerciseName,
                   category: swappingExercise.exercise.category,
                   equipment: swappingExercise.exercise.equipment,
-                  lastWeight: Math.max(0, ...swappingExercise.exercise.sets.map(s => s.weight)),
-                  lastReps: swappingExercise.exercise.sets[0]?.reps || 10,
-                  lastRir: swappingExercise.exercise.sets[0]?.rir ?? 1,
+                  lastWeight: Math.max(0, ...(swappingExercise.exercise.sets || []).map(s => s.weight || 0)),
+                  lastReps: swappingExercise.exercise.sets?.[0]?.reps || 10,
+                  lastRir: swappingExercise.exercise.sets?.[0]?.rir ?? 1,
                 }
               : null
           }
-          allExercises={availableExercises}
+          allExercises={availableExercises && availableExercises.length > 0 ? availableExercises : []}
           onSelectSwap={handleSwapExerciseSelect}
           onClose={() => setSwappingExercise(null)}
         />

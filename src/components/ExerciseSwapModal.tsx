@@ -50,7 +50,13 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
       <View style={styles.overlay}>
         <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           {/* Header */}
