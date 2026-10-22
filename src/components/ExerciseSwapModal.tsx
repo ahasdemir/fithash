@@ -94,7 +94,13 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
           </View>
 
           {/* Substitutes List */}
-          <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: Math.max(insets.bottom, 24) + 60 },
+            ]}
+          >
             {candidates.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="alert-circle-outline" size={32} color={COLORS.textMuted} />
