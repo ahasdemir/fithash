@@ -58,6 +58,11 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
       statusBarTranslucent
     >
       <View style={styles.overlay}>
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
         <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           {/* Header */}
           <View style={styles.header}>
@@ -179,12 +184,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   sheetContainer: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
-    minHeight: '40%',
+    height: '85%',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -248,6 +256,7 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    width: '100%',
   },
   listContent: {
     padding: 16,
