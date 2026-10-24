@@ -750,6 +750,18 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       });
     });
 
+    if (totalSetsCount === 0) {
+      setCustomAlert({
+        visible: true,
+        type: 'warning',
+        title: 'Boş Antrenman',
+        message: 'Antrenmanı tamamlamak için en az bir seti tamamlamış (işaretlemiş) olmanız gerekir. Antrenmanı kaydetmek istemiyorsanız "Vazgeç" butonunu kullanabilirsiniz.',
+        confirmText: 'Tamam',
+        onConfirm: () => setCustomAlert(null),
+      });
+      return;
+    }
+
     const finalSession: WorkoutSession = {
       ...session,
       endTime: Date.now(),

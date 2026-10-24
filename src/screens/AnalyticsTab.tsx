@@ -16,6 +16,7 @@ import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 import { MuscleRecoveryHeatmap } from '../components/MuscleRecoveryHeatmap';
 import { calculateAllMuscleRecovery } from '../services/muscleRecoveryService';
 import { calculateUserStats, getMondayOfWeek, getLocalDateString } from '../services/storage';
+import { calculateAutoregulatedE1RM } from '../services/progressionEngine';
 
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
@@ -108,7 +109,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             if (s.weight && s.reps && (s.weight > maxW || (s.weight === maxW && s.reps > maxR))) {
               maxW = s.weight;
               maxR = s.reps;
-              max1RM = Math.round(s.weight * (1 + s.reps / 30));
+              max1RM = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1));
             }
           });
 
@@ -139,7 +140,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               if (s.weight > curW || (s.weight === curW && s.reps > curR)) {
                 exerciseMap[key].allTimeWeight = s.weight;
                 exerciseMap[key].allTimeReps = s.reps;
-                exerciseMap[key].allTime1RM = Math.round(s.weight * (1 + s.reps / 30));
+                exerciseMap[key].allTime1RM = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1));
               }
             }
           });

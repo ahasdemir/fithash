@@ -50,12 +50,13 @@ export function calculateHillRecoveryPercentage(
   effectiveHalfLifeHours: number,
   hillBeta: number = 2.4
 ): number {
-  if (elapsedHours <= 0) return 0;
-  if (elapsedHours >= 168) return 100; // 7+ days = full recovery
+  const safeElapsedHours = Math.max(0, elapsedHours);
+  if (safeElapsedHours <= 0) return 0;
+  if (safeElapsedHours >= 168) return 100; // 7+ days = full recovery
 
   // Recovery(t) = 100 / (1 + (t_half / t)^beta)
   // Which is mathematically identical to (t^beta / (t^beta + t_half^beta)) * 100
-  const tBeta = Math.pow(elapsedHours, hillBeta);
+  const tBeta = Math.pow(safeElapsedHours, hillBeta);
   const halfBeta = Math.pow(Math.max(12, effectiveHalfLifeHours), hillBeta);
   const recovery = (tBeta / (tBeta + halfBeta)) * 100;
 

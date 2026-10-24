@@ -926,11 +926,12 @@ export const predictFatigueDecayReps = (
   actualRestSeconds?: number,
   standardRestSeconds: number = 90
 ): number => {
-  if (topSetReps <= 0) return 0;
+  if (!topSetReps || topSetReps <= 0) return 0;
   if (setIndex <= 1) return topSetReps;
 
-  const restSeconds = actualRestSeconds !== undefined && actualRestSeconds > 0 ? actualRestSeconds : standardRestSeconds;
-  const restFactor = Math.pow(Math.max(0.4, Math.min(2.0, restSeconds / standardRestSeconds)), 0.25);
+  const safeStandardRest = standardRestSeconds > 0 ? standardRestSeconds : 90;
+  const restSeconds = actualRestSeconds !== undefined && actualRestSeconds > 0 ? actualRestSeconds : safeStandardRest;
+  const restFactor = Math.pow(Math.max(0.4, Math.min(2.0, restSeconds / safeStandardRest)), 0.25);
   const decayExponent = -lambda * (setIndex - 1);
   const predicted = topSetReps * Math.exp(decayExponent) * restFactor;
 
