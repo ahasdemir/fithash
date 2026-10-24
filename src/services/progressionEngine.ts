@@ -1096,25 +1096,25 @@ export const calculateHypertrophyVolumeAdaptation = (
     return {
       setDelta: -1,
       action: 'REDUCE_SET',
-      reason: 'Aşırı kas ağrısı (DOMS) ve toparlanma yetersizliği. Gelecek hafta -1 set azaltarak toparlanmayı destekleyin.',
+      reason: 'Aşırı yorgunluk/kas ağrısı (DOMS) ve toparlanma yetersizliği. Gelecek hafta -1 set azaltarak toparlanmayı destekleyin.',
     };
   }
 
-  // Peak pump, manageable soreness, healthy joints -> Volume accumulation (MAV)
+  // Peak pump / optimal fatigue with zero discomfort -> Volume accumulation
   if (pumpRating === 3 && sorenessRating <= 2 && jointAcheRating === 0) {
     return {
       setDelta: 1,
       action: 'ADD_SET',
-      reason: 'Maksimum pump, sıfır eklem ağrısı ve optimal toparlanma. MAV uyarımı için gelecek hafta +1 çalışma seti ekleyin.',
+      reason: 'Yüksek efor/uyarım, sıfır eklem rahatsızlığı ve toparlanma uygun. Hacim artırımı için gelecek hafta +1 çalışma seti ekleyin.',
     };
   }
 
-  // Low pump and low soreness -> May need slight volume bump or exercise intensity check
-  if (pumpRating === 1 && sorenessRating === 1 && jointAcheRating === 0) {
+  // Low effort/soreness -> May need slight volume bump
+  if (sorenessRating === 1 && jointAcheRating === 0) {
     return {
       setDelta: 1,
       action: 'ADD_SET',
-      reason: 'Düşük pump ve hızlı toparlanma tespit edildi (MEV altı). Uyarımı artırmak için +1 set ekleyin.',
+      reason: 'Düşük efor ve hızlı toparlanma tespit edildi (MEV altı). Uyarımı artırmak için +1 set ekleyin.',
     };
   }
 
@@ -1122,7 +1122,7 @@ export const calculateHypertrophyVolumeAdaptation = (
   return {
     setDelta: 0,
     action: 'MAINTAIN',
-    reason: 'İdeal pump ve toparlanma dengesi. Mevcut set sayısını koruyarak progresif aşırı yüklemeye odaklanın.',
+    reason: 'İdeal efor ve toparlanma dengesi. Mevcut set sayısını koruyarak progresif aşırı yüklemeye odaklanın.',
   };
 };
 

@@ -17,13 +17,13 @@ import {
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
-import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, ExerciseFeedback } from '../types/fitness';
+import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, ExerciseFeedback, SessionFeedback, MuscleCategory } from '../types/fitness';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 import { ExerciseSwapModal } from '../components/ExerciseSwapModal';
-import { ExerciseRPFeedback } from '../components/ExerciseRPFeedback';
+import { WorkoutCompletionModal } from '../components/WorkoutCompletionModal';
 import { getExercises, getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import {
@@ -65,6 +65,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerKey, setRestTimerKey] = useState(Date.now());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [toggledRecs, setToggledRecs] = useState<Record<string, boolean>>({});
   const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
   const [selectedPRExercise, setSelectedPRExercise] = useState<Exercise | null>(null);
@@ -678,16 +679,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     setSwappingExercise(null);
   };
 
-  const handleUpdateExerciseFeedback = (exId: string, feedback: ExerciseFeedback) => {
-    const updatedExercises = session.exercises.map(ex => {
-      if (ex.id !== exId) return ex;
-      return { ...ex, feedback };
-    });
-    const updated = { ...session, exercises: updatedExercises };
-    setSession(updated);
-    onUpdateSession(updated);
-  };
-
   const handleRemoveExercise = (exId: string) => {
     const updatedExercises = session.exercises.filter(ex => ex.id !== exId);
     const updated = { ...session, exercises: updatedExercises };
@@ -696,6 +687,32 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleFinish = () => {
+    if (!session) return;
+    const completedSetsCount = session.exercises.reduce(
+      (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
+      0
+    );
+
+    if (completedSetsCount === 0) {
+      setCustomAlert({
+        visible: true,
+        type: 'warning',
+        title: 'Boş Antrenman',
+        message: 'Antrenmanı tamamlamak için en az bir seti tamamlamış (işaretlemiş) olmanız gerekir. Antrenmanı kaydetmek istemiyorsanız "Vazgeç" butonunu kullanabilirsiniz.',
+        confirmText: 'Tamam',
+        onConfirm: () => setCustomAlert(null),
+      });
+      return;
+    }
+
+    // Open post-workout review modal
+    setShowCompletionModal(true);
+  };
+
+  const handleConfirmCompletion = (feedback?: SessionFeedback) => {
+    if (!session) return;
+    setShowCompletionModal(false);
+
     let totalVolume = 0;
     let totalSetsCount = 0;
     let rirSum = 0;
@@ -750,20 +767,22 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       });
     });
 
-    if (totalSetsCount === 0) {
-      setCustomAlert({
-        visible: true,
-        type: 'warning',
-        title: 'Boş Antrenman',
-        message: 'Antrenmanı tamamlamak için en az bir seti tamamlamış (işaretlemiş) olmanız gerekir. Antrenmanı kaydetmek istemiyorsanız "Vazgeç" butonunu kullanabilirsiniz.',
-        confirmText: 'Tamam',
-        onConfirm: () => setCustomAlert(null),
-      });
-      return;
-    }
+    // Optionally attach joint comfort and effort rating to exercises for backwards compatibility
+    const updatedExercises: WorkoutExercise[] = session.exercises.map(ex => {
+      if (!feedback) return ex;
+      return {
+        ...ex,
+        feedback: {
+          ...ex.feedback,
+          sorenessRating: feedback.effortRating,
+          jointAcheRating: feedback.jointComfort,
+        },
+      };
+    });
 
     const finalSession: WorkoutSession = {
       ...session,
+      exercises: updatedExercises,
       endTime: Date.now(),
       durationSeconds: elapsedSeconds,
       totalVolume,
@@ -773,6 +792,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       totalCardioDistanceKm: Math.round(totalCardioDistance * 10) / 10,
       totalCardioMinutes: totalCardioMins,
       completed: true,
+      sessionFeedback: feedback,
     };
 
     onFinishSession(finalSession);
@@ -1284,15 +1304,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     <Text style={styles.addSetBtnText}>Set Ekle</Text>
                   </TouchableOpacity>
                 </View>
-
-                {/* RP Hypertrophy Feedback (Pump / Soreness / Joint Ache) */}
-                {!isCardio && ex.sets.some(s => s.completed) && (
-                  <ExerciseRPFeedback
-                    feedback={ex.feedback}
-                    onChangeFeedback={(fb) => handleUpdateExerciseFeedback(ex.id, fb)}
-                    exerciseName={ex.exerciseName}
-                  />
-                )}
               </View>
             );
           })}
@@ -1347,6 +1358,36 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             onClose={() => setSelectedPRExercise(null)}
           />
         )}
+
+        {/* Post-Workout Review & Completion Modal */}
+        <WorkoutCompletionModal
+          visible={showCompletionModal}
+          workoutTitle={session?.name}
+          muscleGroups={
+            session
+              ? Array.from(new Set(session.exercises.map(ex => ex.category)))
+              : []
+          }
+          totalSets={
+            session
+              ? session.exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0)
+              : 0
+          }
+          totalVolume={
+            session
+              ? session.exercises.reduce(
+                  (acc, ex) =>
+                    ex.category === 'Kardiyo'
+                      ? acc
+                      : acc + ex.sets.filter(s => s.completed).reduce((sAcc, s) => sAcc + (s.weight > 0 ? s.weight * s.reps : 0), 0),
+                  0
+                )
+              : 0
+          }
+          durationSeconds={elapsedSeconds}
+          onConfirm={handleConfirmCompletion}
+          onClose={() => setShowCompletionModal(false)}
+        />
       </Animated.View>
     </Modal>
   );

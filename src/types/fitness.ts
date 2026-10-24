@@ -50,9 +50,14 @@ export interface ExerciseSet {
 }
 
 export interface ExerciseFeedback {
-  pumpRating?: 1 | 2 | 3;       // 1: Low / Düşük, 2: Moderate / İdeal, 3: Skin-splitting / Maksimum
+  pumpRating?: 1 | 2 | 3;       // 1: Low / Düşük, 2: Moderate / İdeal, 3: Skin-splitting / Maksimum (legacy/optional)
   sorenessRating?: 1 | 2 | 3;   // 1: None / Erken Toparlandı, 2: Optimal / Zamanında, 3: Excessive / Aşırı Ağrılı
   jointAcheRating?: 0 | 1 | 2;  // 0: None / Ağrısız, 1: Mild / Hafif Rahatsızlık, 2: Painful/Limiting / Ağrılı & Engelleyici
+}
+
+export interface SessionFeedback {
+  effortRating: 1 | 2 | 3;       // 1: Hafif, 2: İdeal / Hedefte, 3: Çok Zor / Tükeniş
+  jointComfort: 0 | 1 | 2;       // 0: Sorun Yok, 1: Hafif Hassasiyet, 2: Ağrı Var
 }
 
 export interface WorkoutExercise {
@@ -83,6 +88,7 @@ export interface WorkoutSession {
   totalCardioMinutes?: number;
   completed: boolean;
   notes?: string;
+  sessionFeedback?: SessionFeedback;
 }
 
 export interface RoutineExercise {

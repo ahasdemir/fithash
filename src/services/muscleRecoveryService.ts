@@ -143,9 +143,11 @@ export function calculateAllMuscleRecovery(
                   maxAxial = biomech.axialLoadingIndex;
                 }
 
-                // Check RP feedback
+                // Check RP / session feedback
                 if (ex.feedback?.sorenessRating) {
                   worstSorenessRating = Math.max(worstSorenessRating, ex.feedback.sorenessRating);
+                } else if (w.sessionFeedback?.effortRating) {
+                  worstSorenessRating = Math.max(worstSorenessRating, w.sessionFeedback.effortRating);
                 }
               }
             }
@@ -183,9 +185,9 @@ export function calculateAllMuscleRecovery(
       effectiveHalfLife += maxAxial === 3 ? 12 : 6;
     }
 
-    // 3. RP Soreness rating modifier
+    // 3. Soreness/fatigue rating modifier
     if (worstSorenessRating === 3) {
-      effectiveHalfLife += 16; // Excessive DOMS requires prolonged recovery
+      effectiveHalfLife += 16; // Excessive fatigue/DOMS requires prolonged recovery
     } else if (worstSorenessRating === 1) {
       effectiveHalfLife -= 6; // Recovered earlier than baseline
     }
