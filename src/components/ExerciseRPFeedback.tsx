@@ -241,7 +241,8 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: 10,
+    minHeight: 40,
     paddingHorizontal: 4,
     borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,

@@ -127,7 +127,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
                 {activeDetail.muscleName} — Detaylı Toparlanma Analizi
               </Text>
             </View>
-            <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="close" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>

@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
@@ -39,6 +40,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   workoutDays = [1, 2, 3, 4, 5, 6],
   onOpenStreak,
 }) => {
+  const insets = useSafeAreaInsets();
   const [showRoutineBuilder, setShowRoutineBuilder] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [selectedRoutineForMenu, setSelectedRoutineForMenu] = useState<Routine | null>(null);
@@ -150,7 +152,13 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+      ]}
+    >
       {/* Active Session Sticky Banner */}
       {activeSession && (
         <TouchableOpacity

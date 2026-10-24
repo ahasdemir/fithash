@@ -175,9 +175,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 5;
+        return gestureState.dy > 10;
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
@@ -934,7 +934,11 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         </View>
                       )}
 
-                      <TouchableOpacity onPress={() => handleRemoveExercise(ex.id)} style={{ padding: 4 }}>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveExercise(ex.id)}
+                        style={{ padding: 4 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
                         <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                       </TouchableOpacity>
                     </View>
@@ -1081,7 +1085,11 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         </TouchableOpacity>
 
                         {/* Delete Set */}
-                        <TouchableOpacity style={styles.deleteSetBtn} onPress={() => handleRemoveSet(ex.id, setIdx)}>
+                        <TouchableOpacity
+                          style={styles.deleteSetBtn}
+                          onPress={() => handleRemoveSet(ex.id, setIdx)}
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                        >
                           <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
                         </TouchableOpacity>
                       </View>
@@ -1156,6 +1164,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <TouchableOpacity
                           style={styles.deleteSetBtn}
                           onPress={() => handleRemoveSet(ex.id, setIdx)}
+                          hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                         >
                           <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
                         </TouchableOpacity>
@@ -1261,6 +1270,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                       <TouchableOpacity
                         style={styles.deleteSetBtn}
                         onPress={() => handleRemoveSet(ex.id, setIdx)}
+                        hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                       >
                         <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
                       </TouchableOpacity>
@@ -1467,6 +1477,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 0,
   },
   activeReorderGroup: {
     flexDirection: 'row',
@@ -1495,7 +1506,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
   },
   catBadge: {
     height: 24,

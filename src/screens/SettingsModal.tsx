@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import {
   getAppSettings,
@@ -46,6 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onDataReload,
 }) => {
+  const insets = useSafeAreaInsets();
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
@@ -601,7 +602,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {showExportModal && (
           <Modal visible transparent animationType="slide">
             <View style={styles.overlay}>
-              <View style={styles.modalContainer}>
+              <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{exportType} Dışa Aktarılan Veri</Text>
                   <TouchableOpacity onPress={() => setShowExportModal(false)}>
@@ -647,7 +648,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {showImportModal && (
           <Modal visible transparent animationType="slide">
             <View style={styles.overlay}>
-              <View style={styles.modalContainer}>
+              <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>JSON Yedeği İçe Aktar</Text>
                   <TouchableOpacity onPress={() => setShowImportModal(false)}>

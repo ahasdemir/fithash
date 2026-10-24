@@ -60,7 +60,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
         <View style={styles.sheetContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <View>
+            <View style={{ flex: 1, paddingRight: 8 }}>
               <View style={styles.headerTitleRow}>
                 <Ionicons name="swap-horizontal" size={20} color={COLORS.primary} />
                 <Text style={styles.headerTitle}>Biyomekanik Egzersiz Değişimi</Text>
@@ -219,7 +219,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 2,
-    maxWidth: 270,
   },
   closeBtn: {
     padding: 6,

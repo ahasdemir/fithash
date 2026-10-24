@@ -7,7 +7,7 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, Routine } from '../types/fitness';
@@ -28,6 +28,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onReuseWorkout,
   onUpdateWorkout,
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutSession | null>(null);
   const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSession | null>(null);
   const [workoutToEdit, setWorkoutToEdit] = useState<WorkoutSession | null>(null);
@@ -49,7 +50,13 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+        ]}
+      >
         {/* Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
@@ -284,7 +291,10 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
               {/* Scrollable Content Container (Bento Grid + Exercises) */}
               <ScrollView
                 style={styles.modalScroll}
-                contentContainerStyle={styles.modalScrollContent}
+                contentContainerStyle={[
+                  styles.modalScrollContent,
+                  { paddingBottom: Math.max(insets.bottom, 20) + 60 },
+                ]}
                 showsVerticalScrollIndicator={false}
               >
                 {/* Bento Grid Summary Cards (2x2 Clean Balanced Layout) */}

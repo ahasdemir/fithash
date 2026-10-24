@@ -8,6 +8,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
@@ -31,6 +32,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   workoutDays,
   weeklyTargetHistory,
 }) => {
+  const insets = useSafeAreaInsets();
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
   const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{ id?: string; name: string; category?: string; equipment?: string } | null>(null);
   const [prSearchQuery, setPrSearchQuery] = useState('');
@@ -192,7 +194,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+        ]}
+      >
         {/* Filter Switcher Pills */}
       <View style={styles.filterBar}>
         {(['weekly', 'monthly', 'all'] as const).map(mode => {

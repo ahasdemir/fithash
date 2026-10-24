@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import { Exercise, MuscleCategory, WorkoutSession, PersonalRecord } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
@@ -35,6 +36,7 @@ interface LibraryTabProps {
 }
 
 export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} }) => {
+  const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
@@ -198,7 +200,10 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
       <FlatList
         data={filteredExercises}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+        ]}
         renderItem={({ item }) => {
           const catColor = COLORS.category[item.category] || COLORS.textPrimary;
           const prInfo = exercisePRMap[item.name.toLowerCase().trim()];
@@ -210,7 +215,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
             >
               <View style={styles.cardLeft}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.exName}>{item.name}</Text>
+                  <Text style={styles.exName} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
                   {item.isCustom && (
                     <View style={styles.customBadge}>
                       <Text style={styles.customBadgeText}>Özel</Text>
@@ -265,7 +270,10 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 24 }}>
+              <ScrollView
+                style={styles.modalBody}
+                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) + 24 }}
+              >
                 <View style={styles.modalBadgeRow}>
                   <View style={[styles.catBadge, { backgroundColor: (COLORS.category[selectedExercise.category] || '#111111') + '20' }]}>
                     <Text style={[styles.catBadgeText, { color: COLORS.category[selectedExercise.category] || '#111111' }]}>
@@ -467,6 +475,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textPrimary,
     flexShrink: 1,
+    flex: 1,
   },
   customBadge: {
     backgroundColor: COLORS.primaryGlow,
