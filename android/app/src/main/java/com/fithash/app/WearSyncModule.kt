@@ -97,6 +97,17 @@ class WearSyncModule(private val reactContext: ReactApplicationContext) : ReactC
                 .edit()
                 .remove("workout_$workoutId")
                 .apply()
+
+            val uri = android.net.Uri.parse("wear://*/fithash/workouts/$workoutId")
+            val dataClient = Wearable.getDataClient(reactContext)
+            scope.launch {
+                try {
+                    dataClient.deleteDataItems(uri).await()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             promise.resolve(null)
         } catch (e: Exception) {
             promise.reject("WEAR_ACK_ERROR", e.message, e)

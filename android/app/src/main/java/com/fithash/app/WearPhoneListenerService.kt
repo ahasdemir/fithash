@@ -69,18 +69,24 @@ class WearPhoneListenerService : WearableListenerService() {
 
     private fun queueWorkout(json: String) {
         val workoutId = try {
-            JSONObject(json).optString("id")
+            val jsonObject = JSONObject(json)
+            val id = jsonObject.optString("id")
+            if (id.isBlank()) jsonObject.optString("workoutId") else id
         } catch (_: Exception) {
             ""
         }
         if (workoutId.isBlank()) return
 
-        getSharedPreferences("fithash_wear_inbox", Context.MODE_PRIVATE)
-            .edit()
-            .putString("workout_$workoutId", json)
-            .apply()
+        try {
+            getSharedPreferences("fithash_wear_inbox", Context.MODE_PRIVATE)
+                .edit()
+                .putString("workout_$workoutId", json)
+                .apply()
 
-        val params = Arguments.createMap().apply { putString("sessionJson", json) }
-        WearSyncModule.sendEventToJS("onWearWorkoutCompleted", params)
+            val params = Arguments.createMap().apply { putString("sessionJson", json) }
+            WearSyncModule.sendEventToJS("onWearWorkoutCompleted", params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

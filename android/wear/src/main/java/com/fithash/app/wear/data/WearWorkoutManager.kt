@@ -202,6 +202,7 @@ class WearWorkoutManager private constructor(private val context: Context) {
         _activeSession.value = session
         _currentExerciseIndex.value = 0
         saveActiveSession()
+        com.fithash.app.wear.service.ActiveWorkoutService.startService(context)
     }
 
     fun startFreestyle() {
@@ -234,6 +235,7 @@ class WearWorkoutManager private constructor(private val context: Context) {
         _activeSession.value = session
         _currentExerciseIndex.value = 0
         saveActiveSession()
+        com.fithash.app.wear.service.ActiveWorkoutService.startService(context)
     }
 
     fun completeCurrentSet(exerciseIdx: Int, setIdx: Int) {
@@ -393,12 +395,14 @@ class WearWorkoutManager private constructor(private val context: Context) {
         _activeSession.value = null
         prefs.edit().remove("active_session").apply()
         cancelRestTimer()
+        com.fithash.app.wear.service.ActiveWorkoutService.stopService(context)
     }
 
     fun cancelWorkout() {
         _activeSession.value = null
         prefs.edit().remove("active_session").apply()
         cancelRestTimer()
+        com.fithash.app.wear.service.ActiveWorkoutService.stopService(context)
     }
 
     private fun sendCompletedWorkoutToPhone(session: WearWorkoutSession) {
@@ -433,6 +437,7 @@ class WearWorkoutManager private constructor(private val context: Context) {
             val session = gson.fromJson(json, WearWorkoutSession::class.java)
             if (session != null && !session.completed) {
                 _activeSession.value = session
+                com.fithash.app.wear.service.ActiveWorkoutService.startService(context)
             }
         } catch (e: Exception) {
             e.printStackTrace()
