@@ -389,7 +389,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
     if (isDecimalField && typeof val === 'string') {
       // Normalize Samsung keyboard comma (,) to dot (.) and sanitize
-      cleanString = val.replace(',', '.').replace(/[^0-9.]/g, '');
+      cleanString = val.replace(/,/g, '.').replace(/[^0-9.]/g, '');
       const parts = cleanString.split('.');
       if (parts.length > 2) {
         cleanString = parts[0] + '.' + parts.slice(1).join('');

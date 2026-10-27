@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -39,7 +39,19 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   const [exercises, setExercises] = useState<WorkoutExercise[]>(
     JSON.parse(JSON.stringify(workout.exercises || []))
   );
+  const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+
+  useEffect(() => {
+    if (workout) {
+      setName(workout.name);
+      setDate(workout.date);
+      setDurationMinutes(Math.round((workout.durationSeconds || 0) / 60).toString());
+      setNotes(workout.notes || '');
+      setExercises(JSON.parse(JSON.stringify(workout.exercises || [])));
+      setRawInputMap({});
+    }
+  }, [workout]);
 
   const handleAddExercise = (selectedEx: any) => {
     const newEx: WorkoutExercise = {
@@ -136,6 +148,53 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
       next[exerciseIndex] = targetEx;
       return next;
     });
+  };
+
+  const handleSetInputChange = (
+    exerciseIndex: number,
+    setIndex: number,
+    field: keyof ExerciseSet,
+    val: string
+  ) => {
+    const targetEx = exercises[exerciseIndex];
+    const targetSet = targetEx?.sets[setIndex];
+    const setKey = `${targetEx?.id || exerciseIndex}_${targetSet?.id || setIndex}_${field}`;
+    const isDecimalField = field === 'weight' || field === 'distanceKm';
+
+    let cleanString = val;
+    let parsedVal: number = 0;
+
+    if (isDecimalField) {
+      // Replace ALL commas with dots for Turkish/European keyboards
+      cleanString = val.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+      const parts = cleanString.split('.');
+      if (parts.length > 2) {
+        cleanString = parts[0] + '.' + parts.slice(1).join('');
+      }
+      setRawInputMap(prev => ({ ...prev, [setKey]: cleanString }));
+      const f = parseFloat(cleanString);
+      parsedVal = isNaN(f) ? 0 : f;
+    } else if (field === 'reps' || field === 'durationMinutes' || field === 'caloriesBurned' || field === 'rir') {
+      cleanString = val.replace(/[^0-9]/g, '');
+      setRawInputMap(prev => ({ ...prev, [setKey]: cleanString }));
+      if (field === 'rir' && cleanString === '') {
+        handleUpdateSet(exerciseIndex, setIndex, 'rir', undefined);
+        return;
+      }
+      parsedVal = cleanString === '' ? 0 : parseInt(cleanString, 10);
+    }
+
+    handleUpdateSet(exerciseIndex, setIndex, field, parsedVal);
+  };
+
+  const handleBlurDecimal = (exerciseIndex: number, setIndex: number, field: keyof ExerciseSet) => {
+    const targetEx = exercises[exerciseIndex];
+    const targetSet = targetEx?.sets[setIndex];
+    const setKey = `${targetEx?.id || exerciseIndex}_${targetSet?.id || setIndex}_${field}`;
+    if (rawInputMap[setKey]?.endsWith('.')) {
+      const cleaned = rawInputMap[setKey].slice(0, -1);
+      setRawInputMap(prev => ({ ...prev, [setKey]: cleaned }));
+    }
   };
 
   const handleSave = () => {
@@ -314,7 +373,39 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                 </View>
 
                 {/* Set Rows */}
-                {ex.sets.map((set, setIdx) => (
+                {ex.sets.map((set, setIdx) => {
+                  const setKeyPrefix = `${ex.id || exIdx}_${set.id || setIdx}`;
+                  const weightKey = `${setKeyPrefix}_weight`;
+                  const weightDisplay = rawInputMap[weightKey] !== undefined
+                    ? rawInputMap[weightKey]
+                    : (set.weight !== undefined && set.weight !== 0 ? String(set.weight) : '');
+
+                  const repsKey = `${setKeyPrefix}_reps`;
+                  const repsDisplay = rawInputMap[repsKey] !== undefined
+                    ? rawInputMap[repsKey]
+                    : (set.reps !== undefined && set.reps !== 0 ? String(set.reps) : '');
+
+                  const rirKey = `${setKeyPrefix}_rir`;
+                  const rirDisplay = rawInputMap[rirKey] !== undefined
+                    ? rawInputMap[rirKey]
+                    : (set.rir !== undefined ? String(set.rir) : '');
+
+                  const durKey = `${setKeyPrefix}_durationMinutes`;
+                  const durDisplay = rawInputMap[durKey] !== undefined
+                    ? rawInputMap[durKey]
+                    : (set.durationMinutes !== undefined && set.durationMinutes !== 0 ? String(set.durationMinutes) : '');
+
+                  const distKey = `${setKeyPrefix}_distanceKm`;
+                  const distDisplay = rawInputMap[distKey] !== undefined
+                    ? rawInputMap[distKey]
+                    : (set.distanceKm !== undefined && set.distanceKm !== 0 ? String(set.distanceKm) : '');
+
+                  const calKey = `${setKeyPrefix}_caloriesBurned`;
+                  const calDisplay = rawInputMap[calKey] !== undefined
+                    ? rawInputMap[calKey]
+                    : (set.caloriesBurned !== undefined && set.caloriesBurned !== 0 ? String(set.caloriesBurned) : '');
+
+                  return (
                   <View key={set.id || `s_${setIdx}`} style={styles.setRow}>
                     <View style={styles.colSet}>
                       <Text style={styles.setNumText}>{set.setNumber}</Text>
@@ -324,10 +415,10 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                       <>
                         <TextInput
                           style={[styles.inputCell, styles.colInput]}
-                          keyboardType="decimal-pad"
-                          value={set.durationMinutes !== undefined ? String(set.durationMinutes) : ''}
+                          keyboardType="numeric"
+                          value={durDisplay}
                           onChangeText={txt =>
-                            handleUpdateSet(exIdx, setIdx, 'durationMinutes', parseFloat(txt) || 0)
+                            handleSetInputChange(exIdx, setIdx, 'durationMinutes', txt)
                           }
                           placeholder="0"
                           placeholderTextColor={COLORS.textMuted}
@@ -335,19 +426,20 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.inputCell, styles.colInput]}
                           keyboardType="decimal-pad"
-                          value={set.distanceKm !== undefined ? String(set.distanceKm) : ''}
+                          value={distDisplay}
                           onChangeText={txt =>
-                            handleUpdateSet(exIdx, setIdx, 'distanceKm', parseFloat(txt) || 0)
+                            handleSetInputChange(exIdx, setIdx, 'distanceKm', txt)
                           }
+                          onBlur={() => handleBlurDecimal(exIdx, setIdx, 'distanceKm')}
                           placeholder="0"
                           placeholderTextColor={COLORS.textMuted}
                         />
                         <TextInput
                           style={[styles.inputCell, styles.colInput]}
                           keyboardType="numeric"
-                          value={set.caloriesBurned !== undefined ? String(set.caloriesBurned) : ''}
+                          value={calDisplay}
                           onChangeText={txt =>
-                            handleUpdateSet(exIdx, setIdx, 'caloriesBurned', parseInt(txt, 10) || 0)
+                            handleSetInputChange(exIdx, setIdx, 'caloriesBurned', txt)
                           }
                           placeholder="0"
                           placeholderTextColor={COLORS.textMuted}
@@ -358,9 +450,20 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.inputCell, styles.colInput]}
                           keyboardType="decimal-pad"
-                          value={set.weight !== undefined ? String(set.weight) : ''}
+                          value={weightDisplay}
                           onChangeText={txt =>
-                            handleUpdateSet(exIdx, setIdx, 'weight', parseFloat(txt) || 0)
+                            handleSetInputChange(exIdx, setIdx, 'weight', txt)
+                          }
+                          onBlur={() => handleBlurDecimal(exIdx, setIdx, 'weight')}
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                        />
+                        <TextInput
+                          style={[styles.inputCell, styles.colInput]}
+                          keyboardType="numeric"
+                          value={repsDisplay}
+                          onChangeText={txt =>
+                            handleSetInputChange(exIdx, setIdx, 'reps', txt)
                           }
                           placeholder="0"
                           placeholderTextColor={COLORS.textMuted}
@@ -368,24 +471,9 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                         <TextInput
                           style={[styles.inputCell, styles.colInput]}
                           keyboardType="numeric"
-                          value={set.reps !== undefined ? String(set.reps) : ''}
+                          value={rirDisplay}
                           onChangeText={txt =>
-                            handleUpdateSet(exIdx, setIdx, 'reps', parseInt(txt, 10) || 0)
-                          }
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="numeric"
-                          value={set.rir !== undefined ? String(set.rir) : ''}
-                          onChangeText={txt =>
-                            handleUpdateSet(
-                              exIdx,
-                              setIdx,
-                              'rir',
-                              txt === '' ? undefined : parseInt(txt, 10) || 0
-                            )
+                            handleSetInputChange(exIdx, setIdx, 'rir', txt)
                           }
                           placeholder="-"
                           placeholderTextColor={COLORS.textMuted}
@@ -414,7 +502,8 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                       <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
                     </TouchableOpacity>
                   </View>
-                ))}
+                );
+              })}
 
                 {/* Add Set Button */}
                 <TouchableOpacity
