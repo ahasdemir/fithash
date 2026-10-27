@@ -33,6 +33,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   weeklyTargetHistory,
 }) => {
   const insets = useSafeAreaInsets();
+  type AnalyticsSubTab = 'overview' | 'fatigue' | 'prs';
+  const [activeTab, setActiveTab] = useState<AnalyticsSubTab>('overview');
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
   const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{ id?: string; name: string; category?: string; equipment?: string } | null>(null);
   const [prSearchQuery, setPrSearchQuery] = useState('');
@@ -194,6 +196,44 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Analytics Sub-Tab Segmented Switcher */}
+      <View style={[styles.subTabBar, { paddingTop: Math.max(insets.top, 8) }]}>
+        <View style={styles.subTabContainer}>
+          {(
+            [
+              { id: 'overview', label: 'Özet & Hacim', icon: 'bar-chart-outline' },
+              { id: 'fatigue', label: 'Kas & Yorgunluk', icon: 'pulse-outline' },
+              { id: 'prs', label: 'Rekorlar (PR)', icon: 'trophy-outline' },
+            ] as const
+          ).map((tab) => {
+            const isSelected = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.subTabBtn, isSelected && styles.subTabBtnSelected]}
+                onPress={() => setActiveTab(tab.id)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={tab.icon as any}
+                  size={14}
+                  color={isSelected ? '#FFFFFF' : COLORS.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.subTabBtnText,
+                    isSelected && styles.subTabBtnTextSelected,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={[
@@ -201,248 +241,260 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           { paddingBottom: 120 + Math.max(insets.bottom, 16) },
         ]}
       >
-        {/* Filter Switcher Pills */}
-      <View style={styles.filterBar}>
-        {(['weekly', 'monthly', 'all'] as const).map(mode => {
-          const isSelected = filterMode === mode;
-          const labels = { weekly: 'Bu Hafta', monthly: 'Bu Ay', all: 'Tüm Zamanlar' };
-          return (
-            <TouchableOpacity
-              key={mode}
-              style={[styles.filterBtn, isSelected && styles.filterBtnSelected]}
-              onPress={() => setFilterMode(mode)}
-            >
-              <Text style={[styles.filterBtnText, isSelected && styles.filterBtnTextSelected]}>
-                {labels[mode]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
-      <View style={styles.bentoGrid}>
-        {/* 1. Working Sets (Çalışma Seti Sayısı) */}
-        <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
-          <View style={styles.metricIconBg}>
-            <Ionicons name="barbell" size={18} color="#111111" />
-          </View>
-          <Text style={styles.metricValue}>
-            {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
-          </Text>
-          <Text style={styles.metricLabel}>Çalışma Setleri</Text>
-        </View>
-
-        {/* 2. Workout Compliance Rate (%) */}
-        <View style={styles.bentoSquareCard}>
-          <View style={[styles.metricIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-            <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-          </View>
-          <Text style={styles.metricValue}>
-            %{stats.avgWorkoutCompliance}
-          </Text>
-          <Text style={styles.metricLabel}>Program Uyum Oranı</Text>
-        </View>
-
-        {/* 3. Average RIR & Intensity */}
-        <View style={styles.bentoSquareCard}>
-          <View style={[styles.metricIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-            <Ionicons name="flash" size={18} color="#8B5CF6" />
-          </View>
-          <Text style={styles.metricValue}>
-            RIR {stats.avgRir}
-          </Text>
-          <Text style={styles.metricLabel}>Ort. Yoğunluk (RIR)</Text>
-        </View>
-
-        {/* 4. Active Work Time (TUT) */}
-        <View style={styles.bentoSquareCard}>
-          <View style={[styles.metricIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
-            <Ionicons name="time" size={18} color="#EC4899" />
-          </View>
-          <Text style={styles.metricValue}>
-            {stats.activeWorkTimeMinutes} <Text style={styles.unitText}>dk Aktif</Text>
-          </Text>
-          <Text style={styles.metricLabel}>Gerilim Altında Süre (TUT)</Text>
-        </View>
-      </View>
-
-      {/* SECONDARY BENTO ROW: Calories, Cardio Distance, Volume */}
-      <View style={styles.secondaryBentoRow}>
-        <View style={styles.secondaryPillCard}>
-          <Ionicons name="flame" size={14} color="#EF4444" />
-          <Text style={styles.secondaryCardValue}>{stats.totalCaloriesBurned > 0 ? stats.totalCaloriesBurned : 0} kcal</Text>
-        </View>
-
-        <View style={styles.secondaryPillCard}>
-          <Ionicons name="walk" size={14} color="#06B6D4" />
-          <Text style={styles.secondaryCardValue}>{stats.totalCardioDistanceKm > 0 ? stats.totalCardioDistanceKm : 0} km</Text>
-        </View>
-
-        <View style={styles.secondaryPillCard}>
-          <Ionicons name="barbell-outline" size={14} color={COLORS.textSecondary} />
-          <Text style={styles.secondaryCardValue}>
-            {stats.totalVolumeKg >= 1000 ? `${(stats.totalVolumeKg / 1000).toFixed(1)}k kg` : `${stats.totalVolumeKg} kg`}
-          </Text>
-        </View>
-      </View>
-
-      {/* CARDIO & CALORIE ANALYTICS BENTO CARD */}
-      {cardioSummary.length > 0 && (
-        <View style={styles.cardioBentoCard}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.prIconBadge, { backgroundColor: '#06B6D4' }]}>
-              <Ionicons name="bicycle" size={18} color="#111111" />
+        {/* SUBTAB 1: Özet & Hacim (Overview) */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Filter Switcher Pills */}
+            <View style={styles.filterBar}>
+              {(['weekly', 'monthly', 'all'] as const).map(mode => {
+                const isSelected = filterMode === mode;
+                const labels = { weekly: 'Bu Hafta', monthly: 'Bu Ay', all: 'Tüm Zamanlar' };
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[styles.filterBtn, isSelected && styles.filterBtnSelected]}
+                    onPress={() => setFilterMode(mode)}
+                  >
+                    <Text style={[styles.filterBtnText, isSelected && styles.filterBtnTextSelected]}>
+                      {labels[mode]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-            <View>
-              <Text style={styles.sectionTitle}>Kardiyo & Hız Performansı</Text>
-              <Text style={styles.sectionSub}>Ekipman bazlı ortalama hız ve mesafeler</Text>
-            </View>
-          </View>
 
-          <View style={styles.cardioList}>
-            {cardioSummary.map(c => (
-              <View key={c.name} style={styles.cardioRowCard}>
-                <View style={styles.cardioLeft}>
-                  <Text style={styles.cardioExName}>{c.name}</Text>
-                  <Text style={styles.cardioMetaText}>
-                    {c.totalDist} km • {c.totalMins} dk
-                  </Text>
+            {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
+            <View style={styles.bentoGrid}>
+              {/* 1. Working Sets (Çalışma Seti Sayısı) */}
+              <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
+                <View style={styles.metricIconBg}>
+                  <Ionicons name="barbell" size={18} color="#111111" />
                 </View>
-                <View style={styles.speedPillBadge}>
-                  <Ionicons name="speedometer" size={12} color="#111111" />
-                  <Text style={styles.speedPillBadgeText}>{c.avgSpeedKmh} km/h</Text>
+                <Text style={styles.metricValue}>
+                  {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
+                </Text>
+                <Text style={styles.metricLabel}>Çalışma Setleri</Text>
+              </View>
+
+              {/* 2. Workout Compliance Rate (%) */}
+              <View style={styles.bentoSquareCard}>
+                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                </View>
+                <Text style={styles.metricValue}>
+                  %{stats.avgWorkoutCompliance}
+                </Text>
+                <Text style={styles.metricLabel}>Program Uyum Oranı</Text>
+              </View>
+
+              {/* 3. Average RIR & Intensity */}
+              <View style={styles.bentoSquareCard}>
+                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                  <Ionicons name="flash" size={18} color="#8B5CF6" />
+                </View>
+                <Text style={styles.metricValue}>
+                  RIR {stats.avgRir}
+                </Text>
+                <Text style={styles.metricLabel}>Ort. Yoğunluk (RIR)</Text>
+              </View>
+
+              {/* 4. Active Work Time (TUT) */}
+              <View style={styles.bentoSquareCard}>
+                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
+                  <Ionicons name="time" size={18} color="#EC4899" />
+                </View>
+                <Text style={styles.metricValue}>
+                  {stats.activeWorkTimeMinutes} <Text style={styles.unitText}>dk Aktif</Text>
+                </Text>
+                <Text style={styles.metricLabel}>Gerilim Altında Süre (TUT)</Text>
+              </View>
+            </View>
+
+            {/* SECONDARY BENTO ROW: Calories, Cardio Distance, Volume */}
+            <View style={styles.secondaryBentoRow}>
+              <View style={styles.secondaryPillCard}>
+                <Ionicons name="flame" size={14} color="#EF4444" />
+                <Text style={styles.secondaryCardValue}>{stats.totalCaloriesBurned > 0 ? stats.totalCaloriesBurned : 0} kcal</Text>
+              </View>
+
+              <View style={styles.secondaryPillCard}>
+                <Ionicons name="walk" size={14} color="#06B6D4" />
+                <Text style={styles.secondaryCardValue}>{stats.totalCardioDistanceKm > 0 ? stats.totalCardioDistanceKm : 0} km</Text>
+              </View>
+
+              <View style={styles.secondaryPillCard}>
+                <Ionicons name="barbell-outline" size={14} color={COLORS.textSecondary} />
+                <Text style={styles.secondaryCardValue}>
+                  {stats.totalVolumeKg >= 1000 ? `${(stats.totalVolumeKg / 1000).toFixed(1)}k kg` : `${stats.totalVolumeKg} kg`}
+                </Text>
+              </View>
+            </View>
+
+            {/* CARDIO & CALORIE ANALYTICS BENTO CARD */}
+            {cardioSummary.length > 0 && (
+              <View style={styles.cardioBentoCard}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.prIconBadge, { backgroundColor: '#06B6D4' }]}>
+                    <Ionicons name="bicycle" size={18} color="#111111" />
+                  </View>
+                  <View>
+                    <Text style={styles.sectionTitle}>Kardiyo & Hız Performansı</Text>
+                    <Text style={styles.sectionSub}>Ekipman bazlı ortalama hız ve mesafeler</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardioList}>
+                  {cardioSummary.map(c => (
+                    <View key={c.name} style={styles.cardioRowCard}>
+                      <View style={styles.cardioLeft}>
+                        <Text style={styles.cardioExName}>{c.name}</Text>
+                        <Text style={styles.cardioMetaText}>
+                          {c.totalDist} km • {c.totalMins} dk
+                        </Text>
+                      </View>
+                      <View style={styles.speedPillBadge}>
+                        <Ionicons name="speedometer" size={12} color="#111111" />
+                        <Text style={styles.speedPillBadgeText}>{c.avgSpeedKmh} km/h</Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
               </View>
-            ))}
-          </View>
-        </View>
-      )}
+            )}
 
-      {/* Visual Muscle Recovery Heatmap (Hevy & FitNotes Model) */}
-      <MuscleRecoveryHeatmap recoveryMap={muscleRecoveryMap} />
-
-      {/* SVG Charts (Hard Sets Distribution at top, Volume Chart below) */}
-      <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />
-
-      {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
-      <OneRepMaxWidget
-        workouts={filteredWorkouts}
-        onSelectExercise={(name) => setSelectedExerciseForPR({ name })}
-      />
-
-      {/* Personal Record Spotlight Bento Card */}
-      <View style={styles.prBentoCard}>
-        <View style={styles.prHeaderRow}>
-          <View style={styles.prTitleBox}>
-            <View style={styles.prIconBadge}>
-              <Ionicons name="trophy-outline" size={16} color="#111111" />
-            </View>
-            <View style={styles.prTitleTextBox}>
-              <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
-              <Text style={styles.sectionSub} numberOfLines={1}>Haftalık, aylık ve tüm zamanlar analizi</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Search Input */}
-        <View style={styles.prSearchRow}>
-          <Ionicons name="search" size={15} color={COLORS.textMuted} />
-          <TextInput
-            style={styles.prSearchInput}
-            placeholder="Egzersiz veya rekor ara (Örn: Bench Press)..."
-            placeholderTextColor={COLORS.textMuted}
-            value={prSearchQuery}
-            onChangeText={setPrSearchQuery}
-          />
-          {prSearchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setPrSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Horizontal Category Filter Chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prCategoryChips}>
-          {(['Hepsi', 'Göğüs', 'Sırt', 'Bacak', 'Omuz', 'Ön Kol', 'Arka Kol', 'Karın', 'Kardiyo'] as const).map(cat => {
-            const isSelected = selectedPRCategory === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.prCatChip, isSelected && styles.prCatChipSelected]}
-                onPress={() => setSelectedPRCategory(cat)}
-              >
-                <Text style={[styles.prCatChipText, isSelected && styles.prCatChipTextSelected]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Interactive Exercise PR Cards */}
-        {allExercisePRItems.length > 0 ? (
-          <View style={styles.prList}>
-            {allExercisePRItems.slice(0, 15).map(item => {
-              const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
-              return (
-                <TouchableOpacity
-                  key={item.id || item.name}
-                  style={styles.prCard}
-                  activeOpacity={0.75}
-                  onPress={() => setSelectedExerciseForPR(item)}
-                >
-                  <View style={styles.prLeft}>
-                    <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
-                    <View style={styles.prCardMetaRow}>
-                      <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
-                        <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
-                      </View>
-                      {item.isRecent && (
-                        <View style={styles.recentBadge}>
-                          <Text style={styles.recentBadgeText}>Bu Hafta</Text>
-                        </View>
-                      )}
-                      {item.lastWorkoutDate && !item.isRecent && (
-                        <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.prRightRow}>
-                    {item.allTimeWeight ? (
-                      <View style={styles.prRightPill}>
-                        <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
-                        <Text style={styles.prRepsText}>
-                          {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
-                        </Text>
-                      </View>
-                    ) : item.pr?.maxSpeedKmh ? (
-                      <View style={styles.prRightPill}>
-                        <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
-                        <Text style={styles.prRepsText}>
-                          {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.prInspectBadge}>
-                        <Text style={styles.prInspectBadgeText}>İncele</Text>
-                      </View>
-                    )}
-                    <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.emptyPrCard}>
-            <Ionicons name="search-outline" size={28} color={COLORS.textMuted} />
-            <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
-          </View>
+            {/* SVG Charts (Hard Sets Distribution at top, Volume Chart below) */}
+            <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />
+          </>
         )}
-      </View>
-    </ScrollView>
+
+        {/* SUBTAB 2: Kas & Yorgunluk (Fatigue & Readiness) */}
+        {activeTab === 'fatigue' && (
+          <MuscleRecoveryHeatmap recoveryMap={muscleRecoveryMap} />
+        )}
+
+        {/* SUBTAB 3: Rekorlar (PRs & 1RM Progression) */}
+        {activeTab === 'prs' && (
+          <>
+            {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
+            <OneRepMaxWidget
+              workouts={filteredWorkouts}
+              onSelectExercise={(name) => setSelectedExerciseForPR({ name })}
+            />
+
+            {/* Personal Record Spotlight Bento Card */}
+            <View style={styles.prBentoCard}>
+              <View style={styles.prHeaderRow}>
+                <View style={styles.prTitleBox}>
+                  <View style={styles.prIconBadge}>
+                    <Ionicons name="trophy-outline" size={16} color="#111111" />
+                  </View>
+                  <View style={styles.prTitleTextBox}>
+                    <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
+                    <Text style={styles.sectionSub} numberOfLines={1}>Haftalık, aylık ve tüm zamanlar analizi</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Search Input */}
+              <View style={styles.prSearchRow}>
+                <Ionicons name="search" size={15} color={COLORS.textMuted} />
+                <TextInput
+                  style={styles.prSearchInput}
+                  placeholder="Egzersiz veya rekor ara (Örn: Bench Press)..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={prSearchQuery}
+                  onChangeText={setPrSearchQuery}
+                />
+                {prSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setPrSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Horizontal Category Filter Chips */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prCategoryChips}>
+                {(['Hepsi', 'Göğüs', 'Sırt', 'Bacak', 'Omuz', 'Ön Kol', 'Arka Kol', 'Karın', 'Kardiyo'] as const).map(cat => {
+                  const isSelected = selectedPRCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.prCatChip, isSelected && styles.prCatChipSelected]}
+                      onPress={() => setSelectedPRCategory(cat)}
+                    >
+                      <Text style={[styles.prCatChipText, isSelected && styles.prCatChipTextSelected]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Interactive Exercise PR Cards */}
+              {allExercisePRItems.length > 0 ? (
+                <View style={styles.prList}>
+                  {allExercisePRItems.slice(0, 15).map(item => {
+                    const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
+                    return (
+                      <TouchableOpacity
+                        key={item.id || item.name}
+                        style={styles.prCard}
+                        activeOpacity={0.75}
+                        onPress={() => setSelectedExerciseForPR(item)}
+                      >
+                        <View style={styles.prLeft}>
+                          <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
+                          <View style={styles.prCardMetaRow}>
+                            <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
+                              <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
+                            </View>
+                            {item.isRecent && (
+                              <View style={styles.recentBadge}>
+                                <Text style={styles.recentBadgeText}>Bu Hafta</Text>
+                              </View>
+                            )}
+                            {item.lastWorkoutDate && !item.isRecent && (
+                              <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
+                            )}
+                          </View>
+                        </View>
+
+                        <View style={styles.prRightRow}>
+                          {item.allTimeWeight ? (
+                            <View style={styles.prRightPill}>
+                              <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
+                              <Text style={styles.prRepsText}>
+                                {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
+                              </Text>
+                            </View>
+                          ) : item.pr?.maxSpeedKmh ? (
+                            <View style={styles.prRightPill}>
+                              <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
+                              <Text style={styles.prRepsText}>
+                                {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.prInspectBadge}>
+                              <Text style={styles.prInspectBadgeText}>İncele</Text>
+                            </View>
+                          )}
+                          <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.emptyPrCard}>
+                  <Ionicons name="search-outline" size={28} color={COLORS.textMuted} />
+                  <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
 
       <ExercisePRDetailModal
         visible={!!selectedExerciseForPR}
@@ -458,6 +510,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  subTabBar: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  subTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 4,
+  },
+  subTabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    gap: 5,
+    minHeight: 38,
+  },
+  subTabBtnSelected: {
+    backgroundColor: '#111111',
+  },
+  subTabBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  subTabBtnTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   scrollArea: {
     flex: 1,
