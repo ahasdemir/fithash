@@ -174,11 +174,21 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     translateY.setValue(0);
   }, [onBackgroundSession, translateY]);
 
+  const handleMinimize = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(() => {
+      handleBackground();
+    });
+  }, [handleBackground, translateY]);
+
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 10;
+        return gestureState.dy > 4;
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
@@ -186,22 +196,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 120 || gestureState.vy > 0.4) {
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 180,
-            useNativeDriver: true,
-          }).start(() => {
-            handleBackground();
-          });
+        if (gestureState.dy > 100 || gestureState.vy > 0.35) {
+          handleMinimize();
         } else if (Math.abs(gestureState.dy) < 6 && Math.abs(gestureState.dx) < 6) {
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 180,
-            useNativeDriver: true,
-          }).start(() => {
-            handleBackground();
-          });
+          handleMinimize();
         } else {
           Animated.spring(translateY, {
             toValue: 0,
@@ -838,12 +836,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       <Animated.View style={[styles.container, { paddingTop: Math.max(10, insets.top), transform: [{ translateY }] }]}>
         {/* Top Sheet Drag Handle Bar for Minimizing */}
         {onBackgroundSession && (
-          <View
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleMinimize}
             {...panResponder.panHandlers}
             style={styles.topDragHandleBarContainer}
+            hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
           >
             <View style={styles.topDragHandleBar} />
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Header Bar */}
@@ -896,6 +897,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
         <ScrollView
           style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled={true}
+          scrollEventThrottle={16}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: Math.max(insets.bottom, 20) + 70 }
@@ -1403,8 +1408,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 12,
-    paddingBottom: 6,
+    paddingTop: 10,
+    paddingBottom: 12,
+    minHeight: 28,
     backgroundColor: COLORS.surface,
   },
   topDragHandleBar: {
