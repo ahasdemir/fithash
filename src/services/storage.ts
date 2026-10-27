@@ -246,7 +246,7 @@ export const saveWorkout = async (workout: WorkoutSession): Promise<WorkoutSessi
       if (existingIndex >= 0) {
         await recalculateAllPRs(updatedWorkouts);
       } else {
-        await updatePRsFromWorkout(workout);
+        await updatePRsFromWorkoutInternal(workout);
       }
       return updatedWorkouts;
     } catch (error) {
@@ -257,16 +257,18 @@ export const saveWorkout = async (workout: WorkoutSession): Promise<WorkoutSessi
 };
 
 export const deleteWorkout = async (id: string): Promise<WorkoutSession[]> => {
-  try {
-    const workouts = await getWorkouts();
-    const updated = workouts.filter(w => w.id !== id);
-    await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(updated));
-    await recalculateAllPRs(updated);
-    return updated;
-  } catch (error) {
-    console.error('Error deleting workout:', error);
-    throw error;
-  }
+  return withStorageMutex(async () => {
+    try {
+      const workouts = await getWorkouts();
+      const updated = workouts.filter(w => w.id !== id);
+      await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(updated));
+      await recalculateAllPRs(updated);
+      return updated;
+    } catch (error) {
+      console.error('Error deleting workout:', error);
+      throw error;
+    }
+  });
 };
 
 // --- ACTIVE SESSION (persisted across app restarts) ---
@@ -330,84 +332,86 @@ export const getPersonalRecords = async (): Promise<Record<string, PersonalRecor
   }
 };
 
-export const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
-  return withStorageMutex(async () => {
-    try {
-      const prs = await getPersonalRecords();
-      let updated = false;
+const updatePRsFromWorkoutInternal = async (workout: WorkoutSession): Promise<void> => {
+  try {
+    const prs = await getPersonalRecords();
+    let updated = false;
 
-      workout.exercises.forEach(ex => {
-        let maxW = 0;
-        let maxR = 0;
-        let max1RM = 0;
-        let exVol = 0;
-        let maxSpeed = 0;
-        let maxDist = 0;
-        let maxDur = 0;
+    workout.exercises.forEach(ex => {
+      let maxW = 0;
+      let maxR = 0;
+      let max1RM = 0;
+      let exVol = 0;
+      let maxSpeed = 0;
+      let maxDist = 0;
+      let maxDur = 0;
 
-        ex.sets.forEach(set => {
-          if (!set.completed) return;
+      ex.sets.forEach(set => {
+        if (!set.completed) return;
 
-          // Ağırlık PR Kontrolü
-          if (set.weight && set.weight > 0) {
-            const reps = set.reps || 1;
-            const estimated1RM = Math.round(calculateAutoregulatedE1RM(set.weight, reps, set.rir ?? 1));
+        // Ağırlık PR Kontrolü
+        if (set.weight && set.weight > 0) {
+          const reps = set.reps || 1;
+          const estimated1RM = Math.round(calculateAutoregulatedE1RM(set.weight, reps, set.rir ?? 1));
 
-            if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
-              maxW = set.weight;
-              maxR = reps;
-            }
-            if (estimated1RM > max1RM) {
-              max1RM = estimated1RM;
-            }
-            exVol += set.weight * reps;
+          if (set.weight > maxW || (set.weight === maxW && reps > maxR)) {
+            maxW = set.weight;
+            maxR = reps;
           }
+          if (estimated1RM > max1RM) {
+            max1RM = estimated1RM;
+          }
+          exVol += set.weight * reps;
+        }
 
-          // Kardiyo PR Kontrolü
-          if (set.avgSpeedKmh && set.avgSpeedKmh > maxSpeed) {
-            maxSpeed = set.avgSpeedKmh;
-          }
-          if (set.distanceKm && set.distanceKm > maxDist) {
-            maxDist = set.distanceKm;
-          }
-          if (set.durationMinutes && set.durationMinutes > maxDur) {
-            maxDur = set.durationMinutes;
-          }
-        });
-
-        const existingPR = prs[ex.exerciseId];
-        if (maxW > 0 || maxDist > 0 || maxSpeed > 0) {
-          const isBetterWeight = !existingPR || maxW > existingPR.maxWeight || (maxW === existingPR.maxWeight && maxR > existingPR.maxReps);
-          const isBetter1RM = max1RM > (existingPR?.maxEstimatedOneRepMax || 0);
-          const isBetterSpeed = maxSpeed > (existingPR?.maxSpeedKmh || 0);
-          const isBetterDistance = maxDist > (existingPR?.maxDistanceKm || 0);
-
-          if (isBetterWeight || isBetter1RM || isBetterSpeed || isBetterDistance) {
-            prs[ex.exerciseId] = {
-              exerciseId: ex.exerciseId,
-              exerciseName: ex.exerciseName,
-              maxWeight: Math.max(maxW, existingPR?.maxWeight || 0),
-              maxReps: maxW >= (existingPR?.maxWeight || 0) ? maxR : (existingPR?.maxReps || 0),
-              maxEstimatedOneRepMax: Math.max(max1RM, existingPR?.maxEstimatedOneRepMax || 0),
-              maxVolume: Math.max(exVol, existingPR?.maxVolume || 0),
-              maxSpeedKmh: Math.max(maxSpeed, existingPR?.maxSpeedKmh || 0),
-              maxDistanceKm: Math.max(maxDist, existingPR?.maxDistanceKm || 0),
-              maxDurationMinutes: Math.max(maxDur, existingPR?.maxDurationMinutes || 0),
-              lastUpdatedDate: workout.date,
-              date: workout.date,
-            };
-            updated = true;
-          }
+        // Kardiyo PR Kontrolü
+        if (set.avgSpeedKmh && set.avgSpeedKmh > maxSpeed) {
+          maxSpeed = set.avgSpeedKmh;
+        }
+        if (set.distanceKm && set.distanceKm > maxDist) {
+          maxDist = set.distanceKm;
+        }
+        if (set.durationMinutes && set.durationMinutes > maxDur) {
+          maxDur = set.durationMinutes;
         }
       });
 
-      if (updated) {
-        await AsyncStorage.setItem(STORAGE_KEYS.PRS, JSON.stringify(prs));
+      const existingPR = prs[ex.exerciseId];
+      if (maxW > 0 || maxDist > 0 || maxSpeed > 0) {
+        const isBetterWeight = !existingPR || maxW > existingPR.maxWeight || (maxW === existingPR.maxWeight && maxR > existingPR.maxReps);
+        const isBetter1RM = max1RM > (existingPR?.maxEstimatedOneRepMax || 0);
+        const isBetterSpeed = maxSpeed > (existingPR?.maxSpeedKmh || 0);
+        const isBetterDistance = maxDist > (existingPR?.maxDistanceKm || 0);
+
+        if (isBetterWeight || isBetter1RM || isBetterSpeed || isBetterDistance) {
+          prs[ex.exerciseId] = {
+            exerciseId: ex.exerciseId,
+            exerciseName: ex.exerciseName,
+            maxWeight: Math.max(maxW, existingPR?.maxWeight || 0),
+            maxReps: maxW >= (existingPR?.maxWeight || 0) ? maxR : (existingPR?.maxReps || 0),
+            maxEstimatedOneRepMax: Math.max(max1RM, existingPR?.maxEstimatedOneRepMax || 0),
+            maxVolume: Math.max(exVol, existingPR?.maxVolume || 0),
+            maxSpeedKmh: Math.max(maxSpeed, existingPR?.maxSpeedKmh || 0),
+            maxDistanceKm: Math.max(maxDist, existingPR?.maxDistanceKm || 0),
+            maxDurationMinutes: Math.max(maxDur, existingPR?.maxDurationMinutes || 0),
+            lastUpdatedDate: workout.date,
+            date: workout.date,
+          };
+          updated = true;
+        }
       }
-    } catch (error) {
-      console.error('Error updating PRs:', error);
+    });
+
+    if (updated) {
+      await AsyncStorage.setItem(STORAGE_KEYS.PRS, JSON.stringify(prs));
     }
-  });
+  } catch (error) {
+    console.error('Error updating PRs:', error);
+  }
+};
+
+export const updatePRsFromWorkout = async (workout: WorkoutSession): Promise<void> => {
+  return withStorageMutex(async () => updatePRsFromWorkoutInternal(workout));
 };
 
 /**
