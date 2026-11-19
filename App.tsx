@@ -31,6 +31,7 @@ import {
   getActiveSession,
   saveActiveSession,
   clearActiveSession,
+  saveActiveRestTimerEnd,
   getLocalDateString,
   getMondayOfWeek,
 } from './src/services/storage';
@@ -40,10 +41,20 @@ import {
   configureNotifications,
   scheduleSessionReminder,
   cancelSessionReminder,
+  scheduleRestTimerNotification,
+  cancelRestTimerNotification,
   triggerPRNotification,
   triggerStreakMilestoneNotification,
 } from './src/services/notifications';
-import { syncRoutinesToWearable, initWearSyncListener } from './src/services/wearSyncService';
+import {
+  syncRoutinesToWearable,
+  syncWorkoutsHistoryToWearable,
+  syncActiveSessionToWearable,
+  getPendingWearActiveSession,
+  getPendingWearRestTimer,
+  initWearSyncListener,
+  WearRestTimerUpdate,
+} from './src/services/wearSyncService';
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 import { updateStreakWidget } from './src/services/widgetService';
 
@@ -60,11 +71,15 @@ export default function App() {
   const [workoutDays, setWorkoutDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
   const [weeklyTargetHistory, setWeeklyTargetHistory] = useState<Record<string, number>>({});
   const [summarySession, setSummarySession] = useState<WorkoutSession | null>(null);
+  // Saatten aynalanan son dinlenme zamanlayıcısı güncellemesi (her olay yeni nesne).
+  const [remoteRestTimer, setRemoteRestTimer] = useState<WearRestTimerUpdate | null>(null);
 
   useEffect(() => {
     configureNotifications();
     loadAllData();
-    restoreActiveSession();
+    restoreActiveSession().then(() => {
+      reconcileWearPendingState();
+    });
 
     const unsubscribeWear = initWearSyncListener(
       () => {
@@ -74,6 +89,32 @@ export default function App() {
         const rData = await getRoutines();
         const appSettings = await getAppSettings();
         syncRoutinesToWearable(rData, appSettings);
+        const wData = await getWorkouts();
+        syncWorkoutsHistoryToWearable(wData);
+        const savedSession = await getActiveSession();
+        if (savedSession && !savedSession.completed) {
+          syncActiveSessionToWearable(savedSession);
+        }
+      },
+      {
+        onActiveSessionUpdated: session => {
+          if (!session) {
+            // Saat seansı bitirdi veya vazgeçti; telefondaki aynayı da temizle.
+            setActiveSession(null);
+            setShowActiveModal(false);
+            clearActiveSession();
+            cancelSessionReminder();
+            return;
+          }
+          // Saatte başlatılan/düzenlenen seans, restoreActiveSession ile aynı UX'i sunar.
+          setActiveSession(session);
+          saveActiveSession(session);
+          setShowActiveModal(true);
+          scheduleSessionReminder(session.name);
+        },
+        onRestTimerUpdated: (endTimeMs, totalSeconds, revision) => {
+          setRemoteRestTimer({ endTimeMs, totalSeconds, revision });
+        },
       }
     );
 
@@ -101,6 +142,48 @@ export default function App() {
     }
   };
 
+  /**
+   * Saat, telefon JS kapalıyken aktif seansı veya dinlenme zamanlayıcısını
+   * güncellemiş olabilir. Uygulama açılışında native ayna önbelleğini okuyup
+   * yerel durumla uzlaştırır (WEAR_SYNC_PROTOCOL.md §5.1: getPending*State).
+   */
+  const reconcileWearPendingState = async () => {
+    try {
+      const pendingSession = await getPendingWearActiveSession();
+      if (pendingSession && pendingSession.revision > 0) {
+        if (pendingSession.session) {
+          setActiveSession(pendingSession.session);
+          setShowActiveModal(true);
+          await saveActiveSession(pendingSession.session);
+          scheduleSessionReminder(pendingSession.session.name);
+        } else {
+          // Saat antrenmanı telefon kapalıyken bitirdi/vazgeçti; bayat yerel seansı temizle.
+          setActiveSession(null);
+          setShowActiveModal(false);
+          await clearActiveSession();
+          cancelSessionReminder();
+        }
+      }
+    } catch (e) {
+      console.warn('Wear OS aktif seans uzlaştırma hatası:', e);
+    }
+
+    try {
+      const pendingRest = await getPendingWearRestTimer();
+      if (pendingRest && pendingRest.revision > 0) {
+        if (pendingRest.endTimeMs !== null) {
+          await saveActiveRestTimerEnd(pendingRest.endTimeMs);
+          scheduleRestTimerNotification(pendingRest.endTimeMs);
+        } else {
+          await saveActiveRestTimerEnd(null);
+          cancelRestTimerNotification();
+        }
+      }
+    } catch (e) {
+      console.warn('Wear OS dinlenme zamanlayıcısı uzlaştırma hatası:', e);
+    }
+  };
+
   const loadAllData = async () => {
     const wData = await getWorkouts();
     const rData = await getRoutines();
@@ -110,6 +193,7 @@ export default function App() {
     setRoutines(rData);
     setPrs(prData);
     syncRoutinesToWearable(rData, appSettings);
+    syncWorkoutsHistoryToWearable(wData);
     if (appSettings.workoutDays) {
       setWorkoutDays(appSettings.workoutDays);
     }
@@ -123,22 +207,26 @@ export default function App() {
     setShowActiveModal(true);
     saveActiveSession(session);
     scheduleSessionReminder(session.name);
+    syncActiveSessionToWearable(session);
   };
 
   const handleUpdateActiveSession = (session: WorkoutSession) => {
     setActiveSession(session);
     saveActiveSession(session);
+    syncActiveSessionToWearable(session);
   };
 
   const handleFinishActiveSession = async (completedSession: WorkoutSession) => {
     setShowActiveModal(false);
     setActiveSession(null);
+    syncActiveSessionToWearable(null);
     await clearActiveSession();
     cancelSessionReminder();
 
     const previousPrs = prs;
     const updated = await saveWorkout(completedSession);
     setWorkouts(updated);
+    syncWorkoutsHistoryToWearable(updated);
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
 
@@ -175,6 +263,7 @@ export default function App() {
   const handleCancelActiveSession = () => {
     setShowActiveModal(false);
     setActiveSession(null);
+    syncActiveSessionToWearable(null);
     clearActiveSession();
     cancelSessionReminder();
   };
@@ -204,6 +293,7 @@ export default function App() {
   const handleDeleteWorkout = async (id: string) => {
     const updated = await deleteWorkout(id);
     setWorkouts(updated);
+    syncWorkoutsHistoryToWearable(updated);
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
   };
@@ -211,6 +301,7 @@ export default function App() {
   const handleUpdateWorkout = async (updatedWorkout: WorkoutSession) => {
     const updated = await saveWorkout(updatedWorkout);
     setWorkouts(updated);
+    syncWorkoutsHistoryToWearable(updated);
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
   };
@@ -359,6 +450,7 @@ export default function App() {
           onFinishSession={handleFinishActiveSession}
           onCancelSession={handleCancelActiveSession}
           onBackgroundSession={handleBackgroundSession}
+          remoteRestTimer={remoteRestTimer}
         />
 
         {/* Settings Modal */}

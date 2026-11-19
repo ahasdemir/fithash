@@ -26,6 +26,7 @@ import { ExerciseSwapModal } from '../components/ExerciseSwapModal';
 import { WorkoutCompletionModal } from '../components/WorkoutCompletionModal';
 import { getExercises, getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
+import { syncRestTimerToWearable, WearRestTimerUpdate } from '../services/wearSyncService';
 import {
   calculateSmartAutoregulatedOverload,
   SmartOverloadRecommendation,
@@ -44,6 +45,11 @@ interface ActiveWorkoutModalProps {
   onFinishSession: (session: WorkoutSession) => void;
   onCancelSession: () => void;
   onBackgroundSession?: () => void;
+  /**
+   * Wear OS saatinden aynalanan son dinlenme zamanlayıcısı güncellemesi.
+   * Her yeni revizyonda bir kez uygulanır; `endTimeMs === null` temizleme demektir.
+   */
+  remoteRestTimer?: WearRestTimerUpdate | null;
 }
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +61,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   onFinishSession,
   onCancelSession,
   onBackgroundSession,
+  remoteRestTimer,
 }) => {
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState<WorkoutSession | null>(activeSession);
@@ -113,6 +120,26 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     }
   }, [visible, session]);
 
+  // Wear OS saatinden gelen dinlenme zamanlayıcısı güncellemesini uygula
+  // (WEAR_SYNC_PROTOCOL.md §7.3). Telefon bu olayı saate geri yansıtmaz.
+  useEffect(() => {
+    if (!remoteRestTimer) return;
+    const { endTimeMs } = remoteRestTimer;
+    if (endTimeMs === null || endTimeMs <= Date.now()) {
+      // Saat zamanlayıcıyı iptal etti/süresi doldu.
+      saveActiveRestTimerEnd(null);
+      cancelRestTimerNotification();
+      setShowRestTimer(false);
+      return;
+    }
+    const remaining = Math.max(1, Math.ceil((endTimeMs - Date.now()) / 1000));
+    saveActiveRestTimerEnd(endTimeMs);
+    scheduleRestTimerNotification(endTimeMs);
+    setRestTimerSeconds(remaining);
+    setRestTimerKey(Date.now());
+    setShowRestTimer(true);
+  }, [remoteRestTimer]);
+
   // Handle app coming to foreground from locked screen
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async (nextState) => {
@@ -161,10 +188,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     saveActiveRestTimerEnd(endTime);
     if (endTime !== null) {
       scheduleRestTimerNotification(endTime);
+      // +/-15 sn veya devam ettirme: kalan süreyi saate aynala.
+      const remainingSecs = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+      syncRestTimerToWearable(endTime, Math.max(restTimerSeconds, remainingSecs));
     } else {
       cancelRestTimerNotification();
+      // Duraklatma/süre dolma: saat tarafında cleared olarak yorumlanır.
+      syncRestTimerToWearable(null, 0);
     }
-  }, []);
+  }, [restTimerSeconds]);
 
   const translateY = useRef(new Animated.Value(0)).current;
 
@@ -567,6 +599,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       const targetEnd = Date.now() + restSecs * 1000;
       saveActiveRestTimerEnd(targetEnd);
       scheduleRestTimerNotification(targetEnd);
+      // Set tamamlanınca otomatik başlayan dinlenmeyi saate aynala (§7.3).
+      syncRestTimerToWearable(targetEnd, restSecs);
       setRestTimerSeconds(restSecs);
       setRestTimerKey(Date.now());
       setShowRestTimer(true);
@@ -796,6 +830,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onFinishSession(finalSession);
     saveActiveRestTimerEnd(null);
     cancelRestTimerNotification();
+    // Antrenman bitince saatin dinlenme zamanlayıcısı da temizlenir.
+    syncRestTimerToWearable(null, 0);
   };
 
   const getRirColor = (rir?: number, isWarmup?: boolean) => {
@@ -825,6 +861,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         setCustomAlert(null);
         saveActiveRestTimerEnd(null);
         cancelRestTimerNotification();
+        syncRestTimerToWearable(null, 0);
         onCancelSession();
       },
       onCancel: () => setCustomAlert(null),
@@ -888,6 +925,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
               onClose={() => {
                 saveActiveRestTimerEnd(null);
                 cancelRestTimerNotification();
+                // Kullanıcı dinlenmeyi atladı; saate cleared gönder.
+                syncRestTimerToWearable(null, 0);
                 setShowRestTimer(false);
               }}
               onDeadlineChange={handleRestDeadlineChange}
