@@ -534,8 +534,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* SECTION: WEAR OS WATCH SYNC */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#C6F035' }]}>
-                <Ionicons name="watch" size={18} color="#111111" />
+              <View style={[styles.iconCircle, { backgroundColor: COLORS.primary }]}>
+                <Ionicons name="watch" size={18} color={COLORS.textInverted} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Wear OS Akıllı Saat Senkronizasyonu</Text>
@@ -544,12 +544,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
 
             <TouchableOpacity
-              style={[styles.importBtn, { marginTop: 12, backgroundColor: '#C6F035' }]}
+              style={[styles.importBtn, { marginTop: 12, backgroundColor: COLORS.primary }]}
               onPress={handleSyncWearable}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={18} color="#111111" />
-              <Text style={[styles.importBtnText, { color: '#111111', fontWeight: 'bold' }]}>
+              <Ionicons name="refresh" size={18} color={COLORS.textInverted} />
+              <Text style={[styles.importBtnText, { color: COLORS.textInverted, fontWeight: 'bold' }]}>
                 Rutinleri Saate Şimdi Eşitle
               </Text>
             </TouchableOpacity>

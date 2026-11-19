@@ -349,11 +349,11 @@ interface RenderSvgBarChartProps {
 const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   data,
   containerWidth,
-  height = 170,
+  height = 165,
   valueKey = 'volume',
   selectedIndex,
   onSelectIndex,
-  minBarWidth = 28,
+  minBarWidth = 26,
   barGap = 8,
 }) => {
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -361,22 +361,22 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   if (!data.length) return null;
 
   const isSets = valueKey === 'sets';
-  const PADDING_HORIZ = 16;
+  const PADDING_HORIZ = 14;
   const maxLabelLength = Math.max(...data.map(d => d.label.length), 4);
   const minStepForLabel = maxLabelLength * 6.4 + 4;
   const dynamicMinStepWidth = Math.max(minBarWidth + barGap, minStepForLabel);
 
   const contentWidth = data.length * dynamicMinStepWidth + PADDING_HORIZ * 2;
-  const chartWidth = Math.max(containerWidth - 32, contentWidth);
+  const chartWidth = Math.max(containerWidth - 28, contentWidth);
   const stepWidth = chartWidth / data.length;
-  const barWidth = Math.max(minBarWidth, Math.min(52, stepWidth * 0.70));
+  const barWidth = Math.max(minBarWidth, Math.min(48, stepWidth * 0.68));
 
   const maxValue = isSets
     ? Math.max(...data.map(d => d.sets), 10)
     : Math.max(...data.map(d => d.volume), 1000);
 
-  const baselineY = height - 32;
-  const maxBarHeight = height - 55;
+  const baselineY = height - 28;
+  const maxBarHeight = height - 52;
 
   return (
     <ScrollView
@@ -389,33 +389,37 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
       }}
     >
       <Svg width={chartWidth} height={height}>
-        {/* Dash lines */}
-        <Line x1="0" y1="20" x2={chartWidth} y2="20" stroke={COLORS.border} strokeDasharray="4 4" />
+        {/* Dash lines - Subtle gridlines #1B2531 */}
+        <Line x1="0" y1="20" x2={chartWidth} y2="20" stroke="#1B2531" strokeDasharray="3 3" />
         <Line
           x1="0"
           y1={20 + maxBarHeight / 2}
           x2={chartWidth}
           y2={20 + maxBarHeight / 2}
-          stroke={COLORS.border}
-          strokeDasharray="4 4"
+          stroke="#1B2531"
+          strokeDasharray="3 3"
         />
         <Line x1="0" y1={baselineY} x2={chartWidth} y2={baselineY} stroke={COLORS.border} />
 
         {data.map((item, index) => {
           const val = isSets ? item.sets : item.volume;
           const x = index * stepWidth + (stepWidth - barWidth) / 2;
-          const barHeight = val > 0 ? Math.max(6, (val / maxValue) * maxBarHeight) : 4;
+          const barHeight = val > 0 ? Math.max(6, (val / maxValue) * maxBarHeight) : 3;
           const y = baselineY - barHeight;
           const isSelected = selectedIndex === index;
           const isPeak = isSets ? (item.isPeakSet && val > 0) : (item.isPeak && val > 0);
 
-          let fillColor = COLORS.border;
+          let fillColor = '#1B2531';
+          let fillOpacity = 1;
           if (isSelected) {
             fillColor = COLORS.primary;
+            fillOpacity = 1;
           } else if (isPeak) {
-            fillColor = '#10B981';
+            fillColor = COLORS.success;
+            fillOpacity = 0.85;
           } else if (val > 0) {
-            fillColor = '#111111';
+            fillColor = COLORS.primary;
+            fillOpacity = 0.45;
           }
 
           const valText = isSets
@@ -424,27 +428,40 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
 
           return (
             <G key={item.id}>
+              {/* Active selection glow halo */}
+              {isSelected && val > 0 && (
+                <Rect
+                  x={x - 2}
+                  y={y - 2}
+                  width={barWidth + 4}
+                  height={barHeight + 2}
+                  rx={5}
+                  fill="rgba(76, 194, 255, 0.25)"
+                />
+              )}
+
               {/* Bar Rect */}
               <Rect
                 x={x}
                 y={y}
                 width={barWidth}
                 height={barHeight}
-                rx={Math.min(6, barWidth / 2)}
+                rx={4}
                 fill={fillColor}
-                stroke={isSelected ? '#111111' : 'none'}
-                strokeWidth={isSelected ? 2 : 0}
+                fillOpacity={fillOpacity}
+                stroke={isSelected ? COLORS.primary : 'none'}
+                strokeWidth={isSelected ? 1.5 : 0}
               />
 
               {/* Peak Indicator Dot above bar */}
               {isPeak && !isSelected && (
                 <Rect
-                  x={x + barWidth / 2 - 3}
-                  y={y - 10}
-                  width={6}
-                  height={6}
-                  rx={3}
-                  fill="#10B981"
+                  x={x + barWidth / 2 - 2.5}
+                  y={y - 8}
+                  width={5}
+                  height={5}
+                  rx={2.5}
+                  fill={COLORS.success}
                 />
               )}
 
@@ -452,8 +469,8 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
               {valText !== '' && (
                 <SvgText
                   x={x + barWidth / 2}
-                  y={Math.max(12, y - (isPeak ? 12 : 6))}
-                  fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
+                  y={Math.max(11, y - (isPeak ? 11 : 5))}
+                  fill={isSelected ? COLORS.primary : COLORS.textSecondary}
                   fontSize="9"
                   fontWeight={isSelected ? '800' : '700'}
                   textAnchor="middle"
@@ -465,7 +482,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
               {/* X-Axis Label */}
               <SvgText
                 x={x + barWidth / 2}
-                y={height - 10}
+                y={height - 8}
                 fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
                 fontSize="10"
                 fontWeight={isSelected ? '800' : '600'}
@@ -627,7 +644,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
         category,
         sets,
         volume: categoryVolume[category] || 0,
-        color: COLORS.category[category as any] || '#111111',
+        color: COLORS.category[category as any] || COLORS.primary,
       }))
       .sort((a, b) => b.sets - a.sets);
   }, [workouts]);
@@ -746,7 +763,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="expand-outline" size={14} color="#111111" />
+            <Ionicons name="expand-outline" size={13} color={COLORS.primary} />
             <Text style={styles.expandBtnText}>Büyüt</Text>
           </TouchableOpacity>
         </View>
@@ -758,14 +775,14 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <View style={styles.tooltipCard}>
                 <View style={styles.tooltipHeader}>
                   <View style={styles.tooltipLeft}>
-                    <Ionicons name="calendar" size={14} color={COLORS.primary} />
+                    <Ionicons name="calendar" size={13} color={COLORS.primary} />
                     <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
                       {selectedSetBucket.fullLabel}
                     </Text>
                   </View>
                   {selectedSetBucket.isPeakSet && (
                     <View style={styles.peakBadge}>
-                      <Ionicons name="flame" size={10} color="#10B981" />
+                      <Ionicons name="flame" size={10} color={COLORS.success} />
                       <Text style={styles.peakBadgeText}>En Yoğun Gün</Text>
                     </View>
                   )}
@@ -808,11 +825,11 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             <RenderSvgBarChart
               data={volumeData}
               containerWidth={containerWidth}
-              height={165}
+              height={160}
               valueKey="sets"
               selectedIndex={activeSetIndex}
               onSelectIndex={setSelectedSetIndex}
-              minBarWidth={28}
+              minBarWidth={26}
               barGap={8}
             />
           </View>
@@ -879,7 +896,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="expand-outline" size={14} color="#111111" />
+            <Ionicons name="expand-outline" size={13} color={COLORS.primary} />
             <Text style={styles.expandBtnText}>Büyüt</Text>
           </TouchableOpacity>
         </View>
@@ -891,14 +908,14 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <View style={styles.tooltipCard}>
                 <View style={styles.tooltipHeader}>
                   <View style={styles.tooltipLeft}>
-                    <Ionicons name="calendar" size={14} color={COLORS.primary} />
+                    <Ionicons name="calendar" size={13} color={COLORS.primary} />
                     <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
                       {selectedVolumeBucket.fullLabel}
                     </Text>
                   </View>
                   {selectedVolumeBucket.isPeak && (
                     <View style={styles.peakBadge}>
-                      <Ionicons name="trophy" size={10} color="#10B981" />
+                      <Ionicons name="trophy" size={10} color={COLORS.success} />
                       <Text style={styles.peakBadgeText}>Zirve Hacim</Text>
                     </View>
                   )}
@@ -932,11 +949,11 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             <RenderSvgBarChart
               data={volumeData}
               containerWidth={containerWidth}
-              height={170}
+              height={165}
               valueKey="volume"
               selectedIndex={activeVolumeIndex}
               onSelectIndex={setSelectedVolumeIndex}
-              minBarWidth={28}
+              minBarWidth={26}
               barGap={8}
             />
           </View>
@@ -959,8 +976,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <View style={styles.modalTitleIconBg}>
                 <Ionicons
                   name={modalMetric === 'sets' ? 'layers-outline' : 'analytics'}
-                  size={20}
-                  color="#111111"
+                  size={18}
+                  color={COLORS.primary}
                 />
               </View>
               <View>
@@ -979,7 +996,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               style={styles.modalCloseBtn}
               onPress={() => setIsModalOpen(false)}
             >
-              <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
+              <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -1039,7 +1056,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               </View>
             </View>
 
-            {/* Expanded Large Chart (Height 220px) */}
+            {/* Expanded Large Chart (Height 210px) */}
             <View style={styles.modalChartCard}>
               <View style={styles.modalChartHeader}>
                 <Text style={styles.modalChartTitle}>
@@ -1060,11 +1077,11 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <RenderSvgBarChart
                 data={modalVolumeData}
                 containerWidth={containerWidth + 40}
-                height={220}
+                height={210}
                 valueKey={modalMetric}
                 selectedIndex={modalActiveIndex}
                 onSelectIndex={setModalSelectedIndex}
-                minBarWidth={32}
+                minBarWidth={30}
                 barGap={8}
               />
             </View>
@@ -1074,14 +1091,14 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               <View style={styles.modalDetailCard}>
                 <View style={styles.modalDetailHeader}>
                   <View style={styles.modalDetailTitleRow}>
-                    <Ionicons name="calendar" size={16} color={COLORS.primary} />
+                    <Ionicons name="calendar" size={15} color={COLORS.primary} />
                     <Text style={styles.modalDetailDate} numberOfLines={1} ellipsizeMode="tail">
                       {modalSelectedBucket.fullLabel}
                     </Text>
                   </View>
                   {(modalMetric === 'sets' ? modalSelectedBucket.isPeakSet : modalSelectedBucket.isPeak) && (
                     <View style={styles.peakPill}>
-                      <Ionicons name="trophy" size={12} color="#111111" />
+                      <Ionicons name="trophy" size={11} color={COLORS.textInverted} />
                       <Text style={styles.peakPillText}>Zirve Periyot</Text>
                     </View>
                   )}
@@ -1164,7 +1181,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 {modalMetric === 'sets' ? (
                   <>
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="layers-outline" size={18} color="#111111" />
+                      <Ionicons name="layers-outline" size={16} color={COLORS.primary} />
                       <Text style={styles.modalSummaryVal}>
                         {totalModalSets} <Text style={styles.modalSummaryUnit}>Set</Text>
                       </Text>
@@ -1172,7 +1189,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="flame-outline" size={18} color="#10B981" />
+                      <Ionicons name="flame-outline" size={16} color={COLORS.success} />
                       <Text style={styles.modalSummaryVal}>
                         {modalMaxSets} <Text style={styles.modalSummaryUnit}>Set</Text>
                       </Text>
@@ -1180,7 +1197,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
+                      <Ionicons name="calculator-outline" size={16} color="#8B5CF6" />
                       <Text style={styles.modalSummaryVal}>
                         {avgSetsPerWorkout.toFixed(1)} <Text style={styles.modalSummaryUnit}>Set</Text>
                       </Text>
@@ -1188,7 +1205,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="barbell-outline" size={18} color="#EF4444" />
+                      <Ionicons name="barbell-outline" size={16} color={COLORS.danger} />
                       <Text style={styles.modalSummaryVal}>
                         {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
                       </Text>
@@ -1198,7 +1215,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 ) : (
                   <>
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="barbell-outline" size={18} color="#111111" />
+                      <Ionicons name="barbell-outline" size={16} color={COLORS.primary} />
                       <Text style={styles.modalSummaryVal}>
                         {(totalModalVol / 1000).toFixed(1)} <Text style={styles.modalSummaryUnit}>Ton</Text>
                       </Text>
@@ -1206,7 +1223,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="trophy-outline" size={18} color="#10B981" />
+                      <Ionicons name="trophy-outline" size={16} color={COLORS.success} />
                       <Text style={styles.modalSummaryVal}>
                         {formatVolumeShort(modalMaxVol)} <Text style={styles.modalSummaryUnit}>kg</Text>
                       </Text>
@@ -1214,7 +1231,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
+                      <Ionicons name="calculator-outline" size={16} color="#8B5CF6" />
                       <Text style={styles.modalSummaryVal}>
                         {formatVolumeShort(Math.round(avgPeriodVol))} <Text style={styles.modalSummaryUnit}>kg</Text>
                       </Text>
@@ -1222,7 +1239,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                     </View>
 
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="flame-outline" size={18} color="#EF4444" />
+                      <Ionicons name="flame-outline" size={16} color={COLORS.danger} />
                       <Text style={styles.modalSummaryVal}>
                         {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
                       </Text>
@@ -1241,12 +1258,12 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 14,
+    gap: 12,
   },
   bentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
@@ -1255,7 +1272,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   headerLeft: {
@@ -1265,56 +1285,63 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flexWrap: 'wrap',
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   cardSubtitle: {
     fontSize: 11,
     color: COLORS.textMuted,
   },
   badgePill: {
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   badgePillText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   expandBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
-    ...SHADOWS.soft,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
   },
   expandBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   chartSection: {
-    gap: 12,
+    gap: 10,
   },
   scrollChartContent: {
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   tooltipCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 8,
+    padding: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 8,
@@ -1323,6 +1350,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   tooltipLeft: {
@@ -1332,7 +1362,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tooltipDateText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.textPrimary,
     flexShrink: 1,
@@ -1341,76 +1371,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(52, 211, 153, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 4,
     flexShrink: 0,
   },
   peakBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   tooltipBody: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingTop: 4,
   },
   tooltipStat: {
     alignItems: 'center',
     gap: 2,
   },
   tooltipLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   tooltipValText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
+    fontVariant: ['tabular-nums'],
   },
   tooltipSubText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   tooltipDivider: {
     width: 1,
-    height: 24,
+    height: 22,
     backgroundColor: COLORS.border,
   },
   noDataText: {
     color: COLORS.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
   cardInnerDivider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginVertical: 14,
+    marginVertical: 12,
   },
   muscleSubHeader: {
-    marginBottom: 12,
+    marginBottom: 10,
     gap: 2,
   },
   muscleSubTitle: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   muscleSubSubtitle: {
     fontSize: 11,
     color: COLORS.textMuted,
   },
   muscleList: {
-    gap: 14,
+    gap: 10,
   },
   muscleRow: {
-    gap: 6,
+    gap: 4,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   muscleHeader: {
     flexDirection: 'row',
@@ -1421,16 +1463,16 @@ const styles = StyleSheet.create({
   muscleTitleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 2,
   },
   muscleName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
@@ -1440,29 +1482,32 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   muscleSetsText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   musclePercentText: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   muscleVolText: {
     fontSize: 11,
     color: COLORS.textMuted,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   progressTrack: {
-    height: 8,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 100,
+    height: 5,
+    backgroundColor: '#1B2531',
+    borderRadius: 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 100,
+    borderRadius: 2,
   },
   // Modal Styles
   modalSafeArea: {
@@ -1473,8 +1518,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
@@ -1485,17 +1530,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalTitleIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   modalSubtitle: {
     fontSize: 11,
@@ -1505,137 +1554,143 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   modalScrollContent: {
-    padding: 20,
-    gap: 16,
-    paddingBottom: 40,
+    padding: 14,
+    gap: 12,
+    paddingBottom: 32,
   },
   metricSwitcherContainer: {
-    gap: 6,
+    gap: 4,
   },
   metricSwitcherLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 0.8,
   },
   metricSwitcherBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 100,
-    padding: 4,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 8,
+    padding: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   metricBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   metricBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   metricBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: COLORS.textSecondary,
   },
   metricBtnTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   resSwitcherContainer: {
-    gap: 6,
+    gap: 4,
   },
   resSwitcherLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 0.8,
   },
   resSwitcherBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 100,
-    padding: 4,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 8,
+    padding: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   resBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   resBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   resBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: COLORS.textSecondary,
   },
   resBtnTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   modalChartCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 12,
+    gap: 10,
     ...SHADOWS.soft,
   },
   modalChartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   modalChartTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   modalPeakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   modalPeakBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textInverted,
   },
   modalDetailCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 12,
+    gap: 10,
   },
   modalDetailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   modalDetailTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
   },
   modalDetailDate: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
     flexShrink: 1,
@@ -1645,47 +1700,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
     flexShrink: 0,
   },
   peakPillText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textInverted,
   },
   modalMetricGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   modalMetricBox: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '46%',
     backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 8,
+    padding: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 2,
   },
   modalMetricLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   modalMetricVal: {
     fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   modalSummarySection: {
-    gap: 10,
-    marginTop: 4,
+    gap: 8,
+    marginTop: 2,
   },
   modalSectionTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 0.8,
@@ -1693,33 +1751,36 @@ const styles = StyleSheet.create({
   modalSummaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   modalSummarySquare: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '46%',
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 4,
     ...SHADOWS.soft,
   },
   modalSummaryVal: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
   modalSummaryUnit: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
   },
   modalSummarySub: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });

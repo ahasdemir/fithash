@@ -54,7 +54,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <Ionicons name="calendar" size={14} color="#111111" />
+          <Ionicons name="calendar" size={13} color={COLORS.primary} />
           <Text style={styles.dateText}>{session.date}</Text>
         </View>
 
@@ -63,7 +63,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
           onPress={() => onRequestDelete(session)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+          <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
         </TouchableOpacity>
       </View>
 
@@ -77,43 +77,43 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
         <View style={styles.statsRow}>
           {hasVolume && (
             <View style={styles.badgePill}>
-              <Ionicons name="barbell" size={12} color="#111111" />
+              <Ionicons name="barbell" size={11} color={COLORS.primary} />
               <Text style={styles.badgeText}>{session.totalVolume.toLocaleString('tr-TR')} kg</Text>
             </View>
           )}
 
           {hasCalories && (
-            <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-              <Ionicons name="flame" size={12} color="#EF4444" />
-              <Text style={[styles.badgeText, { color: '#EF4444' }]}>
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(248, 113, 113, 0.12)', borderColor: 'rgba(248, 113, 113, 0.35)' }]}>
+              <Ionicons name="flame" size={11} color={COLORS.danger} />
+              <Text style={[styles.badgeText, { color: COLORS.danger }]}>
                 ~{session.totalCaloriesBurned} kcal
               </Text>
             </View>
           )}
 
           {hasCardioDist && (
-            <View style={[styles.badgePill, { backgroundColor: 'rgba(6, 182, 212, 0.12)' }]}>
-              <Ionicons name="walk" size={12} color="#06B6D4" />
-              <Text style={[styles.badgeText, { color: '#06B6D4' }]}>
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(76, 194, 255, 0.12)', borderColor: 'rgba(76, 194, 255, 0.35)' }]}>
+              <Ionicons name="walk" size={11} color={COLORS.primary} />
+              <Text style={[styles.badgeText, { color: COLORS.primary }]}>
                 {session.totalCardioDistanceKm} km
               </Text>
             </View>
           )}
 
           <View style={styles.badgePill}>
-            <Ionicons name="time" size={12} color="#111111" />
+            <Ionicons name="time" size={11} color={COLORS.textSecondary} />
             <Text style={styles.badgeText}>{formatDuration(session.durationSeconds)}</Text>
           </View>
 
           {skippedSets > 0 ? (
-            <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
-              <Ionicons name="alert-circle" size={12} color="#EF4444" />
-              <Text style={[styles.badgeText, { color: '#EF4444' }]}>{skippedSets} Set Atlandı</Text>
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(248, 113, 113, 0.12)', borderColor: 'rgba(248, 113, 113, 0.35)' }]}>
+              <Ionicons name="alert-circle" size={11} color={COLORS.danger} />
+              <Text style={[styles.badgeText, { color: COLORS.danger }]}>{skippedSets} Set Atlandı</Text>
             </View>
           ) : totSets > 0 ? (
-            <View style={[styles.badgePill, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
-              <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-              <Text style={[styles.badgeText, { color: '#10B981' }]}>%100 Tamamlandı</Text>
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(52, 211, 153, 0.12)', borderColor: 'rgba(52, 211, 153, 0.35)' }]}>
+              <Ionicons name="checkmark-circle" size={11} color={COLORS.success} />
+              <Text style={[styles.badgeText, { color: COLORS.success }]}>%100 Tamamlandı</Text>
             </View>
           ) : null}
         </View>
@@ -141,7 +141,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
 
         <View style={styles.cardFooterHint}>
           <Text style={styles.cardFooterHintText}>Detayları görmek için dokunun</Text>
-          <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={13} color={COLORS.textMuted} />
         </View>
       </TouchableOpacity>
     </View>
@@ -208,7 +208,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         removeClippedSubviews={false}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+          { paddingBottom: 110 + Math.max(insets.bottom, 14) },
         ]}
         ListHeaderComponent={
           <View style={[styles.headerRow, styles.headerRowMargin]}>
@@ -224,7 +224,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="journal-outline" size={48} color={COLORS.textMuted} />
+            <Ionicons name="journal-outline" size={40} color={COLORS.textMuted} />
             <Text style={styles.emptyTitle}>Henüz kayıtlı antrenman yok</Text>
             <Text style={styles.emptySub}>Tamamladığınız antrenmanlar otomatik olarak buraya listelenecektir.</Text>
           </View>
@@ -240,7 +240,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
             onPress={() => setWorkoutToDelete(null)}
           >
             <View style={styles.deleteConfirmBox}>
-              <Ionicons name="trash-bin-outline" size={32} color={COLORS.danger} style={{ alignSelf: 'center' }} />
+              <Ionicons name="trash-bin-outline" size={28} color={COLORS.danger} style={{ alignSelf: 'center' }} />
               <Text style={styles.deleteConfirmTitle}>Antrenmanı Sil</Text>
               <Text style={styles.deleteConfirmSub}>
                 "{workoutToDelete.name}" antrenmanı geçmişten silinecektir. Emin misiniz?
@@ -328,7 +328,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   onPress={() => setSelectedWorkout(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
+                  <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -337,7 +337,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                 style={styles.modalScroll}
                 contentContainerStyle={[
                   styles.modalScrollContent,
-                  { paddingBottom: Math.max(insets.bottom, 20) + 60 },
+                  { paddingBottom: Math.max(insets.bottom, 16) + 56 },
                 ]}
                 showsVerticalScrollIndicator={false}
               >
@@ -346,7 +346,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   {/* Card 1: Süre */}
                   <View style={styles.detailBentoCard}>
                     <View style={styles.bentoIconRow}>
-                      <Ionicons name="time" size={15} color="#111111" />
+                      <Ionicons name="time" size={14} color={COLORS.primary} />
                       <Text style={styles.detailBentoLabel}>Süre</Text>
                     </View>
                     <Text style={styles.detailBentoVal} numberOfLines={1}>
@@ -359,8 +359,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     <View style={styles.bentoIconRow}>
                       <Ionicons
                         name={selectedWorkout.totalCardioDistanceKm ? "walk" : "barbell"}
-                        size={15}
-                        color="#111111"
+                        size={14}
+                        color={COLORS.primary}
                       />
                       <Text style={styles.detailBentoLabel}>
                         {selectedWorkout.totalCardioDistanceKm ? "Mesafe" : "Hacim"}
@@ -376,12 +376,12 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   </View>
 
                   {/* Card 3: Kalori */}
-                  <View style={[styles.detailBentoCard, { backgroundColor: 'rgba(239, 68, 68, 0.08)' }]}>
+                  <View style={[styles.detailBentoCard, { backgroundColor: 'rgba(248, 113, 113, 0.08)', borderColor: 'rgba(248, 113, 113, 0.35)' }]}>
                     <View style={styles.bentoIconRow}>
-                      <Ionicons name="flame" size={15} color="#EF4444" />
-                      <Text style={[styles.detailBentoLabel, { color: '#EF4444' }]}>Kalori</Text>
+                      <Ionicons name="flame" size={14} color={COLORS.danger} />
+                      <Text style={[styles.detailBentoLabel, { color: COLORS.danger }]}>Kalori</Text>
                     </View>
-                    <Text style={[styles.detailBentoVal, { color: '#EF4444' }]} numberOfLines={1}>
+                    <Text style={[styles.detailBentoVal, { color: COLORS.danger }]} numberOfLines={1}>
                       ~{selectedWorkout.totalCaloriesBurned || 0} kcal
                     </Text>
                   </View>
@@ -390,25 +390,25 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   <View style={[
                     styles.detailBentoCard,
                     skippedSetsInSession > 0
-                      ? { backgroundColor: 'rgba(239, 68, 68, 0.08)' }
-                      : { backgroundColor: 'rgba(16, 185, 129, 0.08)' }
+                      ? { backgroundColor: 'rgba(248, 113, 113, 0.08)', borderColor: 'rgba(248, 113, 113, 0.35)' }
+                      : { backgroundColor: 'rgba(52, 211, 153, 0.08)', borderColor: 'rgba(52, 211, 153, 0.35)' }
                   ]}>
                     <View style={styles.bentoIconRow}>
                       <Ionicons
                         name={skippedSetsInSession > 0 ? "alert-circle" : "checkmark-circle"}
-                        size={15}
-                        color={skippedSetsInSession > 0 ? "#EF4444" : "#10B981"}
+                        size={14}
+                        color={skippedSetsInSession > 0 ? COLORS.danger : COLORS.success}
                       />
                       <Text style={[
                         styles.detailBentoLabel,
-                        { color: skippedSetsInSession > 0 ? '#EF4444' : '#10B981' }
+                        { color: skippedSetsInSession > 0 ? COLORS.danger : COLORS.success }
                       ]} numberOfLines={1}>
                         {skippedSetsInSession > 0 ? `${skippedSetsInSession} Atlandı` : 'Tamamlandı'}
                       </Text>
                     </View>
                     <Text style={[
                       styles.detailBentoVal,
-                      { color: skippedSetsInSession > 0 ? '#EF4444' : '#10B981' }
+                      { color: skippedSetsInSession > 0 ? COLORS.danger : COLORS.success }
                     ]} numberOfLines={1}>
                       {completedSetsInSession}/{totalSetsInSession} Set
                     </Text>
@@ -440,17 +440,17 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
                         {isEntirelySkipped ? (
                           <View style={styles.badgeDanger}>
-                            <Ionicons name="close-circle" size={12} color="#EF4444" />
+                            <Ionicons name="close-circle" size={11} color={COLORS.danger} />
                             <Text style={styles.badgeDangerText}>Yapılmadı</Text>
                           </View>
                         ) : skippedSetsCount > 0 ? (
                           <View style={styles.badgeWarning}>
-                            <Ionicons name="alert-circle" size={12} color="#F59E0B" />
+                            <Ionicons name="alert-circle" size={11} color={COLORS.warning} />
                             <Text style={styles.badgeWarningText}>{completedSets.length}/{ex.sets.length} Set ({skippedSetsCount} Atlandı)</Text>
                           </View>
                         ) : (
                           <View style={styles.badgeSuccess}>
-                            <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                            <Ionicons name="checkmark-circle" size={11} color={COLORS.success} />
                             <Text style={styles.badgeSuccessText}>%100 Tamamlandı</Text>
                           </View>
                         )}
@@ -464,7 +464,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                         return (
                           <>
                             <View style={styles.setTableHeader}>
-                              <Text style={[styles.setTh, { width: 36 }]}>DURUM</Text>
+                              <Text style={[styles.setTh, { width: 34 }]}>DURUM</Text>
                               <Text style={[styles.setTh, { width: 32 }]}>SET</Text>
                               {isCardio ? (
                                 <>
@@ -499,14 +499,14 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
                                 return (
                                   <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped]}>
-                                    <View style={{ width: 36, alignItems: 'center' }}>
+                                    <View style={{ width: 34, alignItems: 'center' }}>
                                       <Ionicons
                                         name={isSetCompleted ? "checkmark-circle" : "close-circle"}
-                                        size={16}
-                                        color={isSetCompleted ? "#10B981" : "#EF4444"}
+                                        size={15}
+                                        color={isSetCompleted ? COLORS.success : COLORS.danger}
                                       />
                                     </View>
-                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }]}>#{workingSetIndex || set.setNumber}</Text>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: COLORS.danger }]}>#{workingSetIndex || set.setNumber}</Text>
                                     <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
                                       {mins} dk
                                     </Text>
@@ -528,11 +528,11 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                     <View style={{ width: 32, alignItems: 'center' }}>
                                       <Ionicons
                                         name={isSetCompleted ? "checkmark-circle" : "close-circle"}
-                                        size={16}
-                                        color={isSetCompleted ? (set.isWarmup ? "#F97316" : "#10B981") : "#EF4444"}
+                                        size={15}
+                                        color={isSetCompleted ? (set.isWarmup ? "#F97316" : COLORS.success) : COLORS.danger}
                                       />
                                     </View>
-                                    <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
+                                    <Text style={[styles.setText, !isSetCompleted && { color: COLORS.danger }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
                                       {setNumberDisplay}
                                     </Text>
                                     <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
@@ -546,15 +546,15 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                               }
 
                               return (
-                                <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped, set.isWarmup && { backgroundColor: 'rgba(249, 115, 22, 0.05)' }]}>
+                                <View key={set.id} style={[styles.setRow, !isSetCompleted && styles.setRowSkipped, set.isWarmup && { backgroundColor: 'rgba(249, 115, 22, 0.06)' }]}>
                                   <View style={{ width: 32, alignItems: 'center' }}>
                                     <Ionicons
                                       name={isSetCompleted ? "checkmark-circle" : "close-circle"}
-                                      size={16}
-                                      color={isSetCompleted ? (set.isWarmup ? "#F97316" : "#10B981") : "#EF4444"}
+                                      size={15}
+                                      color={isSetCompleted ? (set.isWarmup ? "#F97316" : COLORS.success) : COLORS.danger}
                                     />
                                   </View>
-                                  <Text style={[styles.setText, !isSetCompleted && { color: '#EF4444' }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
+                                  <Text style={[styles.setText, !isSetCompleted && { color: COLORS.danger }, set.isWarmup && { color: '#F97316', fontWeight: '800' }]}>
                                     {setNumberDisplay}
                                   </Text>
                                   <Text style={[styles.setValue, { flex: 1, textAlign: 'center' }, !isSetCompleted && styles.setValueSkipped]}>
@@ -580,7 +580,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                 {skippedRoutineExercises.length > 0 && (
                   <View style={styles.skippedRoutineSection}>
                     <View style={styles.skippedSectionHeaderRow}>
-                      <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                      <Ionicons name="alert-circle" size={16} color={COLORS.danger} />
                       <Text style={styles.skippedSectionHeaderTitle}>ATLANAN RUTİN EGZERSİZLERİ ({skippedRoutineExercises.length})</Text>
                     </View>
                     {skippedRoutineExercises.map(re => (
@@ -610,7 +610,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     setWorkoutToDelete(w);
                   }}
                 >
-                  <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                  <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
                   <Text style={styles.deleteWorkoutModalText}>Sil</Text>
                 </TouchableOpacity>
 
@@ -622,7 +622,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     setWorkoutToEdit(w);
                   }}
                 >
-                  <Ionicons name="pencil-outline" size={16} color="#111111" />
+                  <Ionicons name="pencil-outline" size={15} color={COLORS.textPrimary} />
                   <Text style={styles.editWorkoutModalText}>Düzenle</Text>
                 </TouchableOpacity>
 
@@ -634,7 +634,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     onReuseWorkout(workout);
                   }}
                 >
-                  <Ionicons name="refresh" size={16} color="#111111" />
+                  <Ionicons name="refresh" size={15} color={COLORS.textInverted} />
                   <Text style={styles.reuseBtnText}>Tekrar Yap</Text>
                 </TouchableOpacity>
               </View>
@@ -652,60 +652,71 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: 16,
+    padding: 12,
   },
   // The old ScrollView content used `gap: 16` between the header and the list;
   // FlatList content children are the rows themselves, so the same spacing is
   // reproduced with a header margin + a fixed-height ItemSeparatorComponent.
   headerRowMargin: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardSeparator: {
-    height: 12,
+    height: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
   },
   headerLeft: {
     flexShrink: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
+    marginTop: 1,
   },
   countBadge: {
     flexShrink: 0,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 100,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   countBadgeText: {
-    color: '#111111',
-    fontWeight: '700',
-    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '800',
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 10,
+    gap: 8,
     ...SHADOWS.soft,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
@@ -713,18 +724,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   trashBtn: {
-    padding: 6,
-    borderRadius: 100,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.25)',
   },
   dateText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   sessionName: {
     flexShrink: 1,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
     marginVertical: 2,
@@ -732,16 +746,16 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 5,
   },
   badgePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -749,14 +763,16 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 11,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   exSummaryList: {
     marginTop: 6,
     gap: 3,
   },
   exSummaryItem: {
-    color: COLORS.textMuted,
-    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
   },
   cardFooterHint: {
     flexDirection: 'row',
@@ -768,84 +784,88 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
   },
   cardFooterHintText: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 10,
+    paddingVertical: 48,
+    gap: 8,
   },
   emptyTitle: {
     color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
   },
   emptySub: {
     color: COLORS.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     textAlign: 'center',
     maxWidth: 250,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'flex-end',
   },
   deleteConfirmBox: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 24,
-    margin: 20,
+    borderRadius: 12,
+    padding: 18,
+    margin: 16,
     alignSelf: 'center',
-    width: '90%',
+    width: '92%',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    ...SHADOWS.soft,
+    borderColor: COLORS.borderDark,
+    gap: 10,
+    ...SHADOWS.medium,
   },
   deleteConfirmTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
     textAlign: 'center',
   },
   deleteConfirmSub: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   deleteConfirmBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: 10,
+    marginTop: 6,
   },
   cancelDeleteBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cancelDeleteText: {
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 13,
   },
   confirmDeleteBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 8,
     backgroundColor: COLORS.danger,
   },
   confirmDeleteText: {
     color: '#FFFFFF',
     fontWeight: '800',
+    fontSize: 13,
   },
   modalSafeArea: {
     flex: 1,
@@ -855,8 +875,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
@@ -866,14 +886,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: COLORS.textPrimary,
   },
   modalSub: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   modalCloseBtn: {
     padding: 2,
@@ -882,57 +903,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 14,
   },
   detailBentoCard: {
     width: '48.5%',
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 18,
+    backgroundColor: COLORS.surface,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'center',
-    gap: 6,
-    minHeight: 70,
+    gap: 4,
+    minHeight: 62,
   },
   bentoIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   detailBentoVal: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
     letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
   },
   detailBentoLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textMuted,
-    fontWeight: '700',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   modalScroll: {
     flex: 1,
   },
   modalScrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: 12,
+    paddingBottom: 32,
   },
   sectionHeaderTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 0.8,
-    marginBottom: 10,
-    marginTop: 4,
+    marginBottom: 8,
+    marginTop: 2,
   },
   modalExCard: {
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 10,
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -941,20 +965,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   modalExName: {
     flex: 1,
     flexShrink: 1,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: COLORS.textPrimary,
   },
   modalCatBadge: {
     flexShrink: 0,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 4,
   },
   modalCatText: {
     fontSize: 10,
@@ -968,48 +995,57 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   setTh: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: COLORS.textMuted,
+    letterSpacing: 0.4,
   },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.surfaceSubtle,
   },
   setText: {
-    width: 36,
+    width: 34,
     color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   setValue: {
     color: COLORS.textPrimary,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   modalFooterRow: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 16,
+    gap: 8,
+    padding: 12,
     backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
   deleteWorkoutModalBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.3)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 100,
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   deleteWorkoutModalText: {
     color: COLORS.danger,
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   reuseBtn: {
     flex: 1,
@@ -1017,108 +1053,121 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 100,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   reuseBtnText: {
-    color: '#111111',
+    color: COLORS.textInverted,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   exSummaryItemSkipped: {
-    color: '#EF4444',
+    color: COLORS.danger,
   },
   modalExCardSkipped: {
-    backgroundColor: 'rgba(239, 68, 68, 0.04)',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: 'rgba(248, 113, 113, 0.05)',
+    borderColor: 'rgba(248, 113, 113, 0.35)',
   },
   badgeSuccess: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 100,
+    backgroundColor: 'rgba(52, 211, 153, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   badgeSuccessText: {
-    color: '#10B981',
-    fontSize: 10,
-    fontWeight: '700',
+    color: COLORS.success,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   badgeWarning: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 100,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   badgeWarningText: {
-    color: '#F59E0B',
-    fontSize: 10,
-    fontWeight: '700',
+    color: COLORS.warning,
+    fontSize: 9,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   badgeDanger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 100,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   badgeDangerText: {
-    color: '#EF4444',
-    fontSize: 10,
-    fontWeight: '700',
+    color: COLORS.danger,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   setRowSkipped: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(248, 113, 113, 0.08)',
+    borderRadius: 4,
     paddingHorizontal: 4,
-    marginVertical: 2,
+    marginVertical: 1,
   },
   setValueSkipped: {
     color: COLORS.textMuted,
     textDecorationLine: 'line-through',
   },
   skippedTag: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(248, 113, 113, 0.15)',
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
     marginLeft: 6,
   },
   skippedTagText: {
-    color: '#EF4444',
+    color: COLORS.danger,
     fontSize: 9,
     fontWeight: '800',
   },
   skippedRoutineSection: {
-    marginTop: 16,
-    gap: 8,
+    marginTop: 12,
+    gap: 6,
   },
   skippedSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   skippedSectionHeaderTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#EF4444',
+    color: COLORS.danger,
     letterSpacing: 0.8,
   },
   skippedExCard: {
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: 'rgba(248, 113, 113, 0.06)',
+    borderRadius: 8,
+    padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: 'rgba(248, 113, 113, 0.3)',
     borderStyle: 'dashed',
     gap: 4,
   },
@@ -1128,13 +1177,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   skippedExName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   skippedExSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   editWorkoutModalBtn: {
     flex: 1,
@@ -1142,15 +1192,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 8,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   editWorkoutModalText: {
     color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });

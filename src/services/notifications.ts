@@ -27,7 +27,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 250, 250, 250],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: '#4CC2FF',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
@@ -37,7 +37,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 600, 200, 600, 200, 600],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: '#4CC2FF',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         bypassDnd: true,
         showBadge: true,
@@ -50,7 +50,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 300, 100, 300, 100, 300],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: '#4CC2FF',
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         sound: 'default',
       });

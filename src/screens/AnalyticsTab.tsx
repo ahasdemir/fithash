@@ -58,7 +58,7 @@ const PRCardRow = React.memo(function PRCardRow({ item, onSelect }: PRCardRowPro
       <View style={styles.prLeft}>
         <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
         <View style={styles.prCardMetaRow}>
-          <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
+          <View style={[styles.prCatBadge, { backgroundColor: catColor + '20' }]}>
             <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
           </View>
           {item.isRecent && (
@@ -92,7 +92,7 @@ const PRCardRow = React.memo(function PRCardRow({ item, onSelect }: PRCardRowPro
             <Text style={styles.prInspectBadgeText}>İncele</Text>
           </View>
         )}
-        <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
+        <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
       </View>
     </TouchableOpacity>
   );
@@ -289,7 +289,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   return (
     <View style={styles.container}>
       {/* Analytics Sub-Tab Segmented Switcher */}
-      <View style={[styles.subTabBar, { paddingTop: Math.max(insets.top, 8) }]}>
+      <View style={[styles.subTabBar, { paddingTop: Math.max(insets.top, 6) }]}>
         <View style={styles.subTabContainer}>
           {(
             [
@@ -308,8 +308,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               >
                 <Ionicons
                   name={tab.icon as any}
-                  size={14}
-                  color={isSelected ? '#FFFFFF' : COLORS.textSecondary}
+                  size={13}
+                  color={isSelected ? COLORS.textInverted : COLORS.textSecondary}
                 />
                 <Text
                   style={[
@@ -330,7 +330,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         style={styles.scrollArea}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+          { paddingBottom: 110 + Math.max(insets.bottom, 14) },
         ]}
       >
         {/* SUBTAB 1: Özet & Hacim (Overview) */}
@@ -358,64 +358,72 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
             <View style={styles.bentoGrid}>
               {/* 1. Working Sets (Çalışma Seti Sayısı) */}
-              <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
-                <View style={styles.metricIconBg}>
-                  <Ionicons name="barbell" size={18} color="#111111" />
+              <View style={[styles.bentoSquareCard, { borderColor: COLORS.primary }]}>
+                <View style={styles.cardTopRow}>
+                  <View style={styles.metricIconBg}>
+                    <Ionicons name="barbell" size={14} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.metricLabel}>Çalışma Setleri</Text>
                 </View>
-                <Text style={styles.metricValue}>
+                <Text style={[styles.metricValue, { color: COLORS.primary }]}>
                   {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
                 </Text>
-                <Text style={styles.metricLabel}>Çalışma Setleri</Text>
               </View>
 
               {/* 2. Workout Compliance Rate (%) */}
               <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                  <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                <View style={styles.cardTopRow}>
+                  <View style={[styles.metricIconBg, { backgroundColor: 'rgba(52, 211, 153, 0.14)', borderColor: 'rgba(52, 211, 153, 0.35)' }]}>
+                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                  </View>
+                  <Text style={styles.metricLabel}>Program Uyum Oranı</Text>
                 </View>
                 <Text style={styles.metricValue}>
                   %{stats.avgWorkoutCompliance}
                 </Text>
-                <Text style={styles.metricLabel}>Program Uyum Oranı</Text>
               </View>
 
               {/* 3. Average RIR & Intensity */}
               <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                  <Ionicons name="flash" size={18} color="#8B5CF6" />
+                <View style={styles.cardTopRow}>
+                  <View style={[styles.metricIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.16)', borderColor: 'rgba(139, 92, 246, 0.35)' }]}>
+                    <Ionicons name="flash" size={14} color="#8B5CF6" />
+                  </View>
+                  <Text style={styles.metricLabel}>Ort. Yoğunluk (RIR)</Text>
                 </View>
                 <Text style={styles.metricValue}>
                   RIR {stats.avgRir}
                 </Text>
-                <Text style={styles.metricLabel}>Ort. Yoğunluk (RIR)</Text>
               </View>
 
               {/* 4. Active Work Time (TUT) */}
               <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
-                  <Ionicons name="time" size={18} color="#EC4899" />
+                <View style={styles.cardTopRow}>
+                  <View style={[styles.metricIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.16)', borderColor: 'rgba(236, 72, 153, 0.35)' }]}>
+                    <Ionicons name="time" size={14} color="#EC4899" />
+                  </View>
+                  <Text style={styles.metricLabel}>Gerilim Altında Süre (TUT)</Text>
                 </View>
                 <Text style={styles.metricValue}>
                   {stats.activeWorkTimeMinutes} <Text style={styles.unitText}>dk Aktif</Text>
                 </Text>
-                <Text style={styles.metricLabel}>Gerilim Altında Süre (TUT)</Text>
               </View>
             </View>
 
             {/* SECONDARY BENTO ROW: Calories, Cardio Distance, Volume */}
             <View style={styles.secondaryBentoRow}>
               <View style={styles.secondaryPillCard}>
-                <Ionicons name="flame" size={14} color="#EF4444" />
+                <Ionicons name="flame" size={13} color={COLORS.danger} />
                 <Text style={styles.secondaryCardValue}>{stats.totalCaloriesBurned > 0 ? stats.totalCaloriesBurned : 0} kcal</Text>
               </View>
 
               <View style={styles.secondaryPillCard}>
-                <Ionicons name="walk" size={14} color="#06B6D4" />
+                <Ionicons name="walk" size={13} color={COLORS.primary} />
                 <Text style={styles.secondaryCardValue}>{stats.totalCardioDistanceKm > 0 ? stats.totalCardioDistanceKm : 0} km</Text>
               </View>
 
               <View style={styles.secondaryPillCard}>
-                <Ionicons name="barbell-outline" size={14} color={COLORS.textSecondary} />
+                <Ionicons name="barbell-outline" size={13} color={COLORS.textSecondary} />
                 <Text style={styles.secondaryCardValue}>
                   {stats.totalVolumeKg >= 1000 ? `${(stats.totalVolumeKg / 1000).toFixed(1)}k kg` : `${stats.totalVolumeKg} kg`}
                 </Text>
@@ -426,8 +434,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {cardioSummary.length > 0 && (
               <View style={styles.cardioBentoCard}>
                 <View style={styles.sectionHeader}>
-                  <View style={[styles.prIconBadge, { backgroundColor: '#06B6D4' }]}>
-                    <Ionicons name="bicycle" size={18} color="#111111" />
+                  <View style={[styles.prIconBadge, { backgroundColor: COLORS.surfaceElevated }]}>
+                    <Ionicons name="bicycle" size={15} color={COLORS.primary} />
                   </View>
                   <View>
                     <Text style={styles.sectionTitle}>Kardiyo & Hız Performansı</Text>
@@ -445,7 +453,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         </Text>
                       </View>
                       <View style={styles.speedPillBadge}>
-                        <Ionicons name="speedometer" size={12} color="#111111" />
+                        <Ionicons name="speedometer" size={11} color={COLORS.textInverted} />
                         <Text style={styles.speedPillBadgeText}>{c.avgSpeedKmh} km/h</Text>
                       </View>
                     </View>
@@ -467,7 +475,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         {/* SUBTAB 3: Rekorlar (PRs & 1RM Progression) */}
         {activeTab === 'prs' && (
           <>
-            {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
+            {/* 1RM Strength Progression Widget */}
             <OneRepMaxWidget
               workouts={filteredWorkouts}
               onSelectExercise={handleSelectOneRMExercise}
@@ -478,7 +486,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <View style={styles.prHeaderRow}>
                 <View style={styles.prTitleBox}>
                   <View style={styles.prIconBadge}>
-                    <Ionicons name="trophy-outline" size={16} color="#111111" />
+                    <Ionicons name="trophy-outline" size={15} color={COLORS.primary} />
                   </View>
                   <View style={styles.prTitleTextBox}>
                     <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
@@ -489,7 +497,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
               {/* Search Input */}
               <View style={styles.prSearchRow}>
-                <Ionicons name="search" size={15} color={COLORS.textMuted} />
+                <Ionicons name="search" size={14} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.prSearchInput}
                   placeholder="Egzersiz veya rekor ara (Örn: Bench Press)..."
@@ -535,7 +543,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 </View>
               ) : (
                 <View style={styles.emptyPrCard}>
-                  <Ionicons name="search-outline" size={28} color={COLORS.textMuted} />
+                  <Ionicons name="search-outline" size={24} color={COLORS.textMuted} />
                   <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
                 </View>
               )}
@@ -561,94 +569,99 @@ const styles = StyleSheet.create({
   },
   subTabBar: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   subTabContainer: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
-    padding: 4,
+    borderRadius: 8,
+    padding: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 4,
+    gap: 3,
   },
   subTabBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
+    paddingVertical: 7,
     paddingHorizontal: 6,
-    borderRadius: 10,
-    gap: 5,
-    minHeight: 38,
+    borderRadius: 6,
+    gap: 4,
+    minHeight: 34,
   },
   subTabBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   subTabBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: COLORS.textSecondary,
   },
   subTabBtnTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   scrollArea: {
     flex: 1,
   },
   content: {
-    padding: 16,
-    paddingBottom: 140,
-    gap: 16,
+    padding: 12,
+    paddingBottom: 130,
+    gap: 12,
   },
   filterBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: 100,
-    padding: 4,
+    borderRadius: 8,
+    padding: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
   },
   filterBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 6,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   filterBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   filterBtnText: {
     color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   filterBtnTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   bentoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   bentoSquareCard: {
     flex: 1,
-    minWidth: '46%',
+    minWidth: '47%',
     maxWidth: '50%',
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 6,
+    gap: 8,
     ...SHADOWS.soft,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   secondaryBentoRow: {
     flexDirection: 'row',
@@ -659,62 +672,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 10,
+    gap: 5,
+    backgroundColor: COLORS.surface,
+    paddingVertical: 8,
     paddingHorizontal: 6,
-    borderRadius: 100,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   secondaryCardValue: {
     fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  metricIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricValue: {
-    fontSize: 22,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+  },
+  metricIconBg: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: COLORS.primaryGlow,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 194, 255, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
   unitText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   metricLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: COLORS.textMuted,
-    fontWeight: '500',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    flex: 1,
   },
   cardioBentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 14,
+    gap: 10,
     ...SHADOWS.soft,
   },
   cardioList: {
-    gap: 10,
+    gap: 6,
   },
   cardioRowCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 14,
-    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -722,52 +744,60 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cardioExName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   cardioMetaText: {
     fontSize: 11,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   speedPillBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   speedPillBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textInverted,
+    fontVariant: ['tabular-nums'],
   },
   prBentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 14,
+    gap: 10,
     ...SHADOWS.soft,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 8,
   },
   prHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   prTitleBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
     minWidth: 0,
   },
@@ -776,17 +806,21 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   prIconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.primary,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   sectionSub: {
     fontSize: 11,
@@ -797,23 +831,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     flexShrink: 0,
   },
   openPickerBtnText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textInverted,
   },
   prSearchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 100,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     gap: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -830,37 +864,37 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   prCatChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   prCatChipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   prCatChipText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.textSecondary,
   },
   prCatChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   prList: {
-    gap: 8,
+    gap: 6,
   },
   prCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 8,
@@ -885,28 +919,31 @@ const styles = StyleSheet.create({
   prCatBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   prCatBadgeText: {
     fontSize: 10,
     fontWeight: '700',
   },
   recentBadge: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   recentBadgeText: {
     fontSize: 9,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+    fontWeight: '800',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   prDateText: {
     fontSize: 10,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   prRightRow: {
     flexDirection: 'row',
@@ -916,30 +953,32 @@ const styles = StyleSheet.create({
   },
   prRightPill: {
     alignItems: 'flex-end',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+    backgroundColor: COLORS.surfaceElevated,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   prWeightText: {
     fontSize: 13,
     fontWeight: '900',
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
+    fontVariant: ['tabular-nums'],
   },
   prRepsText: {
     fontSize: 9,
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   prInspectBadge: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   prInspectBadgeText: {
     fontSize: 10,
@@ -949,11 +988,11 @@ const styles = StyleSheet.create({
   emptyPrCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
-    gap: 8,
+    paddingVertical: 16,
+    gap: 6,
   },
   emptyPrText: {
     color: COLORS.textMuted,
-    fontSize: 13,
+    fontSize: 12,
   },
 });

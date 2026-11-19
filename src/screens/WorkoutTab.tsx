@@ -156,7 +156,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       style={styles.container}
       contentContainerStyle={[
         styles.content,
-        { paddingBottom: 120 + Math.max(insets.bottom, 16) },
+        { paddingBottom: 110 + Math.max(insets.bottom, 14) },
       ]}
     >
       {/* Active Session Sticky Banner */}
@@ -176,7 +176,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
           <View style={styles.activeBannerRight}>
             <Text style={styles.resumeText}>Devam Et</Text>
-            <Ionicons name="chevron-forward" size={16} color="#111111" />
+            <Ionicons name="chevron-forward" size={14} color={COLORS.textInverted} />
           </View>
         </TouchableOpacity>
       )}
@@ -199,7 +199,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           activeOpacity={0.85}
           onPress={handleStartFreestyle}
         >
-          <Ionicons name="flash" size={20} color="#111111" />
+          <Ionicons name="flash" size={16} color={COLORS.textInverted} />
           <Text style={styles.startFreestyleBtnText}>Serbest Antrenman Başlat</Text>
         </TouchableOpacity>
       </View>
@@ -221,8 +221,8 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
             >
               <Ionicons
                 name={isReorderMode ? 'checkmark' : 'swap-vertical'}
-                size={14}
-                color={isReorderMode ? '#111111' : COLORS.textPrimary}
+                size={13}
+                color={isReorderMode ? COLORS.textInverted : COLORS.textPrimary}
               />
               <Text style={[styles.reorderToggleBtnText, isReorderMode && styles.reorderToggleBtnTextActive]}>
                 {isReorderMode ? 'Tamam' : 'Sırala'}
@@ -237,7 +237,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               setShowRoutineBuilder(true);
             }}
           >
-            <Ionicons name="add" size={16} color="#111111" />
+            <Ionicons name="add" size={14} color={COLORS.textInverted} />
             <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
           </TouchableOpacity>
         </View>
@@ -283,7 +283,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                   onPress={() => setSelectedRoutineForMenu(routine)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textMuted} />
+                  <Ionicons name="ellipsis-horizontal" size={18} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -311,7 +311,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               activeOpacity={0.85}
               onPress={() => handleStartRoutine(routine)}
             >
-              <Ionicons name="play" size={14} color="#111111" />
+              <Ionicons name="play" size={13} color={COLORS.textInverted} />
               <Text style={styles.startRoutineBtnText}>Bu Programı Başlat</Text>
             </TouchableOpacity>
           </View>
@@ -338,7 +338,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                     setSelectedRoutineForMenu(null);
                   }}
                 >
-                  <Ionicons name="arrow-up-circle-outline" size={20} color={COLORS.textPrimary} />
+                  <Ionicons name="arrow-up-circle-outline" size={18} color={COLORS.textPrimary} />
                   <Text style={styles.actionSheetText}>Yukarı Taşı</Text>
                 </TouchableOpacity>
               )}
@@ -352,7 +352,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                     setSelectedRoutineForMenu(null);
                   }}
                 >
-                  <Ionicons name="arrow-down-circle-outline" size={20} color={COLORS.textPrimary} />
+                  <Ionicons name="arrow-down-circle-outline" size={18} color={COLORS.textPrimary} />
                   <Text style={styles.actionSheetText}>Aşağı Taşı</Text>
                 </TouchableOpacity>
               )}
@@ -361,7 +361,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                 style={styles.actionSheetItem}
                 onPress={() => handleOpenEdit(selectedRoutineForMenu)}
               >
-                <Ionicons name="create-outline" size={20} color={COLORS.textPrimary} />
+                <Ionicons name="create-outline" size={18} color={COLORS.textPrimary} />
                 <Text style={styles.actionSheetText}>Programı Düzenle</Text>
               </TouchableOpacity>
 
@@ -369,7 +369,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                 style={styles.actionSheetItem}
                 onPress={() => handleDeletePrompt(selectedRoutineForMenu)}
               >
-                <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                 <Text style={[styles.actionSheetText, { color: COLORS.danger }]}>Programı Sil</Text>
               </TouchableOpacity>
 
@@ -390,18 +390,18 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           <View style={styles.actionModalOverlay}>
             <View style={styles.actionSheetContainer}>
               <View style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Ionicons name="trash" size={32} color={COLORS.danger} />
+                <Ionicons name="trash" size={28} color={COLORS.danger} />
                 <Text style={styles.actionSheetTitle}>Programı Sil</Text>
-                <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: 'center' }}>
+                <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' }}>
                   "{deletingRoutine.name}" programını silmek istediğinize emin misiniz?
                 </Text>
               </View>
 
               <TouchableOpacity
-                style={[styles.actionSheetItem, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: COLORS.danger }]}
+                style={[styles.actionSheetItem, { backgroundColor: 'rgba(248, 113, 113, 0.14)', borderColor: COLORS.danger }]}
                 onPress={confirmDeleteRoutine}
               >
-                <Ionicons name="trash" size={18} color={COLORS.danger} />
+                <Ionicons name="trash" size={16} color={COLORS.danger} />
                 <Text style={[styles.actionSheetText, { color: COLORS.danger }]}>Evet, Programı Sil</Text>
               </TouchableOpacity>
 
@@ -438,14 +438,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    padding: 16,
-    paddingBottom: 140, // Increased bottom padding so floating navbar never covers CTA buttons
-    gap: 16,
+    padding: 12,
+    paddingBottom: 130,
+    gap: 12,
   },
   activeBanner: {
-    backgroundColor: '#111111',
-    borderRadius: 24,
-    padding: 16,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -455,24 +457,26 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingRight: 10,
+    gap: 10,
+    paddingRight: 8,
   },
   activePulseDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.primary,
   },
   activeTitle: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   activeSubtitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
   },
   activeBannerRight: {
     flexShrink: 0,
@@ -480,66 +484,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   resumeText: {
-    color: '#111111',
-    fontWeight: '700',
-    fontSize: 12,
+    color: COLORS.textInverted,
+    fontWeight: '800',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   heroCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 14,
+    gap: 10,
     ...SHADOWS.soft,
   },
   heroBadge: {
     alignSelf: 'flex-start',
     backgroundColor: COLORS.primaryGlow,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(198, 240, 53, 0.4)',
+    borderColor: 'rgba(76, 194, 255, 0.45)',
   },
   heroBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#111111',
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   heroTextContainer: {
-    gap: 4,
+    gap: 3,
   },
   heroTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
   },
   heroSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    lineHeight: 18,
+    lineHeight: 17,
   },
   startFreestyleBtn: {
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 100,
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 8,
     ...SHADOWS.soft,
   },
   startFreestyleBtnText: {
-    color: '#111111',
-    fontSize: 15,
+    color: COLORS.textInverted,
+    fontSize: 13,
     fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -548,18 +558,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 11,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   sectionSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 1,
   },
   headerBtnGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   reorderToggleBtn: {
     flexDirection: 'row',
@@ -568,9 +581,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   reorderToggleBtnActive: {
     backgroundColor: COLORS.primary,
@@ -579,53 +592,58 @@ const styles = StyleSheet.create({
   reorderToggleBtnText: {
     color: COLORS.textPrimary,
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 11,
   },
   reorderToggleBtnTextActive: {
-    color: '#111111',
+    color: COLORS.textInverted,
   },
   createRoutineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   createRoutineBtnText: {
-    color: '#111111',
-    fontWeight: '700',
-    fontSize: 12,
+    color: COLORS.textInverted,
+    fontWeight: '800',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   routinesList: {
-    gap: 12,
+    gap: 10,
   },
   routineCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 12,
+    gap: 10,
     ...SHADOWS.soft,
   },
   routineHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   routineHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   reorderPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 2,
@@ -640,67 +658,73 @@ const styles = StyleSheet.create({
   },
   routineTitleLeft: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   routineName: {
     flexShrink: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   routineTag: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 100,
+    backgroundColor: COLORS.surfaceElevated,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   routineTagText: {
     color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   dotsMenuBtn: {
     flexShrink: 0,
-    padding: 6,
-    borderRadius: 100,
+    padding: 4,
+    borderRadius: 6,
   },
   routineDesc: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    lineHeight: 18,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
   },
   exercisesPreview: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 5,
   },
   exPill: {
     backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   exPillText: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   exPillMore: {
     backgroundColor: COLORS.primaryGlow,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 194, 255, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   exPillMoreText: {
     fontSize: 11,
-    color: '#111111',
-    fontWeight: '700',
+    color: COLORS.primary,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   startRoutineBtn: {
     flexDirection: 'row',
@@ -708,33 +732,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 100,
-    marginTop: 4,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 2,
   },
   startRoutineBtnText: {
-    color: '#111111',
+    color: COLORS.textInverted,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   actionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'flex-end',
-    padding: 16,
-    paddingBottom: 40,
+    padding: 14,
+    paddingBottom: 32,
   },
   actionSheetContainer: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    ...SHADOWS.soft,
+    borderColor: COLORS.borderDark,
+    gap: 8,
+    ...SHADOWS.medium,
   },
   actionSheetTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
     textAlign: 'center',
@@ -743,27 +769,27 @@ const styles = StyleSheet.create({
   actionSheetItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 100,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   actionSheetText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   actionSheetCancel: {
     alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 4,
+    paddingVertical: 10,
+    marginTop: 2,
   },
   actionSheetCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.textMuted,
   },
 });

@@ -69,10 +69,10 @@ const MuscleCard = React.memo(function MuscleCard({
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <View style={[styles.iconCircle, { backgroundColor: item.colorHex + '18' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: item.colorHex + '22' }]}>
             <Ionicons
               name={(config?.iconName as any) || 'barbell-outline'}
-              size={14}
+              size={13}
               color={item.colorHex}
             />
           </View>
@@ -81,7 +81,7 @@ const MuscleCard = React.memo(function MuscleCard({
           </Text>
         </View>
         {/* Percentage badge clearly visible */}
-        <View style={[styles.percentBadge, { backgroundColor: item.colorHex + '18' }]}>
+        <View style={[styles.percentBadge, { backgroundColor: item.colorHex + '22' }]}>
           <Text style={[styles.percentBadgeText, { color: item.colorHex }]}>
             %{item.recoveryPercentage}
           </Text>
@@ -105,7 +105,7 @@ const MuscleCard = React.memo(function MuscleCard({
         <Text style={styles.timeText} numberOfLines={1}>
           {formatTrainedContext(item.hoursSinceTrained, item.hardSetsInWindow)}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: item.colorHex + '14' }]}>
+        <View style={[styles.statusBadge, { backgroundColor: item.colorHex + '1A' }]}>
           <View style={[styles.statusDot, { backgroundColor: item.colorHex }]} />
           <Text style={[styles.statusBadgeText, { color: item.colorHex }]}>
             {getStatusText(item.status)}
@@ -192,7 +192,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.headerIconBg}>
-            <Ionicons name="pulse-outline" size={18} color="#111111" />
+            <Ionicons name="pulse-outline" size={16} color={COLORS.primary} />
           </View>
           <View style={styles.headerTextCol}>
             <Text style={styles.title}>Kas Yorgunluk & Hazırlık Modeli</Text>
@@ -206,7 +206,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
       {/* Hero Card: Bugün Önerilen Hedefler (Günün Hazır Kas Grupları) */}
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
-          <Ionicons name="sparkles" size={16} color={COLORS.primary} />
+          <Ionicons name="sparkles" size={14} color={COLORS.primary} />
           <Text style={styles.heroTitle}>Bugün Önerilen Hedefler</Text>
           <View style={styles.heroBadge}>
             <Text style={styles.heroBadgeText}>Aşırı Yüklemeye Hazır</Text>
@@ -229,7 +229,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
                   <Ionicons
                     name={(conf?.iconName as any) || 'checkmark-circle'}
                     size={13}
-                    color="#10B981"
+                    color={COLORS.success}
                   />
                   <Text style={styles.heroChipText}>{rec.muscleId}</Text>
                   <Text style={styles.heroChipPct}>%{rec.recoveryPercentage}</Text>
@@ -245,10 +245,10 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
       </View>
 
       {/* Physiological Tiers */}
-      {/* Tier 1: 🟢 Antrenmana Hazır / Dinlenmiş */}
+      {/* Tier 1: Antrenmana Hazır / Dinlenmiş */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
-          <View style={[styles.tierDot, { backgroundColor: '#10B981' }]} />
+          <View style={[styles.tierDot, { backgroundColor: COLORS.success }]} />
           <Text style={styles.tierTitle}>Antrenmana Hazır</Text>
           <Text style={styles.tierCount}>({readyMuscles.length})</Text>
         </View>
@@ -264,10 +264,10 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
         )}
       </View>
 
-      {/* Tier 2: 🟡 Toparlanma Aşamasında */}
+      {/* Tier 2: Toparlanma Aşamasında */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
-          <View style={[styles.tierDot, { backgroundColor: '#F59E0B' }]} />
+          <View style={[styles.tierDot, { backgroundColor: COLORS.warning }]} />
           <Text style={styles.tierTitle}>Toparlanma Aşamasında</Text>
           <Text style={styles.tierCount}>({recoveringMuscles.length})</Text>
         </View>
@@ -283,10 +283,10 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
         )}
       </View>
 
-      {/* Tier 3: 🔴 Yüksek Yorgunluk / Dinlenmeli */}
+      {/* Tier 3: Yüksek Yorgunluk / Dinlenmeli */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
-          <View style={[styles.tierDot, { backgroundColor: '#EF4444' }]} />
+          <View style={[styles.tierDot, { backgroundColor: COLORS.danger }]} />
           <Text style={styles.tierTitle}>Yüksek Yorgunluk / Dinlenmeli</Text>
           <Text style={styles.tierCount}>({fatiguedMuscles.length})</Text>
         </View>
@@ -323,10 +323,10 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
               <>
                 <View style={styles.detailHeader}>
                   <View style={styles.detailTitleRow}>
-                    <View style={[styles.iconCircle, { backgroundColor: activeDetail.colorHex + '20' }]}>
+                    <View style={[styles.iconCircle, { backgroundColor: activeDetail.colorHex + '22' }]}>
                       <Ionicons
                         name={(MUSCLE_RECOVERY_CONFIG[activeDetail.muscleId]?.iconName as any) || 'information-circle'}
-                        size={16}
+                        size={15}
                         color={activeDetail.colorHex}
                       />
                     </View>
@@ -342,12 +342,12 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     style={styles.closeBtn}
                   >
-                    <Ionicons name="close" size={18} color={COLORS.textSecondary} />
+                    <Ionicons name="close" size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
                 {/* Status Callout Banner with % and Status */}
-                <View style={[styles.statusCallout, { backgroundColor: activeDetail.colorHex + '15', borderColor: activeDetail.colorHex + '35' }]}>
+                <View style={[styles.statusCallout, { backgroundColor: activeDetail.colorHex + '14', borderColor: activeDetail.colorHex + '40' }]}>
                   <Ionicons
                     name={
                       activeDetail.status === 'RECOVERED'
@@ -356,7 +356,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
                         ? 'sync'
                         : 'alert-circle'
                     }
-                    size={22}
+                    size={20}
                     color={activeDetail.colorHex}
                   />
                   <View style={styles.calloutTextCol}>
@@ -427,26 +427,30 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 18,
-    gap: 18,
+    borderRadius: 12,
+    padding: 14,
+    gap: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
   },
   header: {
-    gap: 6,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   headerIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -454,65 +458,73 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   subtitle: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   heroCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 10,
+    gap: 8,
   },
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   heroTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     flex: 1,
   },
   heroBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    backgroundColor: 'rgba(52, 211, 153, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   heroBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   heroDescription: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   heroChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   heroChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 100,
+    gap: 5,
+    backgroundColor: COLORS.surfaceElevated,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: COLORS.borderDark,
   },
   heroChipText: {
     fontSize: 12,
@@ -522,7 +534,8 @@ const styles = StyleSheet.create({
   heroChipPct: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#10B981',
+    color: COLORS.success,
+    fontVariant: ['tabular-nums'],
   },
   noTargetText: {
     fontSize: 11,
@@ -530,58 +543,61 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   tierSection: {
-    gap: 10,
+    gap: 8,
   },
   tierHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   tierDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 2,
   },
   tierTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   tierCount: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   tierSubtitle: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: -4,
+    marginTop: -2,
   },
   tierEmptyText: {
     fontSize: 11,
     color: COLORS.textMuted,
     fontStyle: 'italic',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   muscleCard: {
-    width: '48%',
+    width: '48.5%',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
-    padding: 12,
-    borderLeftWidth: 4,
+    borderRadius: 6,
+    padding: 10,
+    borderLeftWidth: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'space-between',
-    minHeight: 90,
+    minHeight: 78,
   },
   muscleCardSelected: {
     borderColor: COLORS.primary,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceElevated,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -597,9 +613,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   iconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -610,22 +626,23 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   percentBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
     flexShrink: 0,
   },
   percentBadgeText: {
     fontSize: 11,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
     flexShrink: 0,
   },
   statusDot: {
@@ -638,15 +655,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   barTrack: {
-    height: 5,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: '#1B2531',
+    borderRadius: 2,
     overflow: 'hidden',
-    marginVertical: 6,
+    marginVertical: 5,
   },
   barFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -658,39 +675,43 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.textMuted,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
     flex: 1,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   modalContent: {
     width: '100%',
     maxWidth: 400,
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 16,
+    borderColor: COLORS.borderDark,
+    gap: 12,
     ...SHADOWS.medium,
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   detailTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
   detailTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textPrimary,
   },
@@ -701,15 +722,17 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
-    borderRadius: 16,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   statusCallout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
+    gap: 10,
+    padding: 10,
+    borderRadius: 8,
     borderWidth: 1,
   },
   calloutTextCol: {
@@ -722,17 +745,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calloutTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   calloutPct: {
     fontSize: 13,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   calloutSub: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   detailStatsGrid: {
     flexDirection: 'row',
@@ -741,32 +767,35 @@ const styles = StyleSheet.create({
   detailStatBox: {
     flex: 1,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   detailStatLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
     marginBottom: 4,
   },
   detailStatValue: {
     fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   actionBtn: {
-    backgroundColor: '#111111',
-    borderRadius: 14,
-    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: COLORS.textInverted,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

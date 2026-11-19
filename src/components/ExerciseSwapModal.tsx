@@ -62,7 +62,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
           <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 8 }}>
               <View style={styles.headerTitleRow}>
-                <Ionicons name="swap-horizontal" size={20} color={COLORS.primary} />
+                <Ionicons name="swap-horizontal" size={18} color={COLORS.primary} />
                 <Text style={styles.headerTitle}>Biyomekanik Egzersiz Değişimi</Text>
               </View>
               <Text style={styles.headerSubtitle} numberOfLines={1}>
@@ -70,7 +70,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={COLORS.textPrimary} />
+              <Ionicons name="close" size={18} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -92,12 +92,12 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
             style={styles.list}
             contentContainerStyle={[
               styles.listContent,
-              { paddingBottom: Math.max(insets.bottom, 24) + 60 },
+              { paddingBottom: Math.max(insets.bottom, 20) + 48 },
             ]}
           >
             {candidates.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="alert-circle-outline" size={32} color={COLORS.textMuted} />
+                <Ionicons name="alert-circle-outline" size={28} color={COLORS.textMuted} />
                 <Text style={styles.emptyText}>Bu kategori için uygun alternatif bulunamadı.</Text>
               </View>
             ) : (
@@ -161,7 +161,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
                     {/* Weight Carry-Over Recommendation */}
                     {cand.recommendedStartingWeight > 0 && (
                       <View style={styles.weightRecBox}>
-                        <Ionicons name="barbell-outline" size={14} color={COLORS.primary} />
+                        <Ionicons name="barbell-outline" size={13} color={COLORS.primary} />
                         <Text style={styles.weightRecText}>
                           Tavsiye Başlangıç Yükü: <Text style={styles.weightRecBold}>{cand.recommendedStartingWeight} kg</Text> (e1RM aktarımı)
                         </Text>
@@ -181,56 +181,60 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     height: '92%',
-    paddingTop: 18,
+    paddingTop: 14,
     paddingHorizontal: 0,
     paddingBottom: 0,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingTop: 2,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     padding: 6,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   sourceBox: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
+    marginHorizontal: 14,
+    marginTop: 10,
+    padding: 10,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -240,34 +244,36 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sourceLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   sourceValue: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textPrimary,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   sourceSubText: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 4,
+    marginTop: 3,
+    fontVariant: ['tabular-nums'],
   },
   list: {
     flex: 1,
     width: '100%',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 8,
-    paddingBottom: 60,
-    gap: 12,
+    paddingBottom: 48,
+    gap: 8,
   },
   candidateCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
@@ -278,43 +284,43 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   candName: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: COLORS.textPrimary,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   candBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 5,
     alignItems: 'center',
   },
   candEquipmentBadge: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   candEquipmentText: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   profileBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   profileLengthened: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(76, 194, 255, 0.16)',
   },
   profileShortened: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(251, 191, 36, 0.16)',
   },
   profileUniform: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(52, 211, 153, 0.16)',
   },
   profileBadgeText: {
     fontSize: 10,
@@ -322,76 +328,83 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   zeroAxialBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: 'rgba(52, 211, 153, 0.14)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   zeroAxialText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#10B981',
+    fontWeight: '700',
+    color: COLORS.success,
   },
   scoreBadge: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    minWidth: 50,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    minWidth: 46,
   },
   scoreBadgeHigh: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(52, 211, 153, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
   },
   scoreBadgeMid: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(76, 194, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(76, 194, 255, 0.35)',
   },
   scoreText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   scoreTextHigh: {
-    color: '#10B981',
+    color: COLORS.success,
   },
   scoreTextMid: {
-    color: '#3B82F6',
+    color: COLORS.primary,
   },
   scoreSubLabel: {
-    fontSize: 9,
+    fontSize: 8,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   reasonText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
-    marginTop: 8,
-    lineHeight: 16,
+    marginTop: 6,
+    lineHeight: 15,
   },
   weightRecBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 8,
+    gap: 5,
+    marginTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
   weightRecText: {
     fontSize: 11,
     color: COLORS.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   weightRecBold: {
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 30,
-    gap: 8,
+    paddingVertical: 24,
+    gap: 6,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textMuted,
   },
 });

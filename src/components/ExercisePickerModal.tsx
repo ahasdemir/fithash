@@ -102,7 +102,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
           {/* Search bar & Add Custom button */}
           <View style={styles.topActions}>
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={18} color={COLORS.textMuted} />
+              <Ionicons name="search" size={16} color={COLORS.textMuted} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Egzersiz ara..."
@@ -118,7 +118,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
             </View>
 
             <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-              <Ionicons name="add" size={20} color="#111111" />
+              <Ionicons name="add" size={20} color={COLORS.textInverted} />
             </TouchableOpacity>
           </View>
 
@@ -161,7 +161,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
             keyExtractor={item => item.id}
             contentContainerStyle={[
               styles.listContainer,
-              { paddingBottom: Math.max(insets.bottom, 16) + 80 }
+              { paddingBottom: Math.max(insets.bottom, 16) + 70 }
             ]}
             showsVerticalScrollIndicator={true}
             renderItem={({ item }) => {
@@ -186,7 +186,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                     </View>
 
                     <View style={styles.tagsRow}>
-                      <View style={[styles.badge, { backgroundColor: catColor + '15' }]}>
+                      <View style={[styles.badge, { backgroundColor: catColor + '20' }]}>
                         <Text style={[styles.badgeText, { color: catColor }]}>{item.category}</Text>
                       </View>
                       <View style={styles.badgeEquipment}>
@@ -205,17 +205,17 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                         }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
                       </TouchableOpacity>
                     )}
-                    <Ionicons name="add-circle" size={26} color="#111111" />
+                    <Ionicons name="add-circle" size={24} color={COLORS.primary} />
                   </View>
                 </TouchableOpacity>
               );
             }}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="barbell-outline" size={40} color={COLORS.textMuted} />
+                <Ionicons name="barbell-outline" size={36} color={COLORS.textMuted} />
                 <Text style={styles.emptyText}>Aradığınız egzersiz bulunamadı</Text>
                 <TouchableOpacity
                   style={styles.createBtnInline}
@@ -247,19 +247,19 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'flex-end',
   },
   container: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     height: '92%',
-    paddingTop: 18,
-    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingHorizontal: 14,
     paddingBottom: 0,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   exerciseFlatList: {
     flex: 1,
@@ -268,75 +268,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
+    gap: 8,
+    marginTop: 10,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
-    paddingHorizontal: 16,
-    height: 42,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 38,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   categoriesWrapper: {
-    marginVertical: 8,
+    marginVertical: 6,
     marginHorizontal: -4,
   },
   categoryListContent: {
     paddingHorizontal: 4,
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   categoryChip: {
     backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginRight: 6,
   },
   categoryChipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   categoryChipText: {
     color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   categoryChipTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: COLORS.textInverted,
+    fontWeight: '800',
   },
   listContainer: {
     paddingBottom: 20,
@@ -349,37 +351,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    marginBottom: 8,
+    paddingVertical: 9,
+    borderRadius: 8,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   exerciseInfo: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     marginBottom: 4,
   },
   exerciseName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   customTag: {
     backgroundColor: COLORS.primaryGlow,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 194, 255, 0.35)',
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 100,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   customTagText: {
-    color: '#111111',
-    fontSize: 10,
-    fontWeight: '700',
+    color: COLORS.primary,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   tagsRow: {
     flexDirection: 'row',
@@ -387,56 +392,61 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 4,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
   },
   badgeEquipment: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   badgeEquipmentText: {
     color: COLORS.textSecondary,
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 10,
+    paddingVertical: 32,
+    gap: 8,
   },
   emptyText: {
     color: COLORS.textMuted,
-    fontSize: 14,
+    fontSize: 13,
   },
   createBtnInline: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 100,
-    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 6,
   },
   createBtnInlineText: {
-    color: '#111111',
+    color: COLORS.textInverted,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   cardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   deleteBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.25)',
   },
 });

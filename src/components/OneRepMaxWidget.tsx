@@ -49,7 +49,7 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
       <View style={styles.cardHeader}>
         <View style={styles.titleRow}>
           <View style={styles.iconCircle}>
-            <Ionicons name="calculator" size={16} color="#111111" />
+            <Ionicons name="calculator" size={15} color={COLORS.primary} />
           </View>
           <View>
             <Text style={styles.cardTitle}>Tahmini 1RM (Tek Tekrar Maksimum)</Text>
@@ -87,50 +87,59 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
 const styles = StyleSheet.create({
   bentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: 14,
+    gap: 10,
     ...SHADOWS.soft,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   cardSubtitle: {
     fontSize: 11,
     color: COLORS.textMuted,
+    marginTop: 1,
   },
   rmList: {
-    gap: 10,
+    gap: 6,
   },
   rmCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    padding: 14,
-    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 8,
@@ -140,29 +149,35 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   exName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   rmFormulaText: {
     fontSize: 11,
     color: COLORS.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   rmBadge: {
     alignItems: 'flex-end',
-    backgroundColor: '#111111',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   rmVal: {
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.primary,
+    fontVariant: ['tabular-nums'],
   },
   rmTag: {
     fontSize: 9,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

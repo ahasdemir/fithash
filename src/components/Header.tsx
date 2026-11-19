@@ -20,10 +20,10 @@ export const Header: React.FC<HeaderProps> = ({
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <View style={styles.leftSection}>
         <View style={styles.logoBadge}>
-          <Ionicons name="flash" size={18} color="#111111" />
+          <Ionicons name="flash" size={16} color={COLORS.textInverted} />
         </View>
         <Text style={styles.title}>{title}</Text>
       </View>
@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
           onPress={onOpenStreak}
           activeOpacity={0.8}
         >
-          <Ionicons name="flame" size={14} color="#111111" />
+          <Ionicons name="flame" size={13} color={COLORS.primary} />
           <Text style={styles.streakText}>
             {`${streakDays} Gün`}
           </Text>
@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {onOpenSettings && (
           <TouchableOpacity style={styles.iconButton} onPress={onOpenSettings}>
-            <Ionicons name="cog-outline" size={20} color={COLORS.textPrimary} />
+            <Ionicons name="cog-outline" size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -55,9 +55,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
@@ -65,46 +65,49 @@ const styles = StyleSheet.create({
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   logoBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...SHADOWS.soft,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: COLORS.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    gap: 5,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   streakText: {
-    color: '#111111',
-    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontWeight: '800',
     fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',

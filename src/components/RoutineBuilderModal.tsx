@@ -215,7 +215,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
             style={styles.form}
             contentContainerStyle={[
               styles.formContent,
-              { paddingBottom: Math.max(insets.bottom, 16) + 40 }
+              { paddingBottom: Math.max(insets.bottom, 16) + 32 }
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -250,7 +250,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Egzersiz Listesi ({selectedExercises.length})</Text>
               <TouchableOpacity style={styles.addExBtn} onPress={() => setShowPicker(true)}>
-                <Ionicons name="add" size={16} color="#111111" />
+                <Ionicons name="add" size={14} color={COLORS.textInverted} />
                 <Text style={styles.addExBtnText}>Hareket Ekle</Text>
               </TouchableOpacity>
             </View>
@@ -271,7 +271,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                           onPress={() => handleMoveExercise(index, -1)}
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         >
-                          <Ionicons name="chevron-up" size={16} color={index === 0 ? COLORS.textMuted : COLORS.textPrimary} />
+                          <Ionicons name="chevron-up" size={15} color={index === 0 ? COLORS.textMuted : COLORS.textPrimary} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -280,7 +280,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                           onPress={() => handleMoveExercise(index, 1)}
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         >
-                          <Ionicons name="chevron-down" size={16} color={index === selectedExercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
+                          <Ionicons name="chevron-down" size={15} color={index === selectedExercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
                         </TouchableOpacity>
                       </View>
 
@@ -291,7 +291,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                           onPress={() => setSwappingIndex(index)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="swap-horizontal" size={16} color={COLORS.primary} />
+                          <Ionicons name="swap-horizontal" size={15} color={COLORS.primary} />
                         </TouchableOpacity>
                       )}
 
@@ -300,7 +300,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                         onPress={() => handleRemoveExercise(index)}
                         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                       >
-                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                        <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -311,11 +311,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Hedef Süre:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationMinutes', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetDurationMinutes || 15} dk</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationMinutes', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -323,11 +323,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Hedef Mesafe:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDistanceKm', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetDistanceKm || 2.5} km</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDistanceKm', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -337,11 +337,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={[styles.counterBox, (ex.targetWarmupSets || 0) > 0 && styles.counterBoxWarmup]}>
                         <Text style={[styles.counterLabel, (ex.targetWarmupSets || 0) > 0 && styles.counterLabelWarmup]}>Isınma:</Text>
                         <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={[styles.counterValue, (ex.targetWarmupSets || 0) > 0 && styles.counterValueWarmup]}>{ex.targetWarmupSets || 0}</Text>
                         <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -349,11 +349,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Çalışma Seti:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetSets}</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -361,11 +361,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Süre (sn):</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationSeconds', -5)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetDurationSeconds || 60} sn</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetDurationSeconds', 5)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -373,11 +373,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Hedef RIR:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetRir ?? 1}</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -387,11 +387,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={[styles.counterBox, (ex.targetWarmupSets || 0) > 0 && styles.counterBoxWarmup]}>
                         <Text style={[styles.counterLabel, (ex.targetWarmupSets || 0) > 0 && styles.counterLabelWarmup]}>Isınma:</Text>
                         <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={[styles.counterValue, (ex.targetWarmupSets || 0) > 0 && styles.counterValueWarmup]}>{ex.targetWarmupSets || 0}</Text>
                         <TouchableOpacity style={[styles.counterBtn, (ex.targetWarmupSets || 0) > 0 && styles.counterBtnWarmup]} onPress={() => handleUpdateTarget(index, 'targetWarmupSets', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -399,11 +399,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Çalışma Seti:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetSets}</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetSets', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -411,11 +411,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Tekrar:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetReps', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetReps}</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetReps', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
 
@@ -423,11 +423,11 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                       <View style={styles.counterBox}>
                         <Text style={styles.counterLabel}>Hedef RIR:</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', -1)}>
-                          <Ionicons name="remove" size={12} color="#111111" />
+                          <Ionicons name="remove" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                         <Text style={styles.counterValue}>{ex.targetRir ?? 1}</Text>
                         <TouchableOpacity style={styles.counterBtn} onPress={() => handleUpdateTarget(index, 'targetRir', 1)}>
-                          <Ionicons name="add" size={12} color="#111111" />
+                          <Ionicons name="add" size={12} color={COLORS.textInverted} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -438,7 +438,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
             {selectedExercises.length === 0 && (
               <TouchableOpacity style={styles.emptyAddBox} onPress={() => setShowPicker(true)}>
-                <Ionicons name="add-circle-outline" size={30} color="#111111" />
+                <Ionicons name="add-circle-outline" size={28} color={COLORS.primary} />
                 <Text style={styles.emptyAddText}>Programa Egzersiz Ekle</Text>
               </TouchableOpacity>
             )}
@@ -501,86 +501,94 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(6, 12, 18, 0.78)',
     justifyContent: 'flex-end',
   },
   container: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     height: '92%',
-    paddingTop: 18,
-    paddingHorizontal: 18,
-    paddingBottom: 16,
+    paddingTop: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.textPrimary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   form: {
-    marginVertical: 12,
+    marginVertical: 10,
   },
   formContent: {
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '800',
     color: COLORS.textSecondary,
-    marginBottom: 6,
-    marginTop: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: COLORS.surfaceSubtle,
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 18,
-    marginBottom: 10,
+    marginTop: 14,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   addExBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
   },
   addExBtnText: {
-    color: '#111111',
-    fontWeight: '700',
-    fontSize: 12,
+    color: COLORS.textInverted,
+    fontWeight: '800',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   exCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -590,10 +598,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   exName: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: COLORS.textPrimary,
     flex: 1,
     marginRight: 8,
@@ -601,13 +612,13 @@ const styles = StyleSheet.create({
   exCardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   reorderGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 2,
@@ -621,11 +632,11 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   swapExIconBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.surfaceSubtle,
+    padding: 5,
+    borderRadius: 6,
+    backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -638,7 +649,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
     marginRight: 6,
   },
   swapExBtnText: {
@@ -648,107 +659,116 @@ const styles = StyleSheet.create({
   },
   deleteExBtn: {
     padding: 5,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 6,
+    backgroundColor: 'rgba(248, 113, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.25)',
   },
   targetsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     flexWrap: 'wrap',
   },
   counterBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   counterLabel: {
     color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
   },
   counterBtn: {
     backgroundColor: COLORS.primary,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   counterValue: {
     color: COLORS.textPrimary,
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: 12,
     minWidth: 18,
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   counterBoxWarmup: {
     borderColor: '#F97316',
-    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
   },
   counterLabelWarmup: {
-    color: '#EA580C',
+    color: '#FB923C',
     fontWeight: '700',
   },
   counterBtnWarmup: {
     backgroundColor: '#F97316',
   },
   counterValueWarmup: {
-    color: '#C2410C',
+    color: '#FDBA74',
     fontWeight: '900',
   },
   emptyAddBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 25,
+    paddingVertical: 20,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderDark,
     borderStyle: 'dashed',
-    borderRadius: 18,
-    marginTop: 10,
-    gap: 8,
+    borderRadius: 10,
+    marginTop: 8,
+    gap: 6,
   },
   emptyAddText: {
     color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 13,
   },
   footer: {
     flexDirection: 'row',
-    gap: 12,
-    paddingTop: 10,
+    gap: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   cancelBtnText: {
     color: COLORS.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 13,
   },
   saveBtn: {
     flex: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 100,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
   },
   saveBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   saveBtnText: {
-    color: '#111111',
+    color: COLORS.textInverted,
     fontWeight: '800',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });
