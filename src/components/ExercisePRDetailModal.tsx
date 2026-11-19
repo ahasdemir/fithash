@@ -841,6 +841,235 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
     }
   }, [chartSessions.length, containerWidth, activeTab]);
 
+  // Ortak Grafik Geometrisi (sabitler)
+  const chartHeight = 180;
+  const paddingTop = 26;
+  const paddingBottom = 34;
+  const paddingLeft = 38;
+  const paddingRight = 24;
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
+  const innerCardWidth = containerWidth > 0 ? containerWidth - 32 : 320;
+  const minPointSpacing = 54;
+
+  // 1. GEÇMİŞ GELİŞİM GRAFİĞİ KOORDİNATLARI
+  // Nokta seçimi veya sekme geçişi (selectedIndex / activeTab / selectedPredStep)
+  // bu geometriyi değiştirmez; yalnızca chartSessions veya kart genişliği
+  // değiştiğinde yeniden hesaplanır.
+  const historyGeometry = useMemo(() => {
+    const scrollableWidth = Math.max(
+      innerCardWidth,
+      chartSessions.length * minPointSpacing + paddingLeft + paddingRight
+    );
+    const plotWidth = scrollableWidth - paddingLeft - paddingRight;
+
+    const values = chartSessions.map(s => s.chartValue);
+    const rawMin = Math.min(...values);
+    const rawMax = Math.max(...values);
+
+    let minVal: number;
+    let maxVal: number;
+
+    if (rawMin === rawMax) {
+      if (rawMin === 0) {
+        minVal = 0;
+        maxVal = 10;
+      } else {
+        minVal = Math.max(0, Math.floor(rawMin * 0.8));
+        maxVal = Math.ceil(rawMax * 1.2);
+      }
+    } else {
+      const range = rawMax - rawMin;
+      minVal = Math.max(0, Math.floor(rawMin - range * 0.15));
+      maxVal = Math.ceil(rawMax + range * 0.18);
+    }
+
+    const valRange = maxVal - minVal || 1;
+
+    const guidelines = [
+      { value: maxVal, label: `${maxVal}` },
+      { value: Math.round((minVal + maxVal) / 2), label: `${Math.round((minVal + maxVal) / 2)}` },
+      { value: minVal, label: `${minVal}` },
+    ];
+
+    const historyPoints = chartSessions.map((session, idx) => {
+      let x: number;
+      if (chartSessions.length === 1) {
+        x = paddingLeft + plotWidth / 2;
+      } else {
+        x = paddingLeft + (idx / (chartSessions.length - 1)) * plotWidth;
+      }
+      const y = chartHeight - paddingBottom - ((session.chartValue - minVal) / valRange) * plotHeight;
+      return { x, y, session, idx };
+    });
+
+    let historyPathD = '';
+    let historyAreaD = '';
+
+    if (historyPoints.length >= 2) {
+      historyPathD = `M ${historyPoints[0].x} ${historyPoints[0].y}`;
+      for (let i = 0; i < historyPoints.length - 1; i++) {
+        const p0 = historyPoints[i];
+        const p1 = historyPoints[i + 1];
+        const cpx = p0.x + (p1.x - p0.x) / 2;
+        historyPathD += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
+      }
+      historyAreaD = `${historyPathD} L ${historyPoints[historyPoints.length - 1].x} ${
+        chartHeight - paddingBottom
+      } L ${historyPoints[0].x} ${chartHeight - paddingBottom} Z`;
+    }
+
+    return { scrollableWidth, plotWidth, minVal, valRange, guidelines, historyPoints, historyPathD, historyAreaD };
+  }, [chartSessions, innerCardWidth]);
+
+  const { scrollableWidth, plotWidth, minVal, valRange, guidelines, historyPoints, historyPathD, historyAreaD } =
+    historyGeometry;
+
+  // 2. GELECEK REGRESYON & GÜVEN BANDI GRAFİĞİ KOORDİNATLARI
+  // Geçmiş TÜM seansları bağlam olarak göster ve gelecek projeksiyonları ekle
+  const predictionGeometry = useMemo(() => {
+    const allHistorySessions = chartSessions;
+    const futurePointsList = regression.futurePoints;
+
+    const allPredVals = [
+      ...allHistorySessions.map(s => s.chartValue),
+      ...futurePointsList.map(f => f.lowerBound),
+      ...futurePointsList.map(f => f.upperBound),
+      ...futurePointsList.map(f => f.expectedValue),
+    ];
+
+    const rawPredMin = allPredVals.length > 0 ? Math.min(...allPredVals) : 0;
+    const rawPredMax = allPredVals.length > 0 ? Math.max(...allPredVals) : 100;
+    const predRange = rawPredMax - rawPredMin || 1;
+    const predMinVal = Math.max(0, Math.floor(rawPredMin - predRange * 0.12));
+    const predMaxVal = Math.ceil(rawPredMax + predRange * 0.18);
+    const predValRange = predMaxVal - predMinVal || 1;
+
+    const predGuidelines = [
+      { value: predMaxVal, label: `${predMaxVal}` },
+      { value: Math.round((predMinVal + predMaxVal) / 2), label: `${Math.round((predMinVal + predMaxVal) / 2)}` },
+      { value: predMinVal, label: `${predMinVal}` },
+    ];
+
+    const totalPredPointsCount = allHistorySessions.length + futurePointsList.length;
+    const predScrollableWidth = Math.max(
+      innerCardWidth,
+      totalPredPointsCount * minPointSpacing + paddingLeft + paddingRight
+    );
+    const predPlotWidth = predScrollableWidth - paddingLeft - paddingRight;
+    const predStepX = totalPredPointsCount > 1 ? predPlotWidth / (totalPredPointsCount - 1) : predPlotWidth;
+
+    // Geçmiş seans noktaları (tüm geçmiş seanslar)
+    const predContextPoints = allHistorySessions.map((session, idx) => {
+      const x = paddingLeft + idx * predStepX;
+      const y = chartHeight - paddingBottom - ((session.chartValue - predMinVal) / predValRange) * plotHeight;
+      return { x, y, session, idx };
+    });
+
+    const todayPoint = predContextPoints[predContextPoints.length - 1];
+
+    // Gelecek tahmin noktaları
+    const predFuturePoints = futurePointsList.map((fp, fIdx) => {
+      const x = paddingLeft + (allHistorySessions.length - 1 + fp.step) * predStepX;
+      const yExpected = chartHeight - paddingBottom - ((fp.expectedValue - predMinVal) / predValRange) * plotHeight;
+      const yLower = chartHeight - paddingBottom - ((fp.lowerBound - predMinVal) / predValRange) * plotHeight;
+      const yUpper = chartHeight - paddingBottom - ((fp.upperBound - predMinVal) / predValRange) * plotHeight;
+      return { x, yExpected, yLower, yUpper, fp, step: fp.step };
+    });
+
+    // Güven bandı hunisi (Confidence Band Polygon)
+    let confidenceFunnelD = '';
+    let upperDashedD = '';
+    let lowerDashedD = '';
+    let trendDashedD = '';
+
+    if (todayPoint && predFuturePoints.length > 0) {
+      // Üst sınır yolu
+      upperDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
+      predFuturePoints.forEach(p => {
+        upperDashedD += ` L ${p.x} ${p.yUpper}`;
+      });
+
+      // Alt sınır yolu
+      lowerDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
+      predFuturePoints.forEach(p => {
+        lowerDashedD += ` L ${p.x} ${p.yLower}`;
+      });
+
+      // Kapalı poligon (Huni Dolgusu)
+      let funnelPath = `M ${todayPoint.x} ${todayPoint.y}`;
+      for (let i = 0; i < predFuturePoints.length; i++) {
+        funnelPath += ` L ${predFuturePoints[i].x} ${predFuturePoints[i].yUpper}`;
+      }
+      for (let i = predFuturePoints.length - 1; i >= 0; i--) {
+        funnelPath += ` L ${predFuturePoints[i].x} ${predFuturePoints[i].yLower}`;
+      }
+      funnelPath += ` L ${todayPoint.x} ${todayPoint.y} Z`;
+      confidenceFunnelD = funnelPath;
+
+      // Merkez regresyon trend çizgisi
+      trendDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
+      predFuturePoints.forEach(p => {
+        trendDashedD += ` L ${p.x} ${p.yExpected}`;
+      });
+    }
+
+    // Geçmiş seanslar çizgisi & alan dolgusu (Bezier)
+    let predHistoryLineD = '';
+    let predHistoryAreaD = '';
+    if (predContextPoints.length >= 2) {
+      predHistoryLineD = `M ${predContextPoints[0].x} ${predContextPoints[0].y}`;
+      for (let i = 0; i < predContextPoints.length - 1; i++) {
+        const p0 = predContextPoints[i];
+        const p1 = predContextPoints[i + 1];
+        const cpx = p0.x + (p1.x - p0.x) / 2;
+        predHistoryLineD += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
+      }
+      predHistoryAreaD = `${predHistoryLineD} L ${predContextPoints[predContextPoints.length - 1].x} ${
+        chartHeight - paddingBottom
+      } L ${predContextPoints[0].x} ${chartHeight - paddingBottom} Z`;
+    }
+
+    return {
+      allHistorySessions,
+      futurePointsList,
+      predGuidelines,
+      predMinVal,
+      predValRange,
+      totalPredPointsCount,
+      predScrollableWidth,
+      predStepX,
+      predContextPoints,
+      todayPoint,
+      predFuturePoints,
+      confidenceFunnelD,
+      upperDashedD,
+      lowerDashedD,
+      trendDashedD,
+      predHistoryLineD,
+      predHistoryAreaD,
+    };
+  }, [chartSessions, innerCardWidth, regression]);
+
+  const {
+    allHistorySessions,
+    futurePointsList,
+    predGuidelines,
+    predMinVal,
+    predValRange,
+    totalPredPointsCount,
+    predScrollableWidth,
+    predStepX,
+    predContextPoints,
+    todayPoint,
+    predFuturePoints,
+    confidenceFunnelD,
+    upperDashedD,
+    lowerDashedD,
+    trendDashedD,
+    predHistoryLineD,
+    predHistoryAreaD,
+  } = predictionGeometry;
+
   if (chartSessions.length === 0) {
     return (
       <View style={styles.chartCard} onLayout={(e: LayoutChangeEvent) => setContainerWidth(e.nativeEvent.layout.width)}>
@@ -891,183 +1120,6 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
     : stats.sessionHistory.some(s => s.sessionMaxWeight > 0)
     ? 'Farklı seanslarda kaldırılan en yüksek ağırlık (kg)'
     : 'Farklı seanslarda yapılan en yüksek tekrar';
-
-  // Ortak Grafik Geometrisi
-  const chartHeight = 180;
-  const paddingTop = 26;
-  const paddingBottom = 34;
-  const paddingLeft = 38;
-  const paddingRight = 24;
-  const plotHeight = chartHeight - paddingTop - paddingBottom;
-  const innerCardWidth = containerWidth > 0 ? containerWidth - 32 : 320;
-
-  // 1. GEÇMİŞ GELİŞİM GRAFİĞİ KOORDİNATLARI
-  const minPointSpacing = 54;
-  const scrollableWidth = Math.max(
-    innerCardWidth,
-    chartSessions.length * minPointSpacing + paddingLeft + paddingRight
-  );
-  const plotWidth = scrollableWidth - paddingLeft - paddingRight;
-
-  const values = chartSessions.map(s => s.chartValue);
-  const rawMin = Math.min(...values);
-  const rawMax = Math.max(...values);
-
-  let minVal: number;
-  let maxVal: number;
-
-  if (rawMin === rawMax) {
-    if (rawMin === 0) {
-      minVal = 0;
-      maxVal = 10;
-    } else {
-      minVal = Math.max(0, Math.floor(rawMin * 0.8));
-      maxVal = Math.ceil(rawMax * 1.2);
-    }
-  } else {
-    const range = rawMax - rawMin;
-    minVal = Math.max(0, Math.floor(rawMin - range * 0.15));
-    maxVal = Math.ceil(rawMax + range * 0.18);
-  }
-
-  const valRange = maxVal - minVal || 1;
-
-  const guidelines = [
-    { value: maxVal, label: `${maxVal}` },
-    { value: Math.round((minVal + maxVal) / 2), label: `${Math.round((minVal + maxVal) / 2)}` },
-    { value: minVal, label: `${minVal}` },
-  ];
-
-  const historyPoints = chartSessions.map((session, idx) => {
-    let x: number;
-    if (chartSessions.length === 1) {
-      x = paddingLeft + plotWidth / 2;
-    } else {
-      x = paddingLeft + (idx / (chartSessions.length - 1)) * plotWidth;
-    }
-    const y = chartHeight - paddingBottom - ((session.chartValue - minVal) / valRange) * plotHeight;
-    return { x, y, session, idx };
-  });
-
-  let historyPathD = '';
-  let historyAreaD = '';
-
-  if (historyPoints.length >= 2) {
-    historyPathD = `M ${historyPoints[0].x} ${historyPoints[0].y}`;
-    for (let i = 0; i < historyPoints.length - 1; i++) {
-      const p0 = historyPoints[i];
-      const p1 = historyPoints[i + 1];
-      const cpx = p0.x + (p1.x - p0.x) / 2;
-      historyPathD += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
-    }
-    historyAreaD = `${historyPathD} L ${historyPoints[historyPoints.length - 1].x} ${
-      chartHeight - paddingBottom
-    } L ${historyPoints[0].x} ${chartHeight - paddingBottom} Z`;
-  }
-
-  // 2. GELECEK REGRESYON & GÜVEN BANDI GRAFİĞİ KOORDİNATLARI
-  // Geçmiş TÜM seansları bağlam olarak göster ve gelecek projeksiyonları ekle
-  const allHistorySessions = chartSessions;
-  const futurePointsList = regression.futurePoints;
-
-  const allPredVals = [
-    ...allHistorySessions.map(s => s.chartValue),
-    ...futurePointsList.map(f => f.lowerBound),
-    ...futurePointsList.map(f => f.upperBound),
-    ...futurePointsList.map(f => f.expectedValue),
-  ];
-
-  const rawPredMin = allPredVals.length > 0 ? Math.min(...allPredVals) : 0;
-  const rawPredMax = allPredVals.length > 0 ? Math.max(...allPredVals) : 100;
-  const predRange = rawPredMax - rawPredMin || 1;
-  const predMinVal = Math.max(0, Math.floor(rawPredMin - predRange * 0.12));
-  const predMaxVal = Math.ceil(rawPredMax + predRange * 0.18);
-  const predValRange = predMaxVal - predMinVal || 1;
-
-  const predGuidelines = [
-    { value: predMaxVal, label: `${predMaxVal}` },
-    { value: Math.round((predMinVal + predMaxVal) / 2), label: `${Math.round((predMinVal + predMaxVal) / 2)}` },
-    { value: predMinVal, label: `${predMinVal}` },
-  ];
-
-  const totalPredPointsCount = allHistorySessions.length + futurePointsList.length;
-  const predScrollableWidth = Math.max(
-    innerCardWidth,
-    totalPredPointsCount * minPointSpacing + paddingLeft + paddingRight
-  );
-  const predPlotWidth = predScrollableWidth - paddingLeft - paddingRight;
-  const predStepX = totalPredPointsCount > 1 ? predPlotWidth / (totalPredPointsCount - 1) : predPlotWidth;
-
-  // Geçmiş seans noktaları (tüm geçmiş seanslar)
-  const predContextPoints = allHistorySessions.map((session, idx) => {
-    const x = paddingLeft + idx * predStepX;
-    const y = chartHeight - paddingBottom - ((session.chartValue - predMinVal) / predValRange) * plotHeight;
-    return { x, y, session, idx };
-  });
-
-  const todayPoint = predContextPoints[predContextPoints.length - 1];
-
-  // Gelecek tahmin noktaları
-  const predFuturePoints = futurePointsList.map((fp, fIdx) => {
-    const x = paddingLeft + (allHistorySessions.length - 1 + fp.step) * predStepX;
-    const yExpected = chartHeight - paddingBottom - ((fp.expectedValue - predMinVal) / predValRange) * plotHeight;
-    const yLower = chartHeight - paddingBottom - ((fp.lowerBound - predMinVal) / predValRange) * plotHeight;
-    const yUpper = chartHeight - paddingBottom - ((fp.upperBound - predMinVal) / predValRange) * plotHeight;
-    return { x, yExpected, yLower, yUpper, fp, step: fp.step };
-  });
-
-  // Güven bandı hunisi (Confidence Band Polygon)
-  let confidenceFunnelD = '';
-  let upperDashedD = '';
-  let lowerDashedD = '';
-  let trendDashedD = '';
-
-  if (todayPoint && predFuturePoints.length > 0) {
-    // Üst sınır yolu
-    upperDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
-    predFuturePoints.forEach(p => {
-      upperDashedD += ` L ${p.x} ${p.yUpper}`;
-    });
-
-    // Alt sınır yolu
-    lowerDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
-    predFuturePoints.forEach(p => {
-      lowerDashedD += ` L ${p.x} ${p.yLower}`;
-    });
-
-    // Kapalı poligon (Huni Dolgusu)
-    let funnelPath = `M ${todayPoint.x} ${todayPoint.y}`;
-    for (let i = 0; i < predFuturePoints.length; i++) {
-      funnelPath += ` L ${predFuturePoints[i].x} ${predFuturePoints[i].yUpper}`;
-    }
-    for (let i = predFuturePoints.length - 1; i >= 0; i--) {
-      funnelPath += ` L ${predFuturePoints[i].x} ${predFuturePoints[i].yLower}`;
-    }
-    funnelPath += ` L ${todayPoint.x} ${todayPoint.y} Z`;
-    confidenceFunnelD = funnelPath;
-
-    // Merkez regresyon trend çizgisi
-    trendDashedD = `M ${todayPoint.x} ${todayPoint.y}`;
-    predFuturePoints.forEach(p => {
-      trendDashedD += ` L ${p.x} ${p.yExpected}`;
-    });
-  }
-
-  // Geçmiş seanslar çizgisi & alan dolgusu (Bezier)
-  let predHistoryLineD = '';
-  let predHistoryAreaD = '';
-  if (predContextPoints.length >= 2) {
-    predHistoryLineD = `M ${predContextPoints[0].x} ${predContextPoints[0].y}`;
-    for (let i = 0; i < predContextPoints.length - 1; i++) {
-      const p0 = predContextPoints[i];
-      const p1 = predContextPoints[i + 1];
-      const cpx = p0.x + (p1.x - p0.x) / 2;
-      predHistoryLineD += ` C ${cpx} ${p0.y}, ${cpx} ${p1.y}, ${p1.x} ${p1.y}`;
-    }
-    predHistoryAreaD = `${predHistoryLineD} L ${predContextPoints[predContextPoints.length - 1].x} ${
-      chartHeight - paddingBottom
-    } L ${predContextPoints[0].x} ${chartHeight - paddingBottom} Z`;
-  }
 
   const selectedForecastPoint = futurePointsList.find(f => f.step === selectedPredStep) || futurePointsList[0];
 

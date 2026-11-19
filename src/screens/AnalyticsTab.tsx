@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,78 @@ interface AnalyticsTabProps {
   workoutDays?: number[];
   weeklyTargetHistory?: Record<string, number>;
 }
+
+interface ExercisePRListItem {
+  id: string;
+  name: string;
+  category: MuscleCategory;
+  equipment: string;
+  pr?: PersonalRecord;
+  lastWorkoutDate?: string;
+  isRecent: boolean;
+  allTimeWeight?: number;
+  allTimeReps?: number;
+  allTime1RM?: number;
+}
+
+interface PRCardRowProps {
+  item: ExercisePRListItem;
+  onSelect: (item: ExercisePRListItem) => void;
+}
+
+// Memoized PR card row: opening the PR detail modal changes
+// selectedExerciseForPR state and re-renders AnalyticsTab; with a stable
+// onSelect callback these rows skip that re-render.
+const PRCardRow = React.memo(function PRCardRow({ item, onSelect }: PRCardRowProps) {
+  const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
+  return (
+    <TouchableOpacity
+      style={styles.prCard}
+      activeOpacity={0.75}
+      onPress={() => onSelect(item)}
+    >
+      <View style={styles.prLeft}>
+        <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
+        <View style={styles.prCardMetaRow}>
+          <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
+            <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
+          </View>
+          {item.isRecent && (
+            <View style={styles.recentBadge}>
+              <Text style={styles.recentBadgeText}>Bu Hafta</Text>
+            </View>
+          )}
+          {item.lastWorkoutDate && !item.isRecent && (
+            <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.prRightRow}>
+        {item.allTimeWeight ? (
+          <View style={styles.prRightPill}>
+            <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
+            <Text style={styles.prRepsText}>
+              {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
+            </Text>
+          </View>
+        ) : item.pr?.maxSpeedKmh ? (
+          <View style={styles.prRightPill}>
+            <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
+            <Text style={styles.prRepsText}>
+              {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.prInspectBadge}>
+            <Text style={styles.prInspectBadgeText}>İncele</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   workouts,
@@ -66,7 +138,24 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     });
   }, [workouts, filterMode]);
 
-  const stats = calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory);
+  // Aggregates every completed set of the filtered period: memoized so
+  // sub-tab switches, PR search keystrokes and modal open/close don't rescan.
+  const stats = useMemo(
+    () => calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory),
+    [filteredWorkouts, workoutDays, weeklyTargetHistory]
+  );
+
+  const handleSelectOneRMExercise = useCallback((exerciseName: string) => {
+    setSelectedExerciseForPR({ name: exerciseName });
+  }, []);
+
+  const handleSelectPRItem = useCallback((item: ExercisePRListItem) => {
+    setSelectedExerciseForPR(item);
+  }, []);
+
+  const handleClosePRDetail = useCallback(() => {
+    setSelectedExerciseForPR(null);
+  }, []);
 
   // Visual Muscle Recovery State across all muscle groups
   const muscleRecoveryMap = useMemo(() => {
@@ -75,7 +164,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
   // Egzersiz PR Listesi: Antrenman geçmişi ve kaydedilen PR'ları birleştirir
   const allExercisePRItems = useMemo(() => {
-    const exerciseMap: Record<string, { id: string; name: string; category: MuscleCategory; equipment: string; pr?: PersonalRecord; lastWorkoutDate?: string; isRecent: boolean; allTimeWeight?: number; allTimeReps?: number; allTime1RM?: number }> = {};
+    const exerciseMap: Record<string, ExercisePRListItem> = {};
 
     // 1. PR Kayıtları
     Object.values(prs).forEach(pr => {
@@ -165,34 +254,37 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     });
   }, [prs, workouts, prSearchQuery, selectedPRCategory]);
 
-  // Compute average speeds per cardio exercise
-  const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
-  filteredWorkouts.forEach(w => {
-    w.exercises.forEach(ex => {
-      if (ex.category === 'Kardiyo') {
-        ex.sets.forEach(s => {
-          if (s.completed && s.durationMinutes && s.distanceKm) {
-            if (!cardioStatsMap[ex.exerciseName]) {
-              cardioStatsMap[ex.exerciseName] = { totalDist: 0, totalMins: 0 };
+  // Compute average speeds per cardio exercise (memoized on the filtered
+  // period — previously a full rescan of every set on each render)
+  const cardioSummary = useMemo(() => {
+    const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
+    filteredWorkouts.forEach(w => {
+      w.exercises.forEach(ex => {
+        if (ex.category === 'Kardiyo') {
+          ex.sets.forEach(s => {
+            if (s.completed && s.durationMinutes && s.distanceKm) {
+              if (!cardioStatsMap[ex.exerciseName]) {
+                cardioStatsMap[ex.exerciseName] = { totalDist: 0, totalMins: 0 };
+              }
+              cardioStatsMap[ex.exerciseName].totalDist += s.distanceKm;
+              cardioStatsMap[ex.exerciseName].totalMins += s.durationMinutes;
             }
-            cardioStatsMap[ex.exerciseName].totalDist += s.distanceKm;
-            cardioStatsMap[ex.exerciseName].totalMins += s.durationMinutes;
-          }
-        });
-      }
+          });
+        }
+      });
     });
-  });
 
-  const cardioSummary = Object.keys(cardioStatsMap).map(name => {
-    const item = cardioStatsMap[name];
-    const avgSpeed = (item.totalDist / item.totalMins) * 60;
-    return {
-      name,
-      totalDist: Math.round(item.totalDist * 10) / 10,
-      totalMins: item.totalMins,
-      avgSpeedKmh: parseFloat(avgSpeed.toFixed(1)),
-    };
-  });
+    return Object.keys(cardioStatsMap).map(name => {
+      const item = cardioStatsMap[name];
+      const avgSpeed = (item.totalDist / item.totalMins) * 60;
+      return {
+        name,
+        totalDist: Math.round(item.totalDist * 10) / 10,
+        totalMins: item.totalMins,
+        avgSpeedKmh: parseFloat(avgSpeed.toFixed(1)),
+      };
+    });
+  }, [filteredWorkouts]);
 
   return (
     <View style={styles.container}>
@@ -378,7 +470,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
             <OneRepMaxWidget
               workouts={filteredWorkouts}
-              onSelectExercise={(name) => setSelectedExerciseForPR({ name })}
+              onSelectExercise={handleSelectOneRMExercise}
             />
 
             {/* Personal Record Spotlight Bento Card */}
@@ -433,57 +525,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               {/* Interactive Exercise PR Cards */}
               {allExercisePRItems.length > 0 ? (
                 <View style={styles.prList}>
-                  {allExercisePRItems.slice(0, 15).map(item => {
-                    const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
-                    return (
-                      <TouchableOpacity
-                        key={item.id || item.name}
-                        style={styles.prCard}
-                        activeOpacity={0.75}
-                        onPress={() => setSelectedExerciseForPR(item)}
-                      >
-                        <View style={styles.prLeft}>
-                          <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
-                          <View style={styles.prCardMetaRow}>
-                            <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
-                              <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
-                            </View>
-                            {item.isRecent && (
-                              <View style={styles.recentBadge}>
-                                <Text style={styles.recentBadgeText}>Bu Hafta</Text>
-                              </View>
-                            )}
-                            {item.lastWorkoutDate && !item.isRecent && (
-                              <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
-                            )}
-                          </View>
-                        </View>
-
-                        <View style={styles.prRightRow}>
-                          {item.allTimeWeight ? (
-                            <View style={styles.prRightPill}>
-                              <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
-                              <Text style={styles.prRepsText}>
-                                {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
-                              </Text>
-                            </View>
-                          ) : item.pr?.maxSpeedKmh ? (
-                            <View style={styles.prRightPill}>
-                              <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
-                              <Text style={styles.prRepsText}>
-                                {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
-                              </Text>
-                            </View>
-                          ) : (
-                            <View style={styles.prInspectBadge}>
-                              <Text style={styles.prInspectBadgeText}>İncele</Text>
-                            </View>
-                          )}
-                          <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {allExercisePRItems.slice(0, 15).map(item => (
+                    <PRCardRow
+                      key={item.id || item.name}
+                      item={item}
+                      onSelect={handleSelectPRItem}
+                    />
+                  ))}
                 </View>
               ) : (
                 <View style={styles.emptyPrCard}>
@@ -498,7 +546,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
 
       <ExercisePRDetailModal
         visible={!!selectedExerciseForPR}
-        onClose={() => setSelectedExerciseForPR(null)}
+        onClose={handleClosePRDetail}
         exercise={selectedExerciseForPR}
         workouts={workouts}
       />

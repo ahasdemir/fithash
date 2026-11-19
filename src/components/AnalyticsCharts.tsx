@@ -346,7 +346,7 @@ interface RenderSvgBarChartProps {
   barGap?: number;
 }
 
-const RenderSvgBarChart: React.FC<RenderSvgBarChartProps> = ({
+const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   data,
   containerWidth,
   height = 170,
@@ -491,6 +491,60 @@ const RenderSvgBarChart: React.FC<RenderSvgBarChartProps> = ({
   );
 };
 
+// Memoized so that unrelated AnalyticsCharts state changes (the other chart's
+// selection, modal open/metric/resolution switches) don't re-render this
+// chart's full SVG bar tree — its props are stable between those changes.
+const RenderSvgBarChart = React.memo(RenderSvgBarChartBase);
+
+interface MuscleBreakdownRowProps {
+  item: { category: string; sets: number; volume: number; color: string };
+  targetBenchmark: number;
+  totalPeriodSets: number;
+}
+
+// Memoized legend/progress row for the muscle group breakdown: tapping a bar
+// in either chart re-renders AnalyticsCharts; these rows bail out because
+// their inputs (memoized breakdown, filterMode-derived benchmark) are unchanged.
+const MuscleBreakdownRow = React.memo(function MuscleBreakdownRow({
+  item,
+  targetBenchmark,
+  totalPeriodSets,
+}: MuscleBreakdownRowProps) {
+  const setPercentage = Math.min(100, Math.round((item.sets / targetBenchmark) * 100));
+
+  return (
+    <View style={styles.muscleRow}>
+      <View style={styles.muscleHeader}>
+        <View style={styles.muscleTitleLeft}>
+          <View style={[styles.dot, { backgroundColor: item.color }]} />
+          <Text style={styles.muscleName}>{item.category}</Text>
+        </View>
+
+        <View style={styles.muscleMetaRight}>
+          <Text style={styles.muscleSetsText}>{item.sets} Set</Text>
+          <Text style={styles.musclePercentText}>
+            (%{Math.round((item.sets / (totalPeriodSets || 1)) * 100)})
+          </Text>
+          {item.volume > 0 && (
+            <Text style={styles.muscleVolText}>
+              • {item.volume.toLocaleString('tr-TR')} kg
+            </Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.progressTrack}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${setPercentage}%`, backgroundColor: item.color },
+          ]}
+        />
+      </View>
+    </View>
+  );
+});
+
 export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   workouts,
   allWorkouts,
@@ -577,6 +631,15 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       }))
       .sort((a, b) => b.sets - a.sets);
   }, [workouts]);
+
+  // Progress-bar benchmark (15 sets/week, 60 sets/month, or the period max in
+  // 'all' mode). Previously recomputed inside every row on every render.
+  const targetBenchmark =
+    filterMode === 'weekly'
+      ? 15
+      : filterMode === 'monthly'
+      ? 60
+      : Math.max(...muscleBreakdown.map(m => m.sets), 1);
 
   // 3. Modal Aggregated Data Calculation
   const modalTargetWorkouts = allWorkouts && allWorkouts.length ? allWorkouts : workouts;
@@ -774,47 +837,14 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
         {muscleBreakdown.length > 0 ? (
           <View style={styles.muscleList}>
-            {muscleBreakdown.map(item => {
-              const targetBenchmark =
-                filterMode === 'weekly'
-                  ? 15
-                  : filterMode === 'monthly'
-                  ? 60
-                  : Math.max(...muscleBreakdown.map(m => m.sets), 1);
-              const setPercentage = Math.min(100, Math.round((item.sets / targetBenchmark) * 100));
-
-              return (
-                <View key={item.category} style={styles.muscleRow}>
-                  <View style={styles.muscleHeader}>
-                    <View style={styles.muscleTitleLeft}>
-                      <View style={[styles.dot, { backgroundColor: item.color }]} />
-                      <Text style={styles.muscleName}>{item.category}</Text>
-                    </View>
-
-                    <View style={styles.muscleMetaRight}>
-                      <Text style={styles.muscleSetsText}>{item.sets} Set</Text>
-                      <Text style={styles.musclePercentText}>
-                        (%{Math.round((item.sets / (totalPeriodSets || 1)) * 100)})
-                      </Text>
-                      {item.volume > 0 && (
-                        <Text style={styles.muscleVolText}>
-                          • {item.volume.toLocaleString('tr-TR')} kg
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${setPercentage}%`, backgroundColor: item.color },
-                      ]}
-                    />
-                  </View>
-                </View>
-              );
-            })}
+            {muscleBreakdown.map(item => (
+              <MuscleBreakdownRow
+                key={item.category}
+                item={item}
+                targetBenchmark={targetBenchmark}
+                totalPeriodSets={totalPeriodSets}
+              />
+            ))}
           </View>
         ) : (
           <Text style={styles.noDataText}>Analiz edilecek antrenman verisi henüz yok.</Text>

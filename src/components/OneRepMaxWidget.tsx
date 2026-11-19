@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../theme';
@@ -38,7 +38,9 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
     return Object.values(exerciseMaxMap).sort((a, b) => b.max1RM - a.max1RM).slice(0, 5);
   };
 
-  const oneRMList = calculate1RMData();
+  // Scans every completed set of the filtered period; memoized so PR-search
+  // keystrokes and other AnalyticsTab state changes don't trigger a full rescan.
+  const oneRMList = useMemo(() => calculate1RMData(), [workouts]);
 
   if (oneRMList.length === 0) return null;
 

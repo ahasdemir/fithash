@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  FlatList,
+  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +23,134 @@ interface HistoryTabProps {
   onUpdateWorkout?: (workout: WorkoutSession) => void;
 }
 
+const formatDuration = (secs: number) => {
+  const mins = Math.floor(secs / 60);
+  return `${mins} dk`;
+};
+
+interface WorkoutHistoryCardProps {
+  session: WorkoutSession;
+  onOpenDetail: (session: WorkoutSession) => void;
+  onRequestDelete: (session: WorkoutSession) => void;
+}
+
+// Memoized list row: HistoryTab re-renders on every modal open/close
+// (selectedWorkout / workoutToDelete / workoutToEdit state changes), and this
+// lets the mounted rows skip re-rendering when only that lightweight state changed.
+const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
+  session,
+  onOpenDetail,
+  onRequestDelete,
+}: WorkoutHistoryCardProps) {
+  const hasVolume = (session.totalVolume || 0) > 0;
+  const hasCalories = (session.totalCaloriesBurned || 0) > 0;
+  const hasCardioDist = (session.totalCardioDistanceKm || 0) > 0;
+
+  const totSets = session.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+  const compSets = session.exercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.completed).length, 0);
+  const skippedSets = totSets - compSets;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <Ionicons name="calendar" size={14} color="#111111" />
+          <Text style={styles.dateText}>{session.date}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.trashBtn}
+          onPress={() => onRequestDelete(session)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => onOpenDetail(session)}
+      >
+        <Text style={styles.sessionName} numberOfLines={2} ellipsizeMode="tail">{session.name}</Text>
+
+        {/* Dynamic Metric Badges */}
+        <View style={styles.statsRow}>
+          {hasVolume && (
+            <View style={styles.badgePill}>
+              <Ionicons name="barbell" size={12} color="#111111" />
+              <Text style={styles.badgeText}>{session.totalVolume.toLocaleString('tr-TR')} kg</Text>
+            </View>
+          )}
+
+          {hasCalories && (
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+              <Ionicons name="flame" size={12} color="#EF4444" />
+              <Text style={[styles.badgeText, { color: '#EF4444' }]}>
+                ~{session.totalCaloriesBurned} kcal
+              </Text>
+            </View>
+          )}
+
+          {hasCardioDist && (
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(6, 182, 212, 0.12)' }]}>
+              <Ionicons name="walk" size={12} color="#06B6D4" />
+              <Text style={[styles.badgeText, { color: '#06B6D4' }]}>
+                {session.totalCardioDistanceKm} km
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.badgePill}>
+            <Ionicons name="time" size={12} color="#111111" />
+            <Text style={styles.badgeText}>{formatDuration(session.durationSeconds)}</Text>
+          </View>
+
+          {skippedSets > 0 ? (
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+              <Ionicons name="alert-circle" size={12} color="#EF4444" />
+              <Text style={[styles.badgeText, { color: '#EF4444' }]}>{skippedSets} Set Atlandı</Text>
+            </View>
+          ) : totSets > 0 ? (
+            <View style={[styles.badgePill, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+              <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+              <Text style={[styles.badgeText, { color: '#10B981' }]}>%100 Tamamlandı</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Exercise summary list */}
+        <View style={styles.exSummaryList}>
+          {session.exercises.map(ex => {
+            const isCardio = ex.category === 'Kardiyo';
+            const completedSets = ex.sets.filter(s => s.completed);
+            const totalDist = completedSets.reduce((sum, s) => sum + (s.distanceKm || 0), 0);
+            const totalMins = completedSets.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+            const isSkipped = completedSets.length === 0 && ex.sets.length > 0;
+            const isPartiallySkipped = completedSets.length > 0 && completedSets.length < ex.sets.length;
+
+            return (
+              <Text key={ex.id} style={[styles.exSummaryItem, isSkipped && styles.exSummaryItemSkipped]}>
+                • {ex.exerciseName}{' '}
+                {isCardio
+                  ? `(${totalMins > 0 ? `${totalMins} dk` : ''}${totalDist > 0 ? ` • ${totalDist} km` : ''})`
+                  : `(${completedSets.length}/${ex.sets.length} Set${isSkipped ? ' - Atlandı' : ''})`}
+              </Text>
+            );
+          })}
+        </View>
+
+        <View style={styles.cardFooterHint}>
+          <Text style={styles.cardFooterHintText}>Detayları görmek için dokunun</Text>
+          <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+// Rendered by FlatList between (and only between) two workout cards.
+const HistoryCardSeparator = () => <View style={styles.cardSeparator} />;
+
 export const HistoryTab: React.FC<HistoryTabProps> = ({
   workouts,
   routines = [],
@@ -33,10 +163,26 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSession | null>(null);
   const [workoutToEdit, setWorkoutToEdit] = useState<WorkoutSession | null>(null);
 
-  const formatDuration = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    return `${mins} dk`;
-  };
+  const handleOpenDetail = useCallback((session: WorkoutSession) => {
+    setSelectedWorkout(session);
+  }, []);
+
+  const handleRequestDelete = useCallback((session: WorkoutSession) => {
+    setWorkoutToDelete(session);
+  }, []);
+
+  const keyExtractor = useCallback((session: WorkoutSession) => session.id, []);
+
+  const renderWorkoutCard = useCallback<ListRenderItem<WorkoutSession>>(
+    ({ item }) => (
+      <WorkoutHistoryCard
+        session={item}
+        onOpenDetail={handleOpenDetail}
+        onRequestDelete={handleRequestDelete}
+      />
+    ),
+    [handleOpenDetail, handleRequestDelete],
+  );
 
   const handleConfirmDelete = () => {
     if (workoutToDelete) {
@@ -50,142 +196,40 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      <FlatList
         style={styles.container}
+        data={workouts}
+        keyExtractor={keyExtractor}
+        renderItem={renderWorkoutCard}
+        ItemSeparatorComponent={HistoryCardSeparator}
+        // Explicitly opt out of Android's removeClippedSubviews default:
+        // the previous ScrollView never clipped, and variable-height shadowed
+        // cards are a known blank-row risk when clipping is enabled.
+        removeClippedSubviews={false}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: 120 + Math.max(insets.bottom, 16) },
         ]}
-      >
-        {/* Header Row */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Geçmiş Antrenmanlar</Text>
-          <Text style={styles.subtitle}>Tarihsel saklanan antrenman ve kardiyo kayıtları</Text>
-        </View>
+        ListHeaderComponent={
+          <View style={[styles.headerRow, styles.headerRowMargin]}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.title}>Geçmiş Antrenmanlar</Text>
+              <Text style={styles.subtitle}>Tarihsel saklanan antrenman ve kardiyo kayıtları</Text>
+            </View>
 
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{workouts.length} Kayıt</Text>
-        </View>
-      </View>
-
-      {workouts.length > 0 ? (
-        <View style={styles.list}>
-          {workouts.map(session => {
-            const hasVolume = (session.totalVolume || 0) > 0;
-            const hasCalories = (session.totalCaloriesBurned || 0) > 0;
-            const hasCardioDist = (session.totalCardioDistanceKm || 0) > 0;
-
-            const totSets = session.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
-            const compSets = session.exercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.completed).length, 0);
-            const skippedSets = totSets - compSets;
-
-            return (
-              <View key={session.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardHeaderLeft}>
-                    <Ionicons name="calendar" size={14} color="#111111" />
-                    <Text style={styles.dateText}>{session.date}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.trashBtn}
-                    onPress={() => setWorkoutToDelete(session)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedWorkout(session)}
-                >
-                  <Text style={styles.sessionName} numberOfLines={2} ellipsizeMode="tail">{session.name}</Text>
-
-                  {/* Dynamic Metric Badges */}
-                  <View style={styles.statsRow}>
-                    {hasVolume && (
-                      <View style={styles.badgePill}>
-                        <Ionicons name="barbell" size={12} color="#111111" />
-                        <Text style={styles.badgeText}>{session.totalVolume.toLocaleString('tr-TR')} kg</Text>
-                      </View>
-                    )}
-
-                    {hasCalories && (
-                      <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                        <Ionicons name="flame" size={12} color="#EF4444" />
-                        <Text style={[styles.badgeText, { color: '#EF4444' }]}>
-                          ~{session.totalCaloriesBurned} kcal
-                        </Text>
-                      </View>
-                    )}
-
-                    {hasCardioDist && (
-                      <View style={[styles.badgePill, { backgroundColor: 'rgba(6, 182, 212, 0.12)' }]}>
-                        <Ionicons name="walk" size={12} color="#06B6D4" />
-                        <Text style={[styles.badgeText, { color: '#06B6D4' }]}>
-                          {session.totalCardioDistanceKm} km
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.badgePill}>
-                      <Ionicons name="time" size={12} color="#111111" />
-                      <Text style={styles.badgeText}>{formatDuration(session.durationSeconds)}</Text>
-                    </View>
-
-                    {skippedSets > 0 ? (
-                      <View style={[styles.badgePill, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
-                        <Ionicons name="alert-circle" size={12} color="#EF4444" />
-                        <Text style={[styles.badgeText, { color: '#EF4444' }]}>{skippedSets} Set Atlandı</Text>
-                      </View>
-                    ) : totSets > 0 ? (
-                      <View style={[styles.badgePill, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
-                        <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                        <Text style={[styles.badgeText, { color: '#10B981' }]}>%100 Tamamlandı</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {/* Exercise summary list */}
-                  <View style={styles.exSummaryList}>
-                    {session.exercises.map(ex => {
-                      const isCardio = ex.category === 'Kardiyo';
-                      const completedSets = ex.sets.filter(s => s.completed);
-                      const totalDist = completedSets.reduce((sum, s) => sum + (s.distanceKm || 0), 0);
-                      const totalMins = completedSets.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
-                      const isSkipped = completedSets.length === 0 && ex.sets.length > 0;
-                      const isPartiallySkipped = completedSets.length > 0 && completedSets.length < ex.sets.length;
-
-                      return (
-                        <Text key={ex.id} style={[styles.exSummaryItem, isSkipped && styles.exSummaryItemSkipped]}>
-                          • {ex.exerciseName}{' '}
-                          {isCardio
-                            ? `(${totalMins > 0 ? `${totalMins} dk` : ''}${totalDist > 0 ? ` • ${totalDist} km` : ''})`
-                            : `(${completedSets.length}/${ex.sets.length} Set${isSkipped ? ' - Atlandı' : ''})`}
-                        </Text>
-                      );
-                    })}
-                  </View>
-
-                  <View style={styles.cardFooterHint}>
-                    <Text style={styles.cardFooterHintText}>Detayları görmek için dokunun</Text>
-                    <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-        </View>
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="journal-outline" size={48} color={COLORS.textMuted} />
-          <Text style={styles.emptyTitle}>Henüz kayıtlı antrenman yok</Text>
-          <Text style={styles.emptySub}>Tamamladığınız antrenmanlar otomatik olarak burada listelenecektir.</Text>
-        </View>
-      )}
-      </ScrollView>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{workouts.length} Kayıt</Text>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="journal-outline" size={48} color={COLORS.textMuted} />
+            <Text style={styles.emptyTitle}>Henüz kayıtlı antrenman yok</Text>
+            <Text style={styles.emptySub}>Tamamladığınız antrenmanlar otomatik olarak buraya listelenecektir.</Text>
+          </View>
+        }
+      />
 
       {/* Delete Confirmation Modal */}
       {workoutToDelete && (
@@ -609,8 +653,15 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 140,
-    gap: 16,
+  },
+  // The old ScrollView content used `gap: 16` between the header and the list;
+  // FlatList content children are the rows themselves, so the same spacing is
+  // reproduced with a header margin + a fixed-height ItemSeparatorComponent.
+  headerRowMargin: {
+    marginBottom: 16,
+  },
+  cardSeparator: {
+    height: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -641,9 +692,6 @@ const styles = StyleSheet.create({
     color: '#111111',
     fontWeight: '700',
     fontSize: 12,
-  },
-  list: {
-    gap: 12,
   },
   card: {
     backgroundColor: COLORS.surface,

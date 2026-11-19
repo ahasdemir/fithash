@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,119 @@ interface MuscleRecoveryHeatmapProps {
   recoveryMap: Record<MuscleCategory, MuscleRecoveryStatus>;
 }
 
+const getStatusText = (status: MuscleRecoveryStatus['status']) => {
+  switch (status) {
+    case 'RECOVERED':
+      return 'Hazır';
+    case 'RECOVERING':
+      return 'Toparlanıyor';
+    case 'FATIGUED':
+      return 'Dinlenmeli';
+  }
+};
+
+const formatTrainedContext = (hours: number, sets: number) => {
+  if (hours >= 168) return 'Dinlenmiş (>7 gün)';
+  const timeStr = hours >= 48 ? `${Math.round(hours / 24)} gün önce` : `${Math.round(hours)} sa. önce`;
+  if (sets > 0) {
+    return `${timeStr} • ${sets} sert set`;
+  }
+  return timeStr;
+};
+
+interface MuscleCardProps {
+  cat: MuscleCategory;
+  item: MuscleRecoveryStatus;
+  isSelected: boolean;
+  onToggle: (cat: MuscleCategory) => void;
+}
+
+// Memoized per-muscle cell: tapping a card flips selectedMuscle state and
+// re-renders the whole heatmap; with a stable onToggle the untouched cells
+// bail out instead of re-rendering their icon/badge/progress-bar trees.
+const MuscleCard = React.memo(function MuscleCard({
+  cat,
+  item,
+  isSelected,
+  onToggle,
+}: MuscleCardProps) {
+  const config = MUSCLE_RECOVERY_CONFIG[cat];
+
+  return (
+    <TouchableOpacity
+      key={cat}
+      style={[
+        styles.muscleCard,
+        isSelected && styles.muscleCardSelected,
+        { borderLeftColor: item.colorHex },
+      ]}
+      activeOpacity={0.75}
+      onPress={() => onToggle(cat)}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <View style={[styles.iconCircle, { backgroundColor: item.colorHex + '18' }]}>
+            <Ionicons
+              name={(config?.iconName as any) || 'barbell-outline'}
+              size={14}
+              color={item.colorHex}
+            />
+          </View>
+          <Text style={styles.muscleName} numberOfLines={1}>
+            {cat}
+          </Text>
+        </View>
+        {/* Percentage badge clearly visible */}
+        <View style={[styles.percentBadge, { backgroundColor: item.colorHex + '18' }]}>
+          <Text style={[styles.percentBadgeText, { color: item.colorHex }]}>
+            %{item.recoveryPercentage}
+          </Text>
+        </View>
+      </View>
+
+      {/* Clean progress bar */}
+      <View style={styles.barTrack}>
+        <View
+          style={[
+            styles.barFill,
+            {
+              width: `${Math.max(5, item.recoveryPercentage)}%`,
+              backgroundColor: item.colorHex,
+            },
+          ]}
+        />
+      </View>
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.timeText} numberOfLines={1}>
+          {formatTrainedContext(item.hoursSinceTrained, item.hardSetsInWindow)}
+        </Text>
+        <View style={[styles.statusBadge, { backgroundColor: item.colorHex + '14' }]}>
+          <View style={[styles.statusDot, { backgroundColor: item.colorHex }]} />
+          <Text style={[styles.statusBadgeText, { color: item.colorHex }]}>
+            {getStatusText(item.status)}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
   recoveryMap,
 }) => {
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleCategory | null>(null);
 
-  const categories = Object.keys(recoveryMap) as MuscleCategory[];
+  // Memoized so the tier useMemos below keep stable dependencies: a fresh
+  // Object.keys() array per render previously invalidated every one of them.
+  const categories = useMemo(
+    () => Object.keys(recoveryMap) as MuscleCategory[],
+    [recoveryMap]
+  );
+
+  const handleToggleMuscle = useCallback((cat: MuscleCategory) => {
+    setSelectedMuscle(prev => (prev === cat ? null : cat));
+  }, []);
 
   // 1. Group into physiological readiness tiers
   const readyMuscles = useMemo(
@@ -69,90 +176,15 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
 
   const activeDetail = selectedMuscle ? recoveryMap[selectedMuscle] : null;
 
-  const renderMuscleCard = (cat: MuscleCategory) => {
-    const item = recoveryMap[cat];
-    const isSelected = selectedMuscle === cat;
-    const config = MUSCLE_RECOVERY_CONFIG[cat];
-
-    const getStatusText = (status: MuscleRecoveryStatus['status']) => {
-      switch (status) {
-        case 'RECOVERED':
-          return 'Hazır';
-        case 'RECOVERING':
-          return 'Toparlanıyor';
-        case 'FATIGUED':
-          return 'Dinlenmeli';
-      }
-    };
-
-    const formatTrainedContext = (hours: number, sets: number) => {
-      if (hours >= 168) return 'Dinlenmiş (>7 gün)';
-      const timeStr = hours >= 48 ? `${Math.round(hours / 24)} gün önce` : `${Math.round(hours)} sa. önce`;
-      if (sets > 0) {
-        return `${timeStr} • ${sets} sert set`;
-      }
-      return timeStr;
-    };
-
-    return (
-      <TouchableOpacity
-        key={cat}
-        style={[
-          styles.muscleCard,
-          isSelected && styles.muscleCardSelected,
-          { borderLeftColor: item.colorHex },
-        ]}
-        activeOpacity={0.75}
-        onPress={() => setSelectedMuscle(isSelected ? null : cat)}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: item.colorHex + '18' }]}>
-              <Ionicons
-                name={(config?.iconName as any) || 'barbell-outline'}
-                size={14}
-                color={item.colorHex}
-              />
-            </View>
-            <Text style={styles.muscleName} numberOfLines={1}>
-              {cat}
-            </Text>
-          </View>
-          {/* Percentage badge clearly visible */}
-          <View style={[styles.percentBadge, { backgroundColor: item.colorHex + '18' }]}>
-            <Text style={[styles.percentBadgeText, { color: item.colorHex }]}>
-              %{item.recoveryPercentage}
-            </Text>
-          </View>
-        </View>
-
-        {/* Clean progress bar */}
-        <View style={styles.barTrack}>
-          <View
-            style={[
-              styles.barFill,
-              {
-                width: `${Math.max(5, item.recoveryPercentage)}%`,
-                backgroundColor: item.colorHex,
-              },
-            ]}
-          />
-        </View>
-
-        <View style={styles.cardFooter}>
-          <Text style={styles.timeText} numberOfLines={1}>
-            {formatTrainedContext(item.hoursSinceTrained, item.hardSetsInWindow)}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: item.colorHex + '14' }]}>
-            <View style={[styles.statusDot, { backgroundColor: item.colorHex }]} />
-            <Text style={[styles.statusBadgeText, { color: item.colorHex }]}>
-              {getStatusText(item.status)}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderMuscleCard = useCallback((cat: MuscleCategory) => (
+    <MuscleCard
+      key={cat}
+      cat={cat}
+      item={recoveryMap[cat]}
+      isSelected={selectedMuscle === cat}
+      onToggle={handleToggleMuscle}
+    />
+  ), [recoveryMap, selectedMuscle, handleToggleMuscle]);
 
   return (
     <View style={styles.container}>
