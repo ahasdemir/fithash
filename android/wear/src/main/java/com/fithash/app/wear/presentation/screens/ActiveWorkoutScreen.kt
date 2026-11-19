@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.itemsIndexed
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.fithash.app.wear.data.WearWorkoutManager
@@ -35,13 +36,27 @@ fun ActiveWorkoutScreen(
             modifier = Modifier.fillMaxSize().background(FitHashBackground),
             contentAlignment = Alignment.Center
         ) {
-            Text("Aktif antrenman yok", color = FitHashTextSecondary)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Aktif antrenman yok", color = FitHashTextSecondary, fontSize = 12.sp)
+            }
+            if (restTimerSecs != null && restTimerSecs!! > 0) {
+                RestTimerOverlay(
+                    secondsLeft = restTimerSecs!!,
+                    totalSeconds = restTimerTotal,
+                    onAddSeconds = { workoutManager.adjustRestTimer(it) },
+                    onCancel = { workoutManager.cancelRestTimer() }
+                )
+            }
         }
         return
     }
 
     val currentSession = session!!
-    val currentExercise = currentSession.exercises.getOrNull(currentExIdx) ?: currentSession.exercises.first()
+    val safeExIdx = currentExIdx.coerceIn(0, currentSession.exercises.size - 1)
+    val currentExercise = currentSession.exercises[safeExIdx]
 
     Scaffold(
         timeText = { TimeText() },
@@ -57,7 +72,7 @@ fun ActiveWorkoutScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Exercise Navigation Header
-                item {
+                item(key = "nav_header") {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -65,18 +80,19 @@ fun ActiveWorkoutScreen(
                     ) {
                         CompactButton(
                             onClick = {
-                                if (currentExIdx > 0) {
-                                    workoutManager.setExerciseIndex(currentExIdx - 1)
+                                if (safeExIdx > 0) {
+                                    rirPromptSetIdx = null
+                                    workoutManager.setExerciseIndex(safeExIdx - 1)
                                 }
                             },
-                            enabled = currentExIdx > 0,
+                            enabled = safeExIdx > 0,
                             colors = ButtonDefaults.secondaryButtonColors()
                         ) {
                             Icon(Icons.Default.ChevronLeft, contentDescription = "Önceki")
                         }
 
                         Text(
-                            text = "${currentExIdx + 1} / ${currentSession.exercises.size}",
+                            text = "${safeExIdx + 1} / ${currentSession.exercises.size}",
                             color = FitHashTextSecondary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -84,11 +100,12 @@ fun ActiveWorkoutScreen(
 
                         CompactButton(
                             onClick = {
-                                if (currentExIdx < currentSession.exercises.size - 1) {
-                                    workoutManager.setExerciseIndex(currentExIdx + 1)
+                                if (safeExIdx < currentSession.exercises.size - 1) {
+                                    rirPromptSetIdx = null
+                                    workoutManager.setExerciseIndex(safeExIdx + 1)
                                 }
                             },
-                            enabled = currentExIdx < currentSession.exercises.size - 1,
+                            enabled = safeExIdx < currentSession.exercises.size - 1,
                             colors = ButtonDefaults.secondaryButtonColors()
                         ) {
                             Icon(Icons.Default.ChevronRight, contentDescription = "Sonraki")
@@ -97,7 +114,7 @@ fun ActiveWorkoutScreen(
                 }
 
                 // Exercise Title
-                item {
+                item(key = "ex_title_${currentExercise.id}") {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = currentExercise.exerciseName,
@@ -117,8 +134,13 @@ fun ActiveWorkoutScreen(
                 }
 
                 // Sets List for current exercise
-                items(currentExercise.sets.size) { setIdx ->
-                    val set = currentExercise.sets[setIdx]
+                itemsIndexed(
+                    items = currentExercise.sets,
+                    key = { setIdx, set -> set.id.ifBlank { "${currentExercise.id}_set_$setIdx" } }
+                ) { setIdx, set ->
+                    val isWarmup = set.isWarmup == true
+                    val setLabel = if (isWarmup) "ISINMA ${set.setNumber}" else "SET ${set.setNumber}"
+
                     Card(
                         // Completing a set is intentionally only available from the explicit button.
                         // This prevents a scrolling/tapping mistake from starting a rest timer.
@@ -139,8 +161,12 @@ fun ActiveWorkoutScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "SET ${set.setNumber}",
-                                    color = if (set.completed) FitHashPrimary else FitHashTextPrimary,
+                                    text = setLabel,
+                                    color = when {
+                                        set.completed -> FitHashPrimary
+                                        isWarmup -> FitHashWarning
+                                        else -> FitHashTextPrimary
+                                    },
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -163,7 +189,7 @@ fun ActiveWorkoutScreen(
                                     }
                                 } else {
                                     Text(
-                                        text = "Hedef RIR ${set.targetRir ?: "—"}",
+                                        text = if (isWarmup) "Isınma Seti" else "Hedef RIR ${set.targetRir ?: set.rir ?: "—"}",
                                         color = FitHashTextSecondary,
                                         fontSize = 10.sp
                                     )
@@ -177,22 +203,27 @@ fun ActiveWorkoutScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 CompactButton(
-                                    onClick = { workoutManager.updateSetWeight(currentExIdx, setIdx, -2.5) },
+                                    onClick = { workoutManager.updateSetWeight(safeExIdx, setIdx, -2.5) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
                                     modifier = Modifier.size(40.dp)
                                 ) {
                                     Text("-", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
 
+                                val weightText = if (set.weight % 1.0 == 0.0) {
+                                    "${set.weight.toInt()} kg"
+                                } else {
+                                    "${set.weight} kg"
+                                }
                                 Text(
-                                    text = "${set.weight} kg",
+                                    text = weightText,
                                     color = FitHashTextPrimary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
 
                                 CompactButton(
-                                    onClick = { workoutManager.updateSetWeight(currentExIdx, setIdx, 2.5) },
+                                    onClick = { workoutManager.updateSetWeight(safeExIdx, setIdx, 2.5) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
                                     modifier = Modifier.size(40.dp)
                                 ) {
@@ -207,7 +238,7 @@ fun ActiveWorkoutScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 CompactButton(
-                                    onClick = { workoutManager.updateSetReps(currentExIdx, setIdx, -1) },
+                                    onClick = { workoutManager.updateSetReps(safeExIdx, setIdx, -1) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
                                     modifier = Modifier.size(40.dp)
                                 ) {
@@ -222,7 +253,7 @@ fun ActiveWorkoutScreen(
                                 )
 
                                 CompactButton(
-                                    onClick = { workoutManager.updateSetReps(currentExIdx, setIdx, 1) },
+                                    onClick = { workoutManager.updateSetReps(safeExIdx, setIdx, 1) },
                                     colors = ButtonDefaults.secondaryButtonColors(),
                                     modifier = Modifier.size(40.dp)
                                 ) {
@@ -234,8 +265,8 @@ fun ActiveWorkoutScreen(
                             Button(
                                 onClick = {
                                     val wasCompleted = set.completed
-                                    workoutManager.completeCurrentSet(currentExIdx, setIdx)
-                                    rirPromptSetIdx = if (wasCompleted) null else setIdx
+                                    workoutManager.completeCurrentSet(safeExIdx, setIdx)
+                                    rirPromptSetIdx = if (wasCompleted || isWarmup) null else setIdx
                                 },
                                 modifier = Modifier.fillMaxWidth().height(30.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -254,10 +285,10 @@ fun ActiveWorkoutScreen(
                 }
 
                 // Add Set Button
-                item {
+                item(key = "add_set_btn") {
                     Chip(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { workoutManager.addSet(currentExIdx) },
+                        onClick = { workoutManager.addSet(safeExIdx) },
                         label = { Text("+ Set Ekle", fontWeight = FontWeight.Bold) },
                         colors = ChipDefaults.chipColors(
                             backgroundColor = FitHashSurface,
@@ -267,7 +298,7 @@ fun ActiveWorkoutScreen(
                 }
 
                 // Finish Workout Button
-                item {
+                item(key = "finish_workout_btn") {
                     Chip(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = onFinishWorkout,
@@ -294,7 +325,7 @@ fun ActiveWorkoutScreen(
             // RIR is an optional report of the set just performed. It is never pre-filled
             // from the routine target, so progression data stays honest.
             val promptSetIdx = rirPromptSetIdx
-            if (promptSetIdx != null) {
+            if (promptSetIdx != null && promptSetIdx in currentExercise.sets.indices) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -307,7 +338,7 @@ fun ActiveWorkoutScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "Set ${promptSetIdx + 1}: RIR?",
+                            text = "Set ${currentExercise.sets[promptSetIdx].setNumber}: RIR?",
                             color = FitHashTextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -322,7 +353,7 @@ fun ActiveWorkoutScreen(
                             listOf(0, 1, 2, 3).forEach { rir ->
                                 Button(
                                     onClick = {
-                                        workoutManager.updateSetRir(currentExIdx, promptSetIdx, rir)
+                                        workoutManager.updateSetRir(safeExIdx, promptSetIdx, rir)
                                         rirPromptSetIdx = null
                                     },
                                     modifier = Modifier.size(40.dp),

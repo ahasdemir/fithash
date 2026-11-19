@@ -44,7 +44,7 @@ fun RoutinesListScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            item {
+            item(key = "header") {
                 Text(
                     text = "Rutinler",
                     color = FitHashTextPrimary,
@@ -55,7 +55,7 @@ fun RoutinesListScreen(
             }
 
             if (routines.isEmpty()) {
-                item {
+                item(key = "empty") {
                     Text(
                         text = "Telefonda rutin oluşturun veya eşitleyin.",
                         color = FitHashTextSecondary,
@@ -65,7 +65,10 @@ fun RoutinesListScreen(
                     )
                 }
             } else {
-                items(routines) { routine ->
+                items(
+                    items = routines,
+                    key = { r -> r.id.ifBlank { r.name } }
+                ) { routine ->
                     Chip(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = {
@@ -80,7 +83,8 @@ fun RoutinesListScreen(
                             )
                         },
                         secondaryLabel = {
-                            Text(text = "${routine.exercises.size} Hareket • ${routine.category}")
+                            val cat = routine.category?.takeIf { it.isNotBlank() } ?: "Genel"
+                            Text(text = "${routine.exercises.size} Hareket • $cat")
                         },
                         icon = {
                             Icon(
@@ -98,7 +102,7 @@ fun RoutinesListScreen(
             }
 
             // Sync from Phone Button
-            item {
+            item(key = "sync_btn") {
                 CompactChip(
                     onClick = {
                         workoutManager.syncFromDataClient()

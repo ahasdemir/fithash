@@ -1,12 +1,15 @@
 package com.fithash.app.wear.presentation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavHostController
 import androidx.wear.ambient.AmbientLifecycleObserver
@@ -16,6 +19,7 @@ import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.fithash.app.wear.data.WearWorkoutManager
 import com.fithash.app.wear.presentation.screens.*
 import com.fithash.app.wear.presentation.theme.FitHashWearTheme
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -24,15 +28,22 @@ class MainActivity : ComponentActivity() {
 
     private val ambientCallback = object : AmbientLifecycleObserver.AmbientLifecycleCallback {
         override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
-            // Keep UI low power / high contrast if needed
+            if (::workoutManager.isInitialized) {
+                workoutManager.refreshRestTimer()
+            }
         }
 
         override fun onExitAmbient() {
-            // Restore normal active UI
+            if (::workoutManager.isInitialized) {
+                workoutManager.refreshRestTimer()
+                workoutManager.syncFromDataClient()
+            }
         }
 
         override fun onUpdateAmbient() {
-            // Refresh ambient display
+            if (::workoutManager.isInitialized) {
+                workoutManager.refreshRestTimer()
+            }
         }
     }
 
@@ -42,12 +53,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(ambientObserver)
 
+        requestNotificationPermissionIfNeeded()
+
         workoutManager = WearWorkoutManager.getInstance(applicationContext)
 
-        // Observe active session to toggle FLAG_KEEP_SCREEN_ON
+        // Observe active session or active rest timer to toggle FLAG_KEEP_SCREEN_ON
         lifecycleScope.launch {
-            workoutManager.activeSession.collect { session ->
-                if (session != null) {
+            combine(
+                workoutManager.activeSession,
+                workoutManager.restTimerSeconds
+            ) { session, restSecs ->
+                session != null || (restSecs != null && restSecs > 0)
+            }.collect { keepScreenOn ->
+                if (keepScreenOn) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -61,6 +79,28 @@ class MainActivity : ComponentActivity() {
                 WearAppNavHost(
                     navController = navController,
                     workoutManager = workoutManager
+                )
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::workoutManager.isInitialized) {
+            workoutManager.refreshRestTimer()
+            workoutManager.syncFromDataClient()
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    100
                 )
             }
         }
@@ -80,6 +120,7 @@ fun WearAppNavHost(
             HomeScreen(
                 workoutManager = workoutManager,
                 onNavigateToRoutines = { navController.navigate("routines") },
+                onNavigateToSavedWorkouts = { navController.navigate("saved_workouts") },
                 onNavigateToActiveWorkout = { navController.navigate("active_workout") }
             )
         }
@@ -88,6 +129,17 @@ fun WearAppNavHost(
             RoutinesListScreen(
                 workoutManager = workoutManager,
                 onRoutineSelected = {
+                    navController.navigate("active_workout") {
+                        popUpTo("home")
+                    }
+                }
+            )
+        }
+
+        composable("saved_workouts") {
+            SavedWorkoutsListScreen(
+                workoutManager = workoutManager,
+                onWorkoutStarted = {
                     navController.navigate("active_workout") {
                         popUpTo("home")
                     }
