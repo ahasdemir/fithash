@@ -28,16 +28,14 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   onClose,
   onSave,
 }) => {
-  if (!workout) return null;
-
-  const [name, setName] = useState(workout.name);
-  const [date, setDate] = useState(workout.date);
+  const [name, setName] = useState(workout?.name ?? '');
+  const [date, setDate] = useState(workout?.date ?? '');
   const [durationMinutes, setDurationMinutes] = useState(
-    Math.round((workout.durationSeconds || 0) / 60).toString()
+    workout ? Math.round((workout.durationSeconds || 0) / 60).toString() : ''
   );
-  const [notes, setNotes] = useState(workout.notes || '');
+  const [notes, setNotes] = useState(workout?.notes ?? '');
   const [exercises, setExercises] = useState<WorkoutExercise[]>(
-    JSON.parse(JSON.stringify(workout.exercises || []))
+    workout ? JSON.parse(JSON.stringify(workout.exercises || [])) : []
   );
   const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -52,6 +50,11 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
       setRawInputMap({});
     }
   }, [workout]);
+
+  // Erken dönüş hook'lardan SONRA yapılmalı: aksi halde workout null iken
+  // 0 hook çalışır, workout dolunca 8 hook çalışır ve React kilitlenir
+  // ("Rendered more hooks than during the previous render").
+  if (!workout) return null;
 
   const handleAddExercise = (selectedEx: any) => {
     const newEx: WorkoutExercise = {
