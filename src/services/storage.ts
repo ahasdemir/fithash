@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats, MuscleCategory } from '../types/fitness';
+import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats, MuscleCategory, EquipmentType } from '../types/fitness';
 import { INITIAL_EXERCISES, DEFAULT_ROUTINES } from '../data/exerciseLibrary';
-import { calculateAutoregulatedE1RM } from './progressionEngine';
+import { calculateAutoregulatedE1RM, CoachAnalysisResult } from './progressionEngine';
 
 const STORAGE_KEYS = {
   EXERCISES: '@fitness_exercises_v1',
@@ -36,16 +36,16 @@ export const getLocalDateString = (d: Date | number = new Date()): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const getCachedAIAnalysis = async (): Promise<any | null> => {
+export const getCachedAIAnalysis = async (): Promise<CoachAnalysisResult | null> => {
   try {
     const json = await AsyncStorage.getItem(STORAGE_KEYS.CACHED_AI_ANALYSIS);
-    return json ? JSON.parse(json) : null;
+    return json ? JSON.parse(json) as CoachAnalysisResult : null;
   } catch (e) {
     return null;
   }
 };
 
-export const saveCachedAIAnalysis = async (analysis: any): Promise<void> => {
+export const saveCachedAIAnalysis = async (analysis: CoachAnalysisResult): Promise<void> => {
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.CACHED_AI_ANALYSIS, JSON.stringify(analysis));
   } catch (e) {
@@ -777,12 +777,26 @@ export const calculateStreakDays = (
 };
 
 // --- SAMPLE DATA GENERATOR FOR DEMO ---
+interface SampleExerciseTemplate {
+  name: string;
+  id: string;
+  cat: MuscleCategory;
+  eq: EquipmentType;
+  baseW: number;
+  reps: number[];
+}
+
+interface SampleWorkoutTemplate {
+  name: string;
+  exercises: SampleExerciseTemplate[];
+}
+
 export const generateSampleData = async (): Promise<WorkoutSession[]> => {
   const sampleWorkouts: WorkoutSession[] = [];
   const now = new Date();
 
   // Create logs over the last 28 days (4 weeks)
-  const workoutTemplates = [
+  const workoutTemplates: SampleWorkoutTemplate[] = [
     {
       name: 'Push (İtiş Günü)',
       exercises: [
@@ -841,8 +855,8 @@ export const generateSampleData = async (): Promise<WorkoutSession[]> => {
         id: `wex_${dayOffset}_${exIdx}`,
         exerciseId: ex.id,
         exerciseName: ex.name,
-        category: ex.cat as any,
-        equipment: ex.eq as any,
+        category: ex.cat,
+        equipment: ex.eq,
         sets,
       };
     });

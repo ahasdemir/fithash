@@ -1,10 +1,72 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
-import { Routine, WorkoutSession } from '../types/fitness';
+import { Routine, WorkoutSession, MuscleCategory, EquipmentType } from '../types/fitness';
 import { saveWorkout } from './storage';
 import { AppSettings } from './settings';
 
 const { WearSyncModule } = NativeModules;
 const wearEmitter = WearSyncModule && Platform.OS === 'android' ? new NativeEventEmitter(WearSyncModule) : null;
+
+/**
+ * Saat uygulamasından gelen ham JSON set verisi. Sayısal alanlar eski saat
+ * sürümlerinde string olarak gönderilebildiği için toleranslı tanımlanır.
+ */
+interface WearSetPayload {
+  id: string;
+  setNumber: number;
+  weight?: number | string;
+  reps?: number | string;
+  rir?: number;
+  completed?: boolean;
+}
+
+interface WearExercisePayload {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  category?: string;
+  equipment?: string;
+  sets?: WearSetPayload[];
+}
+
+interface WearSessionPayload {
+  id: string;
+  name?: string;
+  routineId?: string;
+  date: string;
+  startTime: number;
+  endTime?: number;
+  durationSeconds?: number;
+  exercises?: WearExercisePayload[];
+  totalVolume?: number | string;
+  totalSets?: number | string;
+}
+
+const MUSCLE_CATEGORIES: readonly MuscleCategory[] = [
+  'Göğüs',
+  'Sırt',
+  'Bacak',
+  'Omuz',
+  'Ön Kol',
+  'Arka Kol',
+  'Karın',
+  'Kardiyo',
+];
+
+const EQUIPMENT_TYPES: readonly EquipmentType[] = [
+  'Barbell',
+  'Dumbbell',
+  'Makine',
+  'Kablo',
+  'Vücut Ağırlığı',
+  'Kardiyo Cihazı',
+  'Diğer',
+];
+
+const isMuscleCategory = (value: unknown): value is MuscleCategory =>
+  typeof value === 'string' && (MUSCLE_CATEGORIES as readonly string[]).includes(value);
+
+const isEquipmentType = (value: unknown): value is EquipmentType =>
+  typeof value === 'string' && (EQUIPMENT_TYPES as readonly string[]).includes(value);
 
 /**
  * Syncs the user's active workout routines to connected Wear OS watch devices.
@@ -45,7 +107,7 @@ export const initWearSyncListener = (
   const importWorkout = async (sessionJson?: string) => {
     if (!sessionJson) return;
     try {
-      const wearSession = JSON.parse(sessionJson);
+      const wearSession = JSON.parse(sessionJson) as WearSessionPayload | null;
       if (!wearSession || !wearSession.id) return;
 
       const fullSession: WorkoutSession = {
@@ -56,13 +118,13 @@ export const initWearSyncListener = (
         startTime: wearSession.startTime,
         endTime: wearSession.endTime,
         durationSeconds: wearSession.durationSeconds || 0,
-        exercises: (wearSession.exercises || []).map((ex: any) => ({
+        exercises: (wearSession.exercises || []).map((ex: WearExercisePayload) => ({
           id: ex.id,
           exerciseId: ex.exerciseId,
           exerciseName: ex.exerciseName,
-          category: ex.category || 'Göğüs',
-          equipment: ex.equipment || 'Barbell',
-          sets: (ex.sets || []).map((s: any) => ({
+          category: isMuscleCategory(ex.category) ? ex.category : 'Göğüs',
+          equipment: isEquipmentType(ex.equipment) ? ex.equipment : 'Barbell',
+          sets: (ex.sets || []).map((s: WearSetPayload) => ({
             id: s.id,
             setNumber: s.setNumber,
             weight: Number(s.weight) || 0,

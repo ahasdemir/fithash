@@ -358,7 +358,7 @@ export const readHealthConnectData = async (
     try {
       const calRes = await readRecords('ActiveCaloriesBurned', { timeRangeFilter });
       if (calRes && calRes.records) {
-        activeCalories = calRes.records.reduce((sum, r: any) => sum + (r.energy?.inKilocalories || r.energy?.value || 0), 0);
+        activeCalories = calRes.records.reduce((sum, r) => sum + (r.energy?.inKilocalories || 0), 0);
       }
     } catch (e) {
       // Calories permission not granted
@@ -368,7 +368,7 @@ export const readHealthConnectData = async (
     try {
       const totCalRes = await readRecords('TotalCaloriesBurned', { timeRangeFilter });
       if (totCalRes && totCalRes.records) {
-        totalCalories = totCalRes.records.reduce((sum, r: any) => sum + (r.energy?.inKilocalories || r.energy?.value || 0), 0);
+        totalCalories = totCalRes.records.reduce((sum, r) => sum + (r.energy?.inKilocalories || 0), 0);
       }
     } catch (e) {
       // Total calories permission not granted
@@ -378,7 +378,7 @@ export const readHealthConnectData = async (
     try {
       const distRes = await readRecords('Distance', { timeRangeFilter });
       if (distRes && distRes.records) {
-        const meters = distRes.records.reduce((sum, r: any) => sum + (r.distance?.inMeters || r.distance?.value || 0), 0);
+        const meters = distRes.records.reduce((sum, r) => sum + (r.distance?.inMeters || 0), 0);
         distanceKm = Math.round((meters / 1000) * 100) / 100;
       }
     } catch (e) {
