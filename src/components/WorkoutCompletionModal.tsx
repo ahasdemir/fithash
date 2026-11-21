@@ -450,7 +450,8 @@ const createStyles = () => StyleSheet.create({
     textAlign: 'center',
   },
   pillOptionDescActive: {
-    color: '#333333',
+    color: COLORS.primaryText,
+    opacity: 0.75,
     fontWeight: '500',
   },
   actionsFooter: {

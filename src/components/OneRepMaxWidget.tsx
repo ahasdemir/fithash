@@ -159,11 +159,12 @@ const createStyles = () => StyleSheet.create({
   rmVal: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: COLORS.primaryText,
   },
   rmTag: {
     fontSize: 9,
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
+    opacity: 0.85,
     fontWeight: '600',
   },
 });

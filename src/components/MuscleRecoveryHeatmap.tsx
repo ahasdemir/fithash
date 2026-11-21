@@ -766,7 +766,7 @@ const createStyles = () => StyleSheet.create({
     justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontSize: 13,
     fontWeight: '700',
   },

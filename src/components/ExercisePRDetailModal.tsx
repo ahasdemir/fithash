@@ -1165,7 +1165,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
             <Ionicons
               name="trending-up"
               size={12}
-              color={activeTab === 'history' ? COLORS.primaryDarker : COLORS.textMuted}
+              color={activeTab === 'history' ? COLORS.primaryText : COLORS.textMuted}
             />
             <Text
               style={[
@@ -2303,7 +2303,7 @@ const createStyles = () => StyleSheet.create({
   sharePRBtn: {
     padding: 6,
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },

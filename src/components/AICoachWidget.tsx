@@ -83,7 +83,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
       {/* Body */}
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="small" color={COLORS.primaryText} />
+          <ActivityIndicator size="small" color={COLORS.primary} />
           <Text style={styles.loadingText}>Antrenman verileriniz yenileniyor...</Text>
         </View>
       ) : analysis ? (
@@ -102,7 +102,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
           {/* Overload Tip Box */}
           <View style={styles.tipBox}>
             <View style={styles.tipTitleRow}>
-              <Ionicons name="trending-up" size={14} color={COLORS.primaryText} />
+              <Ionicons name="trending-up" size={14} color={COLORS.textPrimary} />
               <Text style={styles.tipTitle}>Progressive Overload İpucu</Text>
             </View>
             <Text style={styles.tipBody}>{analysis.overloadTip}</Text>
@@ -123,7 +123,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
           {analysis.weeklyHardSetsByMuscle && Object.keys(analysis.weeklyHardSetsByMuscle).length > 0 && (
             <View style={styles.recsBox}>
               <View style={styles.tipTitleRow}>
-                <Ionicons name="barbell-outline" size={14} color={COLORS.primaryText} />
+                <Ionicons name="barbell-outline" size={14} color={COLORS.textPrimary} />
                 <Text style={styles.tipTitle}>Haftalık Efektif Hacim (MEV / MAV / MRV)</Text>
               </View>
               {Object.entries(analysis.weeklyHardSetsByMuscle).map(([muscle, item]) => {
@@ -159,7 +159,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
             <Ionicons
               name={justRefreshed ? "checkmark-circle" : "refresh"}
               size={14}
-              color={COLORS.primaryText}
+              color={COLORS.textPrimary}
             />
             <Text style={styles.refreshBtnText}>
               {justRefreshed ? 'Analiz Güncellendi' : 'Analizi Yenile'}

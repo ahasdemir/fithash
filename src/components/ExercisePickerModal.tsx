@@ -209,7 +209,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                         <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                       </TouchableOpacity>
                     )}
-                    <Ionicons name="add-circle" size={26} color={COLORS.primaryText} />
+                    <Ionicons name="add-circle" size={26} color={COLORS.textPrimary} />
                   </View>
                 </TouchableOpacity>
               );
@@ -304,7 +304,7 @@ const createStyles = () => StyleSheet.create({
   addBtn: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',

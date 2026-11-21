@@ -107,7 +107,7 @@ const createStyles = () => StyleSheet.create({
   },
   modalCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 28,
+    borderRadius: 10,
     padding: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -122,16 +122,12 @@ const createStyles = () => StyleSheet.create({
   badgeIconCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    ...SHADOWS.soft,
   },
   congratsText: {
     fontSize: 13,

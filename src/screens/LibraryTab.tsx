@@ -479,13 +479,15 @@ const createStyles = () => StyleSheet.create({
     flex: 1,
   },
   customBadge: {
-    backgroundColor: COLORS.primaryGlow,
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   customBadgeText: {
-    color: COLORS.primaryText,
+    color: COLORS.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },

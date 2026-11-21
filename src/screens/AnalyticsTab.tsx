@@ -310,7 +310,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 <Ionicons
                   name={tab.icon as any}
                   size={14}
-                  color={isSelected ? '#FFFFFF' : COLORS.textSecondary}
+                  color={isSelected ? COLORS.primaryText : COLORS.textSecondary}
                 />
                 <Text
                   style={[
@@ -779,7 +779,7 @@ const createStyles = () => StyleSheet.create({
   prIconBadge: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',

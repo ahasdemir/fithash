@@ -494,7 +494,7 @@ const createStyles = () => StyleSheet.create({
   stepperBtn: {
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: 8,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,

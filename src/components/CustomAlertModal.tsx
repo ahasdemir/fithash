@@ -37,7 +37,7 @@ export const CustomAlertModal: React.FC<CustomAlertOptions> = ({
         return { name: 'checkmark-circle', color: '#10B981', bg: 'rgba(16, 185, 129, 0.12)' };
       case 'info':
       default:
-        return { name: 'information-circle', color: COLORS.primaryText, bg: COLORS.primaryGlow };
+        return { name: 'information-circle', color: COLORS.textPrimary, bg: COLORS.surfaceSubtle };
     }
   };
 

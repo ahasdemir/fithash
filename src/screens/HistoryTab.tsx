@@ -54,7 +54,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <Ionicons name="calendar" size={14} color={COLORS.primaryText} />
+          <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
           <Text style={styles.dateText}>{session.date}</Text>
         </View>
 
@@ -77,7 +77,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
         <View style={styles.statsRow}>
           {hasVolume && (
             <View style={styles.badgePill}>
-              <Ionicons name="barbell" size={12} color={COLORS.primaryText} />
+              <Ionicons name="barbell" size={12} color={COLORS.textSecondary} />
               <Text style={styles.badgeText}>{session.totalVolume.toLocaleString('tr-TR')} kg</Text>
             </View>
           )}
@@ -101,7 +101,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
           )}
 
           <View style={styles.badgePill}>
-            <Ionicons name="time" size={12} color={COLORS.primaryText} />
+            <Ionicons name="time" size={12} color={COLORS.textSecondary} />
             <Text style={styles.badgeText}>{formatDuration(session.durationSeconds)}</Text>
           </View>
 
@@ -347,7 +347,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   {/* Card 1: Süre */}
                   <View style={styles.detailBentoCard}>
                     <View style={styles.bentoIconRow}>
-                      <Ionicons name="time" size={15} color={COLORS.primaryText} />
+                      <Ionicons name="time" size={15} color={COLORS.textPrimary} />
                       <Text style={styles.detailBentoLabel}>Süre</Text>
                     </View>
                     <Text style={styles.detailBentoVal} numberOfLines={1}>
@@ -361,7 +361,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                       <Ionicons
                         name={selectedWorkout.totalCardioDistanceKm ? "walk" : "barbell"}
                         size={15}
-                        color={COLORS.primaryText}
+                        color={COLORS.textPrimary}
                       />
                       <Text style={styles.detailBentoLabel}>
                         {selectedWorkout.totalCardioDistanceKm ? "Mesafe" : "Hacim"}
@@ -1143,7 +1143,7 @@ const createStyles = () => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: COLORS.surfaceSubtle,
     borderRadius: 6,
     paddingVertical: 14,
     borderWidth: 1,

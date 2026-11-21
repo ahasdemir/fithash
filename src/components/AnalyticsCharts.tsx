@@ -415,8 +415,8 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
           } else if (isPeak) {
             fillColor = '#10B981';
           } else if (val > 0) {
-            fillColor = COLORS.primaryText;
-          }
+                  fillColor = COLORS.textSecondary;
+                }
 
           const valText = isSets
             ? (val > 0 ? `${val}` : '')
@@ -432,7 +432,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
                 height={barHeight}
                 rx={Math.min(6, barWidth / 2)}
                 fill={fillColor}
-                stroke={isSelected ? COLORS.primaryText : 'none'}
+                stroke={isSelected ? COLORS.borderDark : 'none'}
                 strokeWidth={isSelected ? 2 : 0}
               />
 

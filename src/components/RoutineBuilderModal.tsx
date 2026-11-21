@@ -439,7 +439,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
 
             {selectedExercises.length === 0 && (
               <TouchableOpacity style={styles.emptyAddBox} onPress={() => setShowPicker(true)}>
-                <Ionicons name="add-circle-outline" size={30} color={COLORS.primaryText} />
+                <Ionicons name="add-circle-outline" size={30} color={COLORS.textPrimary} />
                 <Text style={styles.emptyAddText}>Programa Egzersiz Ekle</Text>
               </TouchableOpacity>
             )}

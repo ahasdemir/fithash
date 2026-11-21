@@ -447,6 +447,8 @@ const createStyles = () => StyleSheet.create({
     backgroundColor: COLORS.surfaceElevated,
     borderRadius: 8,
     padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -501,17 +503,17 @@ const createStyles = () => StyleSheet.create({
   },
   heroBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.primaryGlow,
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(198, 240, 53, 0.4)',
+    borderColor: COLORS.borderDark,
   },
   heroBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: COLORS.primaryText,
+    color: COLORS.textPrimary,
   },
   heroTextContainer: {
     gap: 4,
@@ -693,14 +695,16 @@ const createStyles = () => StyleSheet.create({
     fontWeight: '500',
   },
   exPillMore: {
-    backgroundColor: COLORS.primaryGlow,
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   exPillMoreText: {
     fontSize: 11,
-    color: COLORS.primaryText,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   startRoutineBtn: {
