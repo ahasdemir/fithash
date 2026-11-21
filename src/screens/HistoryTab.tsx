@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback , useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, Routine } from '../types/fitness';
 import { EditWorkoutModal } from '../components/EditWorkoutModal';
 
@@ -54,7 +54,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
-          <Ionicons name="calendar" size={14} color="#111111" />
+          <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
           <Text style={styles.dateText}>{session.date}</Text>
         </View>
 
@@ -77,7 +77,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
         <View style={styles.statsRow}>
           {hasVolume && (
             <View style={styles.badgePill}>
-              <Ionicons name="barbell" size={12} color="#111111" />
+              <Ionicons name="barbell" size={12} color={COLORS.textSecondary} />
               <Text style={styles.badgeText}>{session.totalVolume.toLocaleString('tr-TR')} kg</Text>
             </View>
           )}
@@ -101,7 +101,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
           )}
 
           <View style={styles.badgePill}>
-            <Ionicons name="time" size={12} color="#111111" />
+            <Ionicons name="time" size={12} color={COLORS.textSecondary} />
             <Text style={styles.badgeText}>{formatDuration(session.durationSeconds)}</Text>
           </View>
 
@@ -158,6 +158,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onReuseWorkout,
   onUpdateWorkout,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutSession | null>(null);
   const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSession | null>(null);
@@ -346,7 +347,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   {/* Card 1: Süre */}
                   <View style={styles.detailBentoCard}>
                     <View style={styles.bentoIconRow}>
-                      <Ionicons name="time" size={15} color="#111111" />
+                      <Ionicons name="time" size={15} color={COLORS.textPrimary} />
                       <Text style={styles.detailBentoLabel}>Süre</Text>
                     </View>
                     <Text style={styles.detailBentoVal} numberOfLines={1}>
@@ -360,7 +361,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                       <Ionicons
                         name={selectedWorkout.totalCardioDistanceKm ? "walk" : "barbell"}
                         size={15}
-                        color="#111111"
+                        color={COLORS.textPrimary}
                       />
                       <Text style={styles.detailBentoLabel}>
                         {selectedWorkout.totalCardioDistanceKm ? "Mesafe" : "Hacim"}
@@ -622,7 +623,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     setWorkoutToEdit(w);
                   }}
                 >
-                  <Ionicons name="pencil-outline" size={16} color="#111111" />
+                  <Ionicons name="pencil-outline" size={16} color={COLORS.primaryText} />
                   <Text style={styles.editWorkoutModalText}>Düzenle</Text>
                 </TouchableOpacity>
 
@@ -634,7 +635,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     onReuseWorkout(workout);
                   }}
                 >
-                  <Ionicons name="refresh" size={16} color="#111111" />
+                  <Ionicons name="refresh" size={16} color={COLORS.primaryText} />
                   <Text style={styles.reuseBtnText}>Tekrar Yap</Text>
                 </TouchableOpacity>
               </View>
@@ -646,7 +647,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -686,16 +687,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   countBadgeText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
     fontSize: 12,
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
   },
   trashBtn: {
     padding: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
   dateText: {
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -796,7 +797,7 @@ const styles = StyleSheet.create({
   },
   deleteConfirmBox: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 24,
     margin: 20,
     alignSelf: 'center',
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -840,7 +841,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.danger,
   },
   confirmDeleteText: {
@@ -890,7 +891,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'center',
@@ -930,7 +931,7 @@ const styles = StyleSheet.create({
   },
   modalExCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
@@ -954,7 +955,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   modalCatText: {
     fontSize: 10,
@@ -1004,7 +1005,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   deleteWorkoutModalText: {
     color: COLORS.danger,
@@ -1019,10 +1020,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   reuseBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -1040,7 +1041,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   badgeSuccessText: {
     color: '#10B981',
@@ -1054,7 +1055,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   badgeWarningText: {
     color: '#F59E0B',
@@ -1068,7 +1069,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   badgeDangerText: {
     color: '#EF4444',
@@ -1115,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   skippedExCard: {
     backgroundColor: 'rgba(239, 68, 68, 0.05)',
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.25)',
@@ -1142,8 +1143,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderRadius: 14,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: 6,
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1153,4 +1154,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

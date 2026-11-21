@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { getMondayOfWeek } from '../services/storage';
 
@@ -415,8 +415,8 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
           } else if (isPeak) {
             fillColor = '#10B981';
           } else if (val > 0) {
-            fillColor = '#111111';
-          }
+                  fillColor = COLORS.textSecondary;
+                }
 
           const valText = isSets
             ? (val > 0 ? `${val}` : '')
@@ -432,7 +432,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
                 height={barHeight}
                 rx={Math.min(6, barWidth / 2)}
                 fill={fillColor}
-                stroke={isSelected ? '#111111' : 'none'}
+                stroke={isSelected ? COLORS.borderDark : 'none'}
                 strokeWidth={isSelected ? 2 : 0}
               />
 
@@ -550,6 +550,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   allWorkouts,
   filterMode,
 }) => {
+  useTheme();
   const [containerWidth, setContainerWidth] = useState(320);
   const [selectedSetIndex, setSelectedSetIndex] = useState<number | null>(null);
   const [selectedVolumeIndex, setSelectedVolumeIndex] = useState<number | null>(null);
@@ -627,7 +628,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
         category,
         sets,
         volume: categoryVolume[category] || 0,
-        color: COLORS.category[category as any] || '#111111',
+        color: COLORS.category[category as any] || COLORS.primaryText,
       }))
       .sort((a, b) => b.sets - a.sets);
   }, [workouts]);
@@ -746,7 +747,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="expand-outline" size={14} color="#111111" />
+            <Ionicons name="expand-outline" size={14} color={COLORS.primaryText} />
             <Text style={styles.expandBtnText}>Büyüt</Text>
           </TouchableOpacity>
         </View>
@@ -879,7 +880,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="expand-outline" size={14} color="#111111" />
+            <Ionicons name="expand-outline" size={14} color={COLORS.primaryText} />
             <Text style={styles.expandBtnText}>Büyüt</Text>
           </TouchableOpacity>
         </View>
@@ -960,7 +961,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 <Ionicons
                   name={modalMetric === 'sets' ? 'layers-outline' : 'analytics'}
                   size={20}
-                  color="#111111"
+                  color={COLORS.primaryText}
                 />
               </View>
               <View>
@@ -1081,7 +1082,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                   </View>
                   {(modalMetric === 'sets' ? modalSelectedBucket.isPeakSet : modalSelectedBucket.isPeak) && (
                     <View style={styles.peakPill}>
-                      <Ionicons name="trophy" size={12} color="#111111" />
+                      <Ionicons name="trophy" size={12} color={COLORS.primaryText} />
                       <Text style={styles.peakPillText}>Zirve Periyot</Text>
                     </View>
                   )}
@@ -1164,7 +1165,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 {modalMetric === 'sets' ? (
                   <>
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="layers-outline" size={18} color="#111111" />
+                      <Ionicons name="layers-outline" size={18} color={COLORS.textPrimary} />
                       <Text style={styles.modalSummaryVal}>
                         {totalModalSets} <Text style={styles.modalSummaryUnit}>Set</Text>
                       </Text>
@@ -1198,7 +1199,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 ) : (
                   <>
                     <View style={styles.modalSummarySquare}>
-                      <Ionicons name="barbell-outline" size={18} color="#111111" />
+                      <Ionicons name="barbell-outline" size={18} color={COLORS.textPrimary} />
                       <Text style={styles.modalSummaryVal}>
                         {(totalModalVol / 1000).toFixed(1)} <Text style={styles.modalSummaryUnit}>Ton</Text>
                       </Text>
@@ -1239,13 +1240,13 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     gap: 14,
   },
   bentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1281,7 +1282,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1297,13 +1298,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     ...SHADOWS.soft,
   },
   expandBtnText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   chartSection: {
     gap: 12,
@@ -1313,7 +1314,7 @@ const styles = StyleSheet.create({
   },
   tooltipCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1344,7 +1345,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
     flexShrink: 0,
   },
   peakBadgeText: {
@@ -1442,7 +1443,7 @@ const styles = StyleSheet.create({
   muscleSetsText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.textPrimary,
   },
   musclePercentText: {
     fontSize: 11,
@@ -1457,12 +1458,12 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 8,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 100,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   // Modal Styles
   modalSafeArea: {
@@ -1487,7 +1488,7 @@ const styles = StyleSheet.create({
   modalTitleIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1521,7 +1522,7 @@ const styles = StyleSheet.create({
   metricSwitcherBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: 100,
+    borderRadius: 6,
     padding: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1531,10 +1532,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   metricBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   metricBtnText: {
     fontSize: 13,
@@ -1542,7 +1543,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   metricBtnTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   resSwitcherContainer: {
@@ -1557,7 +1558,7 @@ const styles = StyleSheet.create({
   resSwitcherBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: 100,
+    borderRadius: 6,
     padding: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1567,10 +1568,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   resBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   resBtnText: {
     fontSize: 13,
@@ -1578,12 +1579,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   resBtnTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   modalChartCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1607,16 +1608,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   modalPeakBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   modalDetailCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1647,13 +1648,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 6,
     flexShrink: 0,
   },
   peakPillText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   modalMetricGrid: {
     flexDirection: 'row',
@@ -1664,7 +1665,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: COLORS.surface,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1699,7 +1700,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1722,4 +1723,9 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontWeight: '500',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

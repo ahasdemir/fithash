@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { COLORS } from '../theme';
 
 const CHANNEL_DEFAULT = 'fithash';
 const CHANNEL_TIMERS = 'fithash_timers';
@@ -27,7 +28,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 250, 250, 250],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: COLORS.primary,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
 
@@ -37,7 +38,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 600, 200, 600, 200, 600],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: COLORS.primary,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         bypassDnd: true,
         showBadge: true,
@@ -50,7 +51,7 @@ export const configureNotifications = async (): Promise<void> => {
         vibrationPattern: [0, 300, 100, 300, 100, 300],
         enableVibrate: true,
         enableLights: true,
-        lightColor: '#C6F035',
+        lightColor: COLORS.primary,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         sound: 'default',
       });
@@ -111,7 +112,7 @@ export const scheduleRestTimerNotification = async (endTime: number): Promise<vo
     await Notifications.scheduleNotificationAsync({
       identifier: REST_TIMER_ID,
       content: {
-        title: '⏰ Dinlenme Süresi Doldu!',
+        title: 'Dinlenme Süresi Doldu!',
         body: 'Dinlenme süreniz bitti. Bir sonraki setinizi yapmaya hazır mısınız?',
         data: { type: 'rest_timer_finish', endTime },
         sound: 'default',
@@ -170,7 +171,7 @@ export const triggerPRNotification = async (
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🏆 YENİ KİŞİSEL REKOR (PR)!',
+        title: 'YENİ KİŞİSEL REKOR (PR)!',
         body: `Tebrikler! ${exerciseName} hareketinde ${weight} kg x ${reps} tekrar ile yeni bir rekor kırdınız!`,
         data: { type: 'pr_achievement', exerciseName, weight, reps },
         sound: true,
@@ -196,7 +197,7 @@ export const triggerStreakMilestoneNotification = async (streakDays: number): Pr
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `🔥 ${streakDays} GÜNLÜK ANTRENMAN SERİSİ!`,
+        title: `${streakDays} GÜNLÜK ANTRENMAN SERİSİ!`,
         body: `${streakDays} gündür antrenman serinizi bozmuyorsunuz! Disiplininiz ve başarınız harika!`,
         data: { type: 'streak_milestone', streakDays },
         sound: true,
@@ -224,7 +225,7 @@ export const scheduleDailyWorkoutReminder = async (hour: number = 18, minute: nu
     await Notifications.scheduleNotificationAsync({
       identifier: DAILY_REMINDER_ID,
       content: {
-        title: '💪 Bugünü Boş Geçme!',
+        title: 'Bugünü Boş Geçme!',
         body: 'Günün antrenman seansı seni bekliyor. Hedeflerine ulaşmak için harekete geç!',
         data: { type: 'daily_workout_reminder' },
         sound: true,
@@ -249,4 +250,3 @@ export const cancelDailyWorkoutReminder = async (): Promise<void> => {
     // Ignore.
   }
 };
-

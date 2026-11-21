@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect , useMemo } from 'react';
 import {
   Modal,
   View,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet } from '../types/fitness';
 import { ExercisePickerModal } from './ExercisePickerModal';
 
@@ -28,6 +28,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   onClose,
   onSave,
 }) => {
+  useTheme();
   const [name, setName] = useState(workout?.name ?? '');
   const [date, setDate] = useState(workout?.date ?? '');
   const [durationMinutes, setDurationMinutes] = useState(
@@ -330,7 +331,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
               style={styles.addExerciseBtn}
               onPress={() => setShowExercisePicker(true)}
             >
-              <Ionicons name="add" size={16} color="#111111" />
+              <Ionicons name="add" size={16} color={COLORS.primaryText} />
               <Text style={styles.addExerciseBtnText}>Egzersiz Ekle</Text>
             </TouchableOpacity>
           </View>
@@ -492,7 +493,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                       <Ionicons
                         name={set.completed ? 'checkmark' : 'close'}
                         size={14}
-                        color={set.completed ? '#111111' : COLORS.textMuted}
+                        color={set.completed ? COLORS.primaryText : COLORS.textMuted}
                       />
                     </TouchableOpacity>
 
@@ -533,7 +534,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -571,7 +572,7 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   scroll: {
     flex: 1,
@@ -583,7 +584,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -609,12 +610,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   addExerciseBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   inputGroup: {
     gap: 6,
@@ -644,7 +645,7 @@ const styles = StyleSheet.create({
   },
   exerciseCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -755,4 +756,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

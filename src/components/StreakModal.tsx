@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState , useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { calculateStreakDays, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
@@ -37,6 +37,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   weeklyTargetHistory,
   onUpdateWorkoutDays,
 }) => {
+  useTheme();
   const today = new Date();
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
@@ -196,7 +197,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
           {/* Hero Banner */}
           <View style={styles.heroCard}>
             <View style={styles.heroTop}>
-              <Ionicons name="flame" size={32} color="#111111" />
+              <Ionicons name="flame" size={32} color={COLORS.primaryText} />
               <Text style={styles.heroVal}>{streakCount} Gün</Text>
             </View>
             <Text style={styles.heroTitle}>Aktif Antrenman Serisi</Text>
@@ -346,7 +347,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: COLORS.primary,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 20,
     alignItems: 'center',
     gap: 4,
@@ -395,12 +396,12 @@ const styles = StyleSheet.create({
   heroVal: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   heroTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   heroSub: {
     fontSize: 12,
@@ -409,7 +410,7 @@ const styles = StyleSheet.create({
   },
   weekProgressCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -449,7 +450,7 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     height: 8,
     backgroundColor: COLORS.surface,
-    borderRadius: 100,
+    borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -457,7 +458,7 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: COLORS.primary,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   weekProgressMsg: {
     fontSize: 12,
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 20,
+    borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 46,
     height: 46,
-    borderRadius: 23,
+    borderRadius: 8,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
   },
   calendarSection: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
   },
   monthNavBtn: {
     padding: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
   calendarCell: {
     width: '14.28%',
     height: 44,
-    borderRadius: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -611,7 +612,7 @@ const styles = StyleSheet.create({
   },
   legendContainer: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -635,4 +636,9 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

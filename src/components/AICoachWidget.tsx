@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect , useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, PersonalRecord } from '../types/fitness';
 import { generateLocalCoachAnalysis, CoachAnalysisResult } from '../services/progressionEngine';
 import { getCachedAIAnalysis, saveCachedAIAnalysis } from '../services/storage';
@@ -12,6 +12,7 @@ interface AICoachWidgetProps {
 }
 
 export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) => {
+  useTheme();
   const [analysis, setAnalysis] = useState<CoachAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [justRefreshed, setJustRefreshed] = useState(false);
@@ -61,7 +62,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
       <View style={styles.cardHeader}>
         <View style={styles.titleRow}>
           <View style={styles.aiBadgeIcon}>
-            <Ionicons name="sparkles" size={16} color="#111111" />
+            <Ionicons name="sparkles" size={16} color={COLORS.primaryText} />
           </View>
           <View>
             <Text style={styles.cardTitle}>FitHash Akıllı Antrenör</Text>
@@ -82,7 +83,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
       {/* Body */}
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="small" color="#111111" />
+          <ActivityIndicator size="small" color={COLORS.primary} />
           <Text style={styles.loadingText}>Antrenman verileriniz yenileniyor...</Text>
         </View>
       ) : analysis ? (
@@ -101,7 +102,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
           {/* Overload Tip Box */}
           <View style={styles.tipBox}>
             <View style={styles.tipTitleRow}>
-              <Ionicons name="trending-up" size={14} color="#111111" />
+              <Ionicons name="trending-up" size={14} color={COLORS.textPrimary} />
               <Text style={styles.tipTitle}>Progressive Overload İpucu</Text>
             </View>
             <Text style={styles.tipBody}>{analysis.overloadTip}</Text>
@@ -122,7 +123,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
           {analysis.weeklyHardSetsByMuscle && Object.keys(analysis.weeklyHardSetsByMuscle).length > 0 && (
             <View style={styles.recsBox}>
               <View style={styles.tipTitleRow}>
-                <Ionicons name="barbell-outline" size={14} color="#111111" />
+                <Ionicons name="barbell-outline" size={14} color={COLORS.textPrimary} />
                 <Text style={styles.tipTitle}>Haftalık Efektif Hacim (MEV / MAV / MRV)</Text>
               </View>
               {Object.entries(analysis.weeklyHardSetsByMuscle).map(([muscle, item]) => {
@@ -158,7 +159,7 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
             <Ionicons
               name={justRefreshed ? "checkmark-circle" : "refresh"}
               size={14}
-              color="#111111"
+              color={COLORS.textPrimary}
             />
             <Text style={styles.refreshBtnText}>
               {justRefreshed ? 'Analiz Güncellendi' : 'Analizi Yenile'}
@@ -170,10 +171,10 @@ export const AICoachWidget: React.FC<AICoachWidgetProps> = ({ workouts, prs }) =
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   bentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   aiBadgeIcon: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -214,16 +215,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   scorePillLabel: {
     fontSize: 11,
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '600',
   },
   scorePillVal: {
     fontSize: 13,
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
   },
   loadingBox: {
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 7,
     backgroundColor: '#FEF3C7',
-    borderRadius: 12,
+    borderRadius: 6,
     padding: 10,
   },
   liveErrorText: {
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
   },
   tipBox: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -317,7 +318,7 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: COLORS.surfaceSubtle,
     paddingVertical: 10,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginTop: 4,
@@ -331,4 +332,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

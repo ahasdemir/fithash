@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef , useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Vibration, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 
 interface RestTimerProps {
   initialSeconds?: number;
@@ -17,6 +17,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
   onClose,
   onDeadlineChange,
 }) => {
+  useTheme();
   const [targetEndTime, setTargetEndTime] = useState<number>(() => Date.now() + initialSeconds * 1000);
   const [secondsLeft, setSecondsLeft] = useState<number>(initialSeconds);
   const [isActive, setIsActive] = useState<boolean>(true);
@@ -115,7 +116,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
       <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
       <View style={styles.content}>
         <View style={styles.leftInfo}>
-          <Ionicons name="timer-outline" size={16} color="#111111" />
+          <Ionicons name="timer-outline" size={16} color={COLORS.textPrimary} />
           <Text style={styles.label} numberOfLines={1}>Dinlenme:</Text>
           <Text style={styles.timeText}>{formatTime(secondsLeft)}</Text>
         </View>
@@ -126,7 +127,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.btnPlay} onPress={toggleTimer}>
-            <Ionicons name={isActive ? "pause" : "play"} size={14} color="#111111" />
+            <Ionicons name={isActive ? "pause" : "play"} size={14} color={COLORS.primaryText} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.btnSmall} onPress={() => addTime(15)}>
@@ -144,10 +145,10 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     overflow: 'hidden',
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 15,
-    color: '#111111',
+    color: COLORS.textPrimary,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -201,10 +202,15 @@ const styles = StyleSheet.create({
   btnPlay: {
     backgroundColor: COLORS.primary,
     padding: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   btnClose: {
     padding: 4,
     marginLeft: 2,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

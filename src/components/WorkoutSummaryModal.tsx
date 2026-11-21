@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 
 interface WorkoutSummaryModalProps {
@@ -22,6 +22,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   session,
   onClose,
 }) => {
+  useTheme();
   if (!session) return null;
 
   const durationMins = Math.max(1, Math.round((session.durationSeconds || 60) / 60));
@@ -38,7 +39,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
             {/* Header Badge */}
             <View style={styles.badgeWrapper}>
               <View style={styles.badgeIconCircle}>
-                <Ionicons name="trophy" size={28} color="#111111" />
+                <Ionicons name="trophy" size={28} color={COLORS.primaryText} />
               </View>
               <Text style={styles.congratsText}>TEBRİKLER!</Text>
               <Text style={styles.sessionTitle}>{session.name || 'Antrenman'}</Text>
@@ -83,7 +84,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
             {/* Action Button */}
             <TouchableOpacity style={styles.actionBtn} onPress={onClose} activeOpacity={0.8}>
               <Text style={styles.actionBtnText}>Harika! Ana Sayfaya Dön</Text>
-              <Ionicons name="arrow-forward" size={18} color="#111111" />
+              <Ionicons name="arrow-forward" size={18} color={COLORS.primaryText} />
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -92,7 +93,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 28,
+    borderRadius: 10,
     padding: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -121,16 +122,12 @@ const styles = StyleSheet.create({
   badgeIconCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    ...SHADOWS.soft,
   },
   congratsText: {
     fontSize: 13,
@@ -159,7 +156,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -183,7 +180,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     width: '100%',
@@ -202,14 +199,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: COLORS.primary,
-    borderRadius: 100,
+    borderRadius: 6,
     paddingVertical: 16,
     width: '100%',
     marginTop: 6,
   },
   actionBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontSize: 15,
     fontWeight: '800',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

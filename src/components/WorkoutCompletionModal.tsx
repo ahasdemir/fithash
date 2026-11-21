@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState , useMemo } from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { MuscleCategory, SessionFeedback } from '../types/fitness';
 
 interface WorkoutCompletionModalProps {
@@ -33,6 +33,7 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
   onConfirm,
   onClose,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [effortRating, setEffortRating] = useState<1 | 2 | 3>(2);
   const [jointComfort, setJointComfort] = useState<0 | 1 | 2>(0);
@@ -65,7 +66,7 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
           <View style={styles.header}>
             <View style={styles.titleWrapper}>
               <View style={styles.headerBadge}>
-                <Ionicons name="checkmark-done" size={16} color="#111111" />
+                <Ionicons name="checkmark-done" size={16} color={COLORS.primaryText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -219,7 +220,7 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
                           isSelected
                             ? isWarning
                               ? COLORS.danger
-                              : '#111111'
+                              : COLORS.primaryText
                             : COLORS.textMuted
                         }
                       />
@@ -246,7 +247,7 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
               onPress={handleSaveWithFeedback}
               activeOpacity={0.8}
             >
-              <Ionicons name="cloud-done-outline" size={18} color="#111111" />
+              <Ionicons name="cloud-done-outline" size={18} color={COLORS.primaryText} />
               <Text style={styles.saveBtnText}>Antrenmanı Kaydet</Text>
             </TouchableOpacity>
 
@@ -265,7 +266,7 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
@@ -273,8 +274,8 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     maxHeight: '85%',
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
   headerBadge: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderWidth: 1,
@@ -392,7 +393,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
   },
@@ -415,7 +416,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pillOptionLabelActive: {
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   pillOptionDangerLabel: {
     color: COLORS.danger,
@@ -449,7 +450,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pillOptionDescActive: {
-    color: '#333333',
+    color: COLORS.primaryText,
+    opacity: 0.75,
     fontWeight: '500',
   },
   actionsFooter: {
@@ -466,14 +468,14 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: COLORS.primary,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: 8,
     minHeight: 48,
     ...SHADOWS.soft,
   },
   saveBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   skipBtn: {
     alignItems: 'center',
@@ -485,4 +487,9 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     textDecorationLine: 'underline',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

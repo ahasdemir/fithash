@@ -7,7 +7,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { MuscleCategory } from '../types/fitness';
 import {
   MuscleRecoveryStatus,
@@ -119,6 +119,7 @@ const MuscleCard = React.memo(function MuscleCard({
 export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
   recoveryMap,
 }) => {
+  useTheme();
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleCategory | null>(null);
 
   // Memoized so the tier useMemos below keep stable dependencies: a fresh
@@ -192,7 +193,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.headerIconBg}>
-            <Ionicons name="pulse-outline" size={18} color="#111111" />
+            <Ionicons name="pulse-outline" size={18} color={COLORS.primaryText} />
           </View>
           <View style={styles.headerTextCol}>
             <Text style={styles.title}>Kas Yorgunluk & Hazırlık Modeli</Text>
@@ -245,7 +246,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
       </View>
 
       {/* Physiological Tiers */}
-      {/* Tier 1: 🟢 Antrenmana Hazır / Dinlenmiş */}
+      {/* Tier 1:  Antrenmana Hazır / Dinlenmiş */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
           <View style={[styles.tierDot, { backgroundColor: '#10B981' }]} />
@@ -264,7 +265,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
         )}
       </View>
 
-      {/* Tier 2: 🟡 Toparlanma Aşamasında */}
+      {/* Tier 2:  Toparlanma Aşamasında */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
           <View style={[styles.tierDot, { backgroundColor: '#F59E0B' }]} />
@@ -283,7 +284,7 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
         )}
       </View>
 
-      {/* Tier 3: 🔴 Yüksek Yorgunluk / Dinlenmeli */}
+      {/* Tier 3:  Yüksek Yorgunluk / Dinlenmeli */}
       <View style={styles.tierSection}>
         <View style={styles.tierHeader}>
           <View style={[styles.tierDot, { backgroundColor: '#EF4444' }]} />
@@ -424,10 +425,10 @@ export const MuscleRecoveryHeatmap: React.FC<MuscleRecoveryHeatmapProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 18,
     gap: 18,
     borderWidth: 1,
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
   headerIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -465,7 +466,7 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
+    borderRadius: 8,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -510,7 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
   },
@@ -571,7 +572,7 @@ const styles = StyleSheet.create({
   muscleCard: {
     width: '48%',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 12,
     borderLeftWidth: 4,
     borderWidth: 1,
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -671,7 +672,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -701,7 +702,7 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
   },
   statusCallout: {
@@ -709,7 +710,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 6,
     borderWidth: 1,
   },
   calloutTextCol: {
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
   detailStatBox: {
     flex: 1,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -758,15 +759,20 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   actionBtn: {
-    backgroundColor: '#111111',
-    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontSize: 13,
     fontWeight: '700',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

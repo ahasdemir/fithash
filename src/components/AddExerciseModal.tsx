@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState , useMemo } from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, EquipmentType } from '../types/fitness';
 
 interface AddExerciseModalProps {
@@ -44,6 +44,7 @@ export const AddExerciseModal: React.FC<AddExerciseModalProps> = ({
   onClose,
   onSave,
 }) => {
+  useTheme();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<MuscleCategory>('Göğüs');
   const [equipment, setEquipment] = useState<EquipmentType>('Barbell');
@@ -177,7 +178,7 @@ export const AddExerciseModal: React.FC<AddExerciseModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -185,8 +186,8 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     maxHeight: '85%',
     padding: 20,
     borderWidth: 1,
@@ -219,14 +220,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
+    borderRadius: 6,
     paddingHorizontal: 16,
     paddingVertical: 10,
     color: COLORS.textPrimary,
     fontSize: 14,
   },
   textArea: {
-    borderRadius: 16,
+    borderRadius: 8,
     height: 70,
     textAlignVertical: 'top',
   },
@@ -238,14 +239,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginRight: 8,
   },
   chipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   chipText: {
     color: COLORS.textSecondary,
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   footer: {
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -279,14 +280,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.primary,
   },
   saveBtnDisabled: {
     opacity: 0.5,
   },
   saveBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, WorkoutSession, PersonalRecord } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { AddExerciseModal } from '../components/AddExerciseModal';
@@ -36,6 +36,7 @@ interface LibraryTabProps {
 }
 
 export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,7 +143,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
         </View>
 
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-          <Ionicons name="add" size={16} color="#111111" />
+          <Ionicons name="add" size={16} color={COLORS.primaryText} />
           <Text style={styles.addBtnText}>Egzersiz Ekle</Text>
         </TouchableOpacity>
       </View>
@@ -275,8 +276,8 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
                 contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) + 24 }}
               >
                 <View style={styles.modalBadgeRow}>
-                  <View style={[styles.catBadge, { backgroundColor: (COLORS.category[selectedExercise.category] || '#111111') + '20' }]}>
-                    <Text style={[styles.catBadgeText, { color: COLORS.category[selectedExercise.category] || '#111111' }]}>
+                  <View style={[styles.catBadge, { backgroundColor: (COLORS.category[selectedExercise.category] || COLORS.primaryText) + '20' }]}>
+                    <Text style={[styles.catBadgeText, { color: COLORS.category[selectedExercise.category] || COLORS.primaryText }]}>
                       {selectedExercise.category}
                     </Text>
                   </View>
@@ -314,7 +315,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
                     setSelectedExerciseForPR(ex);
                   }}
                 >
-                  <Ionicons name="stats-chart-outline" size={15} color="#111111" />
+                  <Ionicons name="stats-chart-outline" size={15} color={COLORS.primaryText} />
                   <Text style={styles.prInspectActionBtnText}>
                     {exercisePRMap[selectedExercise.name.toLowerCase().trim()]
                       ? 'Kişisel Rekor & Gelişim Analizi'
@@ -359,7 +360,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -387,10 +388,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   addBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
     fontSize: 12,
   },
@@ -400,7 +401,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
+    borderRadius: 6,
     paddingHorizontal: 14,
     height: 40,
     gap: 8,
@@ -424,15 +425,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginRight: 6,
     ...SHADOWS.soft,
   },
   categoryChipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   categoryChipText: {
     color: COLORS.textSecondary,
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   categoryChipTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   listContent: {
@@ -456,7 +457,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.soft,
@@ -478,13 +479,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   customBadge: {
-    backgroundColor: COLORS.primaryGlow,
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.borderDark,
   },
   customBadgeText: {
-    color: '#111111',
+    color: COLORS.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -497,7 +500,7 @@ const styles = StyleSheet.create({
   catBadge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   catBadgeText: {
     fontSize: 11,
@@ -507,7 +510,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -526,8 +529,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     padding: 20,
     maxHeight: '75%',
     borderWidth: 1,
@@ -589,7 +592,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   prBadgeText: {
     fontSize: 10,
@@ -603,11 +606,11 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: COLORS.primary,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 14,
   },
   prInspectActionBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -618,7 +621,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 12,
   },
   deleteModalBtnText: {
@@ -626,4 +629,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

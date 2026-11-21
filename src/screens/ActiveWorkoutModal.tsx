@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback , useMemo } from 'react';
 import {
   Modal,
   View,
@@ -16,7 +16,7 @@ import {
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, ExerciseFeedback, SessionFeedback, MuscleCategory } from '../types/fitness';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
@@ -63,6 +63,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   onBackgroundSession,
   remoteRestTimer,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [session, setSession] = useState<WorkoutSession | null>(activeSession);
   const [pastWorkouts, setPastWorkouts] = useState<WorkoutSession[]>([]);
@@ -907,7 +908,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
               }}
             />
             <View style={styles.timerBadge}>
-              <Ionicons name="time" size={12} color="#111111" />
+              <Ionicons name="time" size={12} color={COLORS.primaryText} />
               <Text style={styles.timerText}>{formatTimer(elapsedSeconds)}</Text>
             </View>
           </View>
@@ -1043,7 +1044,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                                   : 'shield-checkmark-outline')
                             }
                             size={12}
-                            color={isToggled ? COLORS.textPrimary : (recommendation.actionType === 'DELOAD' ? COLORS.warning || '#f59e0b' : '#111111')}
+                            color={isToggled ? COLORS.textPrimary : (recommendation.actionType === 'DELOAD' ? COLORS.warning || '#f59e0b' : COLORS.primaryText)}
                           />
                           <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
                             {displayText}
@@ -1145,7 +1146,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           style={[styles.checkBtn, set.completed && styles.checkBtnCompleted]}
                           onPress={() => handleToggleSetComplete(ex.id, setIdx)}
                         >
-                          <Ionicons name="checkmark" size={14} color={set.completed ? '#111111' : COLORS.textMuted} />
+                          <Ionicons name="checkmark" size={14} color={set.completed ? COLORS.primaryText : COLORS.textMuted} />
                         </TouchableOpacity>
 
                         {/* Delete Set */}
@@ -1220,7 +1221,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           <Ionicons
                             name="checkmark"
                             size={14}
-                            color={set.completed ? '#111111' : COLORS.textMuted}
+                            color={set.completed ? COLORS.primaryText : COLORS.textMuted}
                           />
                         </TouchableOpacity>
 
@@ -1326,7 +1327,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         <Ionicons
                           name="checkmark"
                           size={14}
-                          color={set.completed ? '#111111' : COLORS.textMuted}
+                          color={set.completed ? COLORS.primaryText : COLORS.textMuted}
                         />
                       </TouchableOpacity>
 
@@ -1344,7 +1345,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                 <View style={styles.exCardFooter}>
                   <TouchableOpacity style={styles.addSetBtn} onPress={() => handleAddSet(ex.id)}>
-                    <Ionicons name="add" size={14} color="#111111" />
+                    <Ionicons name="add" size={14} color={COLORS.primaryText} />
                     <Text style={styles.addSetBtnText}>Set Ekle</Text>
                   </TouchableOpacity>
                 </View>
@@ -1356,7 +1357,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             style={styles.bigAddExBtn}
             onPress={() => setShowExercisePicker(true)}
           >
-            <Ionicons name="add-circle" size={22} color="#111111" />
+            <Ionicons name="add-circle" size={22} color={COLORS.primaryText} />
             <Text style={styles.bigAddExBtnText}>Antrenmana Egzersiz Ekle</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -1437,7 +1438,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.surface,
@@ -1473,7 +1474,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   cancelText: {
     color: COLORS.danger,
@@ -1500,11 +1501,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 2,
   },
   timerText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 12,
     fontVariant: ['tabular-nums'],
@@ -1514,10 +1515,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   finishText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -1532,7 +1533,7 @@ const styles = StyleSheet.create({
   },
   exCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1597,7 +1598,7 @@ const styles = StyleSheet.create({
   catBadge: {
     height: 24,
     paddingHorizontal: 10,
-    borderRadius: 100,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1614,7 +1615,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: COLORS.primary,
     paddingHorizontal: 10,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -1626,7 +1627,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 14,
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   recBadgeTextToggled: {
     color: COLORS.textPrimary,
@@ -1639,12 +1640,12 @@ const styles = StyleSheet.create({
     gap: 3,
     backgroundColor: COLORS.primary,
     paddingHorizontal: 8,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   applyRecIconBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.primaryText,
     lineHeight: 14,
   },
   pulleyRatioBtn: {
@@ -1656,7 +1657,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 8,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   pulleyRatioText: {
     fontSize: 11,
@@ -1714,7 +1715,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 5,
     gap: 3,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 2,
     marginBottom: 4,
   },
@@ -1745,7 +1746,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
+    borderRadius: 6,
     width: '96%',
     height: 36,
     textAlign: 'center',
@@ -1755,13 +1756,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   inputCompleted: {
-    borderColor: '#111111',
-    color: '#111111',
+    borderColor: COLORS.borderDark,
+    color: COLORS.textPrimary,
   },
   rirPill: {
     paddingHorizontal: 6,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1774,7 +1775,7 @@ const styles = StyleSheet.create({
   speedPill: {
     paddingHorizontal: 6,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1790,7 +1791,7 @@ const styles = StyleSheet.create({
   checkBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1817,10 +1818,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   addSetBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1831,13 +1832,18 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: COLORS.primary,
     paddingVertical: 14,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 6,
     ...SHADOWS.soft,
   },
   bigAddExBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 15,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

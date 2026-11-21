@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { ExerciseFeedback } from '../types/fitness';
 import { calculateHypertrophyVolumeAdaptation } from '../services/progressionEngine';
 
@@ -16,6 +16,7 @@ export const ExerciseRPFeedback: React.FC<ExerciseRPFeedbackProps> = ({
   onChangeFeedback,
   exerciseName,
 }) => {
+  useTheme();
   const currentFeedback = feedback || {
     pumpRating: 2,
     sorenessRating: 2,
@@ -184,10 +185,10 @@ export const ExerciseRPFeedback: React.FC<ExerciseRPFeedbackProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 6,
     padding: 12,
     marginTop: 10,
     borderWidth: 1,
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   optionTextSelected: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   optionTextWarning: {
@@ -308,4 +309,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 14,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });
