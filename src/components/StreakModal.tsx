@@ -135,7 +135,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
         cellStyle = styles.cellCompleted;
         textStyle = styles.cellTextCompleted;
         iconName = 'checkmark-circle';
-        iconColor = '#10B981';
+        iconColor = COLORS.pastel.green;
       } else {
         cellStyle = styles.cellRestDay;
         textStyle = styles.cellTextRestDay;
@@ -213,7 +213,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
                 <Ionicons
                   name={isTargetMetThisWeek ? "checkmark-circle" : "flag"}
                   size={18}
-                  color={isTargetMetThisWeek ? "#10B981" : COLORS.primary}
+                  color={isTargetMetThisWeek ? COLORS.pastel.green : COLORS.primary}
                 />
                 <Text style={styles.weekProgressTitle}>Bu Haftanın Durumu</Text>
               </View>
@@ -228,7 +228,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
                 style={[
                   styles.progressBarFill,
                   { width: `${progressPercent}%` },
-                  isTargetMetThisWeek && { backgroundColor: '#10B981' }
+                  isTargetMetThisWeek && { backgroundColor: COLORS.pastel.green }
                 ]}
               />
             </View>
@@ -322,8 +322,8 @@ export const StreakModal: React.FC<StreakModalProps> = ({
           {/* Legend Section */}
           <View style={styles.legendContainer}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10B981' }]}>
-                <Ionicons name="checkmark" size={10} color="#10B981" />
+              <View style={[styles.legendDot, { backgroundColor: COLORS.pastel.greenBg, borderColor: COLORS.pastel.green }]}>
+                <Ionicons name="checkmark" size={10} color={COLORS.pastel.green} />
               </View>
               <Text style={styles.legendText}>Tamamlanan Antrenman Günü</Text>
             </View>
@@ -443,7 +443,7 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
   },
   weekProgressBadgeSuccess: {
-    color: '#10B981',
+    color: COLORS.pastel.green,
     borderColor: 'rgba(16, 185, 129, 0.3)',
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
@@ -601,7 +601,7 @@ const createStyles = () => StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.4)',
   },
   cellTextCompleted: {
-    color: '#10B981',
+    color: COLORS.pastel.green,
   },
   cellRestDay: {
     backgroundColor: 'rgba(107, 114, 128, 0.05)',

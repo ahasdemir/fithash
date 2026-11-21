@@ -9,12 +9,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
-import { MuscleRecoveryHeatmap } from '../components/MuscleRecoveryHeatmap';
+import {
+  MuscleRecoveryHeatmap,
+  RP_WEEKLY_SET_TARGET,
+  WeeklyMuscleVolume,
+} from '../components/MuscleRecoveryHeatmap';
 import { calculateAllMuscleRecovery } from '../services/muscleRecoveryService';
 import { calculateUserStats, getMondayOfWeek, getLocalDateString } from '../services/storage';
 import { calculateAutoregulatedE1RM } from '../services/progressionEngine';
@@ -41,62 +45,68 @@ interface ExercisePRListItem {
 
 interface PRCardRowProps {
   item: ExercisePRListItem;
+  isLast: boolean;
   onSelect: (item: ExercisePRListItem) => void;
 }
 
-// Memoized PR card row: opening the PR detail modal changes
-// selectedExerciseForPR state and re-renders AnalyticsTab; with a stable
-// onSelect callback these rows skip that re-render.
-const PRCardRow = React.memo(function PRCardRow({ item, onSelect }: PRCardRowProps) {
-  const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textPrimary;
+const PRCardRow = React.memo(function PRCardRow({ item, isLast, onSelect }: PRCardRowProps) {
+  const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textSecondary;
   return (
     <TouchableOpacity
-      style={styles.prCard}
+      style={[styles.prRow, isLast && styles.prRowLast]}
       activeOpacity={0.75}
       onPress={() => onSelect(item)}
     >
       <View style={styles.prLeft}>
-        <Text style={styles.prExName} numberOfLines={1}>{item.name}</Text>
-        <View style={styles.prCardMetaRow}>
-          <View style={[styles.prCatBadge, { backgroundColor: catColor + '18' }]}>
+        <Text style={styles.prExName} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <View style={styles.prMetaRow}>
+          <View style={[styles.prCatBadge, { backgroundColor: catColor + '20' }]}>
             <Text style={[styles.prCatBadgeText, { color: catColor }]}>{item.category}</Text>
           </View>
-          {item.isRecent && (
-            <View style={styles.recentBadge}>
-              <Text style={styles.recentBadgeText}>Bu Hafta</Text>
+          {item.isRecent ? (
+            <View style={[styles.recentBadge, { backgroundColor: COLORS.pastel.greenBg }]}>
+              <Text style={[styles.recentBadgeText, { color: COLORS.pastel.green }]}>
+                Bu Hafta
+              </Text>
             </View>
-          )}
-          {item.lastWorkoutDate && !item.isRecent && (
-            <Text style={styles.prDateText}>Son: {item.lastWorkoutDate}</Text>
-          )}
+          ) : item.lastWorkoutDate ? (
+            <Text style={styles.prDateText}>{item.lastWorkoutDate}</Text>
+          ) : null}
         </View>
       </View>
 
       <View style={styles.prRightRow}>
         {item.allTimeWeight ? (
-          <View style={styles.prRightPill}>
+          <View style={styles.prRightValCol}>
             <Text style={styles.prWeightText}>{item.allTimeWeight} kg</Text>
             <Text style={styles.prRepsText}>
-              {item.allTimeReps || 1} rep • 1RM: {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}k
+              {item.allTimeReps || 1} rep · e1RM {item.allTime1RM || Math.round(item.allTimeWeight * 1.05)}
             </Text>
           </View>
         ) : item.pr?.maxSpeedKmh ? (
-          <View style={styles.prRightPill}>
+          <View style={styles.prRightValCol}>
             <Text style={styles.prWeightText}>{item.pr.maxSpeedKmh} km/h</Text>
             <Text style={styles.prRepsText}>
               {item.pr.maxDistanceKm ? `${item.pr.maxDistanceKm} km` : 'Kardiyo'}
             </Text>
           </View>
         ) : (
-          <View style={styles.prInspectBadge}>
-            <Text style={styles.prInspectBadgeText}>İncele</Text>
-          </View>
+          <Text style={styles.prInspectText}>İncele</Text>
         )}
-        <Ionicons name="chevron-forward" size={15} color={COLORS.textMuted} />
+        <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
       </View>
     </TouchableOpacity>
   );
 });
+
+const formatVolumeHeadline = (kg: number) => {
+  if (kg >= 1000) {
+    return { val: (kg / 1000).toFixed(1), unit: 't' };
+  }
+  return { val: `${kg}`, unit: 'kg' };
+};
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   workouts,
@@ -109,11 +119,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   type AnalyticsSubTab = 'overview' | 'fatigue' | 'prs';
   const [activeTab, setActiveTab] = useState<AnalyticsSubTab>('overview');
   const [filterMode, setFilterMode] = useState<'weekly' | 'monthly' | 'all'>('weekly');
-  const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{ id?: string; name: string; category?: string; equipment?: string } | null>(null);
+  const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<{
+    id?: string;
+    name: string;
+    category?: string;
+    equipment?: string;
+  } | null>(null);
   const [prSearchQuery, setPrSearchQuery] = useState('');
   const [selectedPRCategory, setSelectedPRCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
 
-  const filteredWorkouts = useMemo(() => {
+  // Current week bounds (also used for unified weekly muscle volume on Kaslar tab)
+  const dateBounds = useMemo(() => {
     const now = new Date();
     const currentMonday = getMondayOfWeek(now);
     const currentMondayStr = getLocalDateString(currentMonday);
@@ -121,30 +137,111 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     currentSunday.setDate(currentSunday.getDate() + 6);
     const currentSundayStr = getLocalDateString(currentSunday);
 
+    const prevMonday = new Date(currentMonday);
+    prevMonday.setDate(prevMonday.getDate() - 7);
+    const prevMondayStr = getLocalDateString(prevMonday);
+    const prevSunday = new Date(currentMonday);
+    prevSunday.setDate(prevSunday.getDate() - 1);
+    const prevSundayStr = getLocalDateString(prevSunday);
+
     const year = now.getFullYear();
     const month = now.getMonth();
     const currentMonthStartStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
     const currentMonthEndStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
+    return {
+      currentMondayStr,
+      currentSundayStr,
+      prevMondayStr,
+      prevSundayStr,
+      currentMonthStartStr,
+      currentMonthEndStr,
+    };
+  }, []);
+
+  const filteredWorkouts = useMemo(() => {
     return workouts.filter(w => {
       if (w.completed === false) return false;
       if (filterMode === 'weekly') {
-        return w.date >= currentMondayStr && w.date <= currentSundayStr;
+        return w.date >= dateBounds.currentMondayStr && w.date <= dateBounds.currentSundayStr;
       }
       if (filterMode === 'monthly') {
-        return w.date >= currentMonthStartStr && w.date <= currentMonthEndStr;
+        return w.date >= dateBounds.currentMonthStartStr && w.date <= dateBounds.currentMonthEndStr;
       }
       return true;
     });
-  }, [workouts, filterMode]);
+  }, [workouts, filterMode, dateBounds]);
 
-  // Aggregates every completed set of the filtered period: memoized so
-  // sub-tab switches, PR search keystrokes and modal open/close don't rescan.
+  // Previous week stats for clean weekly delta comparison
+  const prevWeekStats = useMemo(() => {
+    const prevWorkouts = workouts.filter(
+      w =>
+        w.completed !== false &&
+        w.date >= dateBounds.prevMondayStr &&
+        w.date <= dateBounds.prevSundayStr
+    );
+    return calculateUserStats(prevWorkouts, workoutDays, weeklyTargetHistory);
+  }, [workouts, dateBounds, workoutDays, weeklyTargetHistory]);
+
   const stats = useMemo(
     () => calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory),
     [filteredWorkouts, workoutDays, weeklyTargetHistory]
   );
+
+  // Weekly direct working sets & volume per muscle group (always current calendar week)
+  const weeklyMuscleSets = useMemo(() => {
+    const map: Record<string, WeeklyMuscleVolume> = {};
+    workouts.forEach(w => {
+      if (w.completed === false) return;
+      if (w.date < dateBounds.currentMondayStr || w.date > dateBounds.currentSundayStr) return;
+
+      w.exercises?.forEach(ex => {
+        const isCardio = ex.category === 'Kardiyo';
+        const completedCount = isCardio
+          ? ex.sets?.some(s => s.completed)
+            ? 1
+            : 0
+          : ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+
+        const vol =
+          ex.sets?.reduce((acc, s) => (s.completed ? acc + s.weight * s.reps : acc), 0) || 0;
+
+        if (completedCount > 0 || vol > 0) {
+          if (!map[ex.category]) {
+            map[ex.category] = { sets: 0, volume: 0 };
+          }
+          map[ex.category].sets += completedCount;
+          map[ex.category].volume += vol;
+        }
+      });
+    });
+    return map;
+  }, [workouts, dateBounds]);
+
+  const muscleRecoveryMap = useMemo(() => {
+    return calculateAllMuscleRecovery(workouts);
+  }, [workouts]);
+
+  // Top 2 recommended muscles for the Overview teaser card
+  const focusTeaserMuscles = useMemo(() => {
+    const cats = Object.keys(muscleRecoveryMap) as MuscleCategory[];
+    return cats
+      .filter(cat => cat !== 'Kardiyo' && muscleRecoveryMap[cat]?.status === 'RECOVERED')
+      .map(cat => {
+        const done = weeklyMuscleSets[cat]?.sets || 0;
+        const target = RP_WEEKLY_SET_TARGET[cat] ?? 12;
+        return {
+          cat,
+          recoveryPct: muscleRecoveryMap[cat].recoveryPercentage,
+          gap: Math.max(0, target - done),
+          done,
+          target,
+        };
+      })
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 2);
+  }, [muscleRecoveryMap, weeklyMuscleSets]);
 
   const handleSelectOneRMExercise = useCallback((exerciseName: string) => {
     setSelectedExerciseForPR({ name: exerciseName });
@@ -158,16 +255,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     setSelectedExerciseForPR(null);
   }, []);
 
-  // Visual Muscle Recovery State across all muscle groups
-  const muscleRecoveryMap = useMemo(() => {
-    return calculateAllMuscleRecovery(workouts);
-  }, [workouts]);
-
-  // Egzersiz PR Listesi: Antrenman geçmişi ve kaydedilen PR'ları birleştirir
+  // All-time Exercise PR list
   const allExercisePRItems = useMemo(() => {
     const exerciseMap: Record<string, ExercisePRListItem> = {};
 
-    // 1. PR Kayıtları
     Object.values(prs).forEach(pr => {
       const key = pr.exerciseName.toLowerCase().trim();
       exerciseMap[key] = {
@@ -183,12 +274,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       };
     });
 
-    // 2. Antrenman Geçmişi (Tamamlanan setler ve en güncel tarihler)
     const now = new Date().getTime();
     workouts.forEach(w => {
       if (w.completed === false) return;
       const wDate = new Date(w.date).getTime();
-      const isThisWeek = (now - wDate) <= 7 * 24 * 3600 * 1000;
+      const isThisWeek = now - wDate <= 7 * 24 * 3600 * 1000;
 
       w.exercises.forEach(ex => {
         const completedSets = ex.sets?.filter(s => s.completed) || [];
@@ -221,7 +311,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         } else {
           if (ex.category) exerciseMap[key].category = ex.category;
           if (ex.equipment) exerciseMap[key].equipment = ex.equipment;
-          if (!exerciseMap[key].lastWorkoutDate || new Date(w.date) > new Date(exerciseMap[key].lastWorkoutDate!)) {
+          if (
+            !exerciseMap[key].lastWorkoutDate ||
+            new Date(w.date) > new Date(exerciseMap[key].lastWorkoutDate!)
+          ) {
             exerciseMap[key].lastWorkoutDate = w.date;
           }
           if (isThisWeek) {
@@ -234,7 +327,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               if (s.weight > curW || (s.weight === curW && s.reps > curR)) {
                 exerciseMap[key].allTimeWeight = s.weight;
                 exerciseMap[key].allTimeReps = s.reps;
-                exerciseMap[key].allTime1RM = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1));
+                exerciseMap[key].allTime1RM = Math.round(
+                  calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1)
+                );
               }
             }
           });
@@ -242,21 +337,20 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       });
     });
 
-    // Filtreleme ve sıralama
-    return Object.values(exerciseMap).filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(prSearchQuery.toLowerCase());
-      const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
-      return matchesSearch && matchesCat;
-    }).sort((a, b) => {
-      const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0);
-      const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0);
-      if (bScore !== aScore) return bScore - aScore;
-      return a.name.localeCompare(b.name, 'tr');
-    });
+    return Object.values(exerciseMap)
+      .filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(prSearchQuery.toLowerCase());
+        const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
+        return matchesSearch && matchesCat;
+      })
+      .sort((a, b) => {
+        const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0);
+        const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0);
+        if (bScore !== aScore) return bScore - aScore;
+        return a.name.localeCompare(b.name, 'tr');
+      });
   }, [prs, workouts, prSearchQuery, selectedPRCategory]);
 
-  // Compute average speeds per cardio exercise (memoized on the filtered
-  // period — previously a full rescan of every set on each render)
   const cardioSummary = useMemo(() => {
     const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
     filteredWorkouts.forEach(w => {
@@ -287,18 +381,77 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     });
   }, [filteredWorkouts]);
 
+  const volFormatted = formatVolumeHeadline(stats.totalVolumeKg);
+  const weeklySetDelta = stats.totalHardSets - prevWeekStats.totalHardSets;
+  const headerSubtitle =
+    activeTab === 'overview'
+      ? `${
+          filterMode === 'weekly'
+            ? 'Bu hafta'
+            : filterMode === 'monthly'
+            ? 'Bu ay'
+            : 'Tüm zamanlar'
+        } · ${filteredWorkouts.length} antrenman`
+      : activeTab === 'fatigue'
+      ? 'Anlık toparlanma & haftalık RP set hedefi'
+      : `Tüm zamanlar · ${allExercisePRItems.length} hareket`;
+
+  const rirZoneText =
+    stats.avgRir === 0
+      ? 'Veri bekleniyor'
+      : stats.avgRir <= 2
+      ? 'Hipertrofi bölgesi'
+      : 'Kontrollü yüklenme';
+
+  const hasSecondaryActivity =
+    stats.totalCaloriesBurned > 0 || stats.totalCardioDistanceKm > 0;
+
   return (
     <View style={styles.container}>
-      {/* Analytics Sub-Tab Segmented Switcher */}
-      <View style={[styles.subTabBar, { paddingTop: Math.max(insets.top, 8) }]}>
+      {/* Compact Header + Single Segmented Bar (No Double Stacked Filter Bars) */}
+      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) }]}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.pageTitle}>Analiz</Text>
+            <Text style={styles.pageSub} numberOfLines={1}>
+              {headerSubtitle}
+            </Text>
+          </View>
+
+          {activeTab === 'overview' && (
+            <View style={styles.periodPills}>
+              {(
+                [
+                  { id: 'weekly', label: '7G' },
+                  { id: 'monthly', label: '30G' },
+                  { id: 'all', label: 'Tümü' },
+                ] as const
+              ).map(p => {
+                const isSelected = filterMode === p.id;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[styles.periodPillBtn, isSelected && styles.periodPillBtnOn]}
+                    onPress={() => setFilterMode(p.id)}
+                  >
+                    <Text style={[styles.periodPillText, isSelected && styles.periodPillTextOn]}>
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
         <View style={styles.subTabContainer}>
           {(
             [
-              { id: 'overview', label: 'Özet & Hacim', icon: 'bar-chart-outline' },
-              { id: 'fatigue', label: 'Kas & Yorgunluk', icon: 'pulse-outline' },
-              { id: 'prs', label: 'Rekorlar (PR)', icon: 'trophy-outline' },
+              { id: 'overview', label: 'Genel Bakış' },
+              { id: 'fatigue', label: 'Kaslar' },
+              { id: 'prs', label: 'Güç & PR' },
             ] as const
-          ).map((tab) => {
+          ).map(tab => {
             const isSelected = activeTab === tab.id;
             return (
               <TouchableOpacity
@@ -307,16 +460,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 onPress={() => setActiveTab(tab.id)}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name={tab.icon as any}
-                  size={14}
-                  color={isSelected ? COLORS.primaryText : COLORS.textSecondary}
-                />
                 <Text
-                  style={[
-                    styles.subTabBtnText,
-                    isSelected && styles.subTabBtnTextSelected,
-                  ]}
+                  style={[styles.subTabBtnText, isSelected && styles.subTabBtnTextSelected]}
                   numberOfLines={1}
                 >
                   {tab.label}
@@ -333,181 +478,235 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           styles.content,
           { paddingBottom: 120 + Math.max(insets.bottom, 16) },
         ]}
+        showsVerticalScrollIndicator={false}
       >
-        {/* SUBTAB 1: Özet & Hacim (Overview) */}
+        {/* TAB 1: GENEL BAKIŞ */}
         {activeTab === 'overview' && (
           <>
-            {/* Filter Switcher Pills */}
-            <View style={styles.filterBar}>
-              {(['weekly', 'monthly', 'all'] as const).map(mode => {
-                const isSelected = filterMode === mode;
-                const labels = { weekly: 'Bu Hafta', monthly: 'Bu Ay', all: 'Tüm Zamanlar' };
-                return (
-                  <TouchableOpacity
-                    key={mode}
-                    style={[styles.filterBtn, isSelected && styles.filterBtnSelected]}
-                    onPress={() => setFilterMode(mode)}
-                  >
-                    <Text style={[styles.filterBtnText, isSelected && styles.filterBtnTextSelected]}>
-                      {labels[mode]}
+            {/* Crisp 2x2 KPI Grid */}
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kicker}>ÇALIŞMA SETİ</Text>
+                <Text style={styles.kpiValue}>
+                  {stats.totalHardSets} <Text style={styles.kpiUnit}>set</Text>
+                </Text>
+                <Text
+                  style={[
+                    styles.kpiDelta,
+                    filterMode === 'weekly' && prevWeekStats.totalHardSets > 0
+                      ? {
+                          color:
+                            weeklySetDelta >= 0 ? COLORS.pastel.green : COLORS.pastel.amber,
+                        }
+                      : styles.kpiDeltaMuted,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {filterMode === 'weekly' && prevWeekStats.totalHardSets > 0
+                    ? `${weeklySetDelta >= 0 ? '+' : ''}${weeklySetDelta} geçen haftaya göre`
+                    : `${filteredWorkouts.length} tamamlanan seans`}
+                </Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kicker}>TOPLAM HACİM</Text>
+                <Text style={styles.kpiValue}>
+                  {volFormatted.val} <Text style={styles.kpiUnit}>{volFormatted.unit}</Text>
+                </Text>
+                <Text style={[styles.kpiDelta, styles.kpiDeltaMuted]} numberOfLines={1}>
+                  {filteredWorkouts.length > 0
+                    ? `Ort. ${Math.round(
+                        stats.totalVolumeKg / filteredWorkouts.length
+                      ).toLocaleString('tr-TR')} kg / seans`
+                    : 'Tonaj kaydı yok'}
+                </Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kicker}>ORT. YOĞUNLUK</Text>
+                <Text style={styles.kpiValue}>
+                  {stats.avgRir} <Text style={styles.kpiUnit}>RIR</Text>
+                </Text>
+                <Text
+                  style={[
+                    styles.kpiDelta,
+                    stats.avgRir > 0 && stats.avgRir <= 2
+                      ? { color: COLORS.pastel.lavender }
+                      : styles.kpiDeltaMuted,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {rirZoneText}
+                </Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kicker}>UYUM &amp; AKTİF SÜRE</Text>
+                <Text style={styles.kpiValue}>
+                  %{stats.avgWorkoutCompliance}{' '}
+                  <Text style={styles.kpiUnit}>· {stats.activeWorkTimeMinutes} dk</Text>
+                </Text>
+                <Text style={[styles.kpiDelta, styles.kpiDeltaMuted]} numberOfLines={1}>
+                  Gerilim altında süre (TUT)
+                </Text>
+              </View>
+            </View>
+
+            {/* Conditional Pastel Activity Strip (only when cardio / kcal exists) */}
+            {hasSecondaryActivity && (
+              <View style={styles.activityStrip}>
+                {stats.totalCaloriesBurned > 0 && (
+                  <View style={[styles.activityPill, { backgroundColor: COLORS.pastel.roseBg }]}>
+                    <Ionicons name="flame-outline" size={13} color={COLORS.pastel.rose} />
+                    <Text style={[styles.activityPillText, { color: COLORS.pastel.rose }]}>
+                      {stats.totalCaloriesBurned} kcal
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* PRIMARY BENTO GRID: Scientific Hypertrophy & Performance Metrics */}
-            <View style={styles.bentoGrid}>
-              {/* 1. Working Sets (Çalışma Seti Sayısı) */}
-              <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
-                <View style={styles.metricIconBg}>
-                  <Ionicons name="barbell" size={18} color={COLORS.primaryText} />
-                </View>
-                <Text style={styles.metricValue}>
-                  {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
-                </Text>
-                <Text style={styles.metricLabel}>Çalışma Setleri</Text>
-              </View>
-
-              {/* 2. Workout Compliance Rate (%) */}
-              <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                  <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                </View>
-                <Text style={styles.metricValue}>
-                  %{stats.avgWorkoutCompliance}
-                </Text>
-                <Text style={styles.metricLabel}>Program Uyum Oranı</Text>
-              </View>
-
-              {/* 3. Average RIR & Intensity */}
-              <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                  <Ionicons name="flash" size={18} color="#8B5CF6" />
-                </View>
-                <Text style={styles.metricValue}>
-                  RIR {stats.avgRir}
-                </Text>
-                <Text style={styles.metricLabel}>Ort. Yoğunluk (RIR)</Text>
-              </View>
-
-              {/* 4. Active Work Time (TUT) */}
-              <View style={styles.bentoSquareCard}>
-                <View style={[styles.metricIconBg, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
-                  <Ionicons name="time" size={18} color="#EC4899" />
-                </View>
-                <Text style={styles.metricValue}>
-                  {stats.activeWorkTimeMinutes} <Text style={styles.unitText}>dk Aktif</Text>
-                </Text>
-                <Text style={styles.metricLabel}>Gerilim Altında Süre (TUT)</Text>
-              </View>
-            </View>
-
-            {/* SECONDARY BENTO ROW: Calories, Cardio Distance, Volume */}
-            <View style={styles.secondaryBentoRow}>
-              <View style={styles.secondaryPillCard}>
-                <Ionicons name="flame" size={14} color="#EF4444" />
-                <Text style={styles.secondaryCardValue}>{stats.totalCaloriesBurned > 0 ? stats.totalCaloriesBurned : 0} kcal</Text>
-              </View>
-
-              <View style={styles.secondaryPillCard}>
-                <Ionicons name="walk" size={14} color="#06B6D4" />
-                <Text style={styles.secondaryCardValue}>{stats.totalCardioDistanceKm > 0 ? stats.totalCardioDistanceKm : 0} km</Text>
-              </View>
-
-              <View style={styles.secondaryPillCard}>
-                <Ionicons name="barbell-outline" size={14} color={COLORS.textSecondary} />
-                <Text style={styles.secondaryCardValue}>
-                  {stats.totalVolumeKg >= 1000 ? `${(stats.totalVolumeKg / 1000).toFixed(1)}k kg` : `${stats.totalVolumeKg} kg`}
-                </Text>
-              </View>
-            </View>
-
-            {/* CARDIO & CALORIE ANALYTICS BENTO CARD */}
-            {cardioSummary.length > 0 && (
-              <View style={styles.cardioBentoCard}>
-                <View style={styles.sectionHeader}>
-                  <View style={[styles.prIconBadge, { backgroundColor: '#06B6D4' }]}>
-                    <Ionicons name="bicycle" size={18} color={COLORS.primaryText} />
                   </View>
-                  <View>
-                    <Text style={styles.sectionTitle}>Kardiyo & Hız Performansı</Text>
-                    <Text style={styles.sectionSub}>Ekipman bazlı ortalama hız ve mesafeler</Text>
+                )}
+                {stats.totalCardioDistanceKm > 0 && (
+                  <View style={[styles.activityPill, { backgroundColor: COLORS.pastel.cyanBg }]}>
+                    <Ionicons name="walk-outline" size={13} color={COLORS.pastel.cyan} />
+                    <Text style={[styles.activityPillText, { color: COLORS.pastel.cyan }]}>
+                      {stats.totalCardioDistanceKm} km kardiyo
+                    </Text>
                   </View>
-                </View>
-
-                <View style={styles.cardioList}>
-                  {cardioSummary.map(c => (
-                    <View key={c.name} style={styles.cardioRowCard}>
-                      <View style={styles.cardioLeft}>
-                        <Text style={styles.cardioExName}>{c.name}</Text>
-                        <Text style={styles.cardioMetaText}>
-                          {c.totalDist} km • {c.totalMins} dk
-                        </Text>
-                      </View>
-                      <View style={styles.speedPillBadge}>
-                        <Ionicons name="speedometer" size={12} color={COLORS.primaryText} />
-                        <Text style={styles.speedPillBadgeText}>{c.avgSpeedKmh} km/h</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
+                )}
               </View>
             )}
 
-            {/* SVG Charts (Hard Sets Distribution at top, Volume Chart below) */}
-            <AnalyticsCharts workouts={filteredWorkouts} allWorkouts={workouts} filterMode={filterMode} />
+            {/* Unified Trend Chart (Set | Hacim toggle) */}
+            <AnalyticsCharts
+              workouts={filteredWorkouts}
+              allWorkouts={workouts}
+              filterMode={filterMode}
+            />
+
+            {/* Today's Focus Teaser linking directly to Kaslar tab */}
+            <TouchableOpacity
+              style={styles.focusTeaserCard}
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('fatigue')}
+            >
+              <View style={styles.focusTeaserLeft}>
+                <Text style={styles.kicker}>BUGÜN ÖNERİLEN ODAK</Text>
+                <Text style={styles.focusTeaserTitle} numberOfLines={1}>
+                  {focusTeaserMuscles.length > 0
+                    ? `${focusTeaserMuscles.map(m => m.cat).join(' & ')} (%100 Hazır)`
+                    : 'Aktif Dinlenme & Mobilite'}
+                </Text>
+                <Text style={styles.focusTeaserSub} numberOfLines={1}>
+                  {focusTeaserMuscles.length > 0
+                    ? focusTeaserMuscles
+                        .map(m => `${m.cat}: ${m.done}/${m.target} set`)
+                        .join(' · ')
+                    : 'Tüm bölgeler toparlanma evresinde'}
+                </Text>
+              </View>
+              <View style={[styles.focusTeaserBtn, { backgroundColor: COLORS.pastel.greenBg }]}>
+                <Text style={[styles.focusTeaserBtnText, { color: COLORS.pastel.green }]}>
+                  Kaslar
+                </Text>
+                <Ionicons name="chevron-forward" size={13} color={COLORS.pastel.green} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Conditional Cardio Speed Card */}
+            {cardioSummary.length > 0 && (
+              <View style={styles.cardioCard}>
+                <View style={styles.cardioHeader}>
+                  <Text style={styles.kicker}>KARDİYO &amp; HIZ PERFORMANSI</Text>
+                  <View style={[styles.tagPill, { backgroundColor: COLORS.pastel.cyanBg }]}>
+                    <Text style={[styles.tagPillText, { color: COLORS.pastel.cyan }]}>
+                      {cardioSummary.length} ekipman
+                    </Text>
+                  </View>
+                </View>
+
+                {cardioSummary.map((c, idx) => (
+                  <View
+                    key={c.name}
+                    style={[
+                      styles.cardioRow,
+                      idx === cardioSummary.length - 1 && styles.cardioRowLast,
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardioExName}>{c.name}</Text>
+                      <Text style={styles.cardioMeta}>
+                        {c.totalDist} km · {c.totalMins} dk
+                      </Text>
+                    </View>
+                    <View style={[styles.speedBadge, { backgroundColor: COLORS.pastel.cyanBg }]}>
+                      <Text style={[styles.speedBadgeText, { color: COLORS.pastel.cyan }]}>
+                        {c.avgSpeedKmh} km/h
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </>
         )}
 
-        {/* SUBTAB 2: Kas & Yorgunluk (Fatigue & Readiness) */}
+        {/* TAB 2: KASLAR (Unified Recovery + RP Weekly Volume) */}
         {activeTab === 'fatigue' && (
-          <MuscleRecoveryHeatmap recoveryMap={muscleRecoveryMap} />
+          <MuscleRecoveryHeatmap
+            recoveryMap={muscleRecoveryMap}
+            weeklyMuscleSets={weeklyMuscleSets}
+          />
         )}
 
-        {/* SUBTAB 3: Rekorlar (PRs & 1RM Progression) */}
+        {/* TAB 3: GÜÇ & PR (Always all-time so weekly filter never wipes 1RM) */}
         {activeTab === 'prs' && (
           <>
-            {/* 1RM Strength Progression Widget (Reddit Community Top Feature) */}
             <OneRepMaxWidget
-              workouts={filteredWorkouts}
+              workouts={workouts}
               onSelectExercise={handleSelectOneRMExercise}
             />
 
-            {/* Personal Record Spotlight Bento Card */}
-            <View style={styles.prBentoCard}>
-              <View style={styles.prHeaderRow}>
-                <View style={styles.prTitleBox}>
-                  <View style={styles.prIconBadge}>
-                    <Ionicons name="trophy-outline" size={16} color={COLORS.primaryText} />
-                  </View>
-                  <View style={styles.prTitleTextBox}>
-                    <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
-                    <Text style={styles.sectionSub} numberOfLines={1}>Haftalık, aylık ve tüm zamanlar analizi</Text>
-                  </View>
-                </View>
+            <View style={styles.prCardContainer}>
+              <View style={styles.prCardHeader}>
+                <Text style={styles.kicker}>KİŞİSEL REKORLAR (TÜM ZAMANLAR)</Text>
+                <Text style={styles.prCountText}>{allExercisePRItems.length} egzersiz</Text>
               </View>
 
-              {/* Search Input */}
               <View style={styles.prSearchRow}>
                 <Ionicons name="search" size={15} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.prSearchInput}
-                  placeholder="Egzersiz veya rekor ara (Örn: Bench Press)..."
+                  placeholder="Egzersiz ara..."
                   placeholderTextColor={COLORS.textMuted}
                   value={prSearchQuery}
                   onChangeText={setPrSearchQuery}
                 />
                 {prSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setPrSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => setPrSearchQuery('')}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
                     <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Horizontal Category Filter Chips */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.prCategoryChips}>
-                {(['Hepsi', 'Göğüs', 'Sırt', 'Bacak', 'Omuz', 'Ön Kol', 'Arka Kol', 'Karın', 'Kardiyo'] as const).map(cat => {
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.prCategoryChips}
+              >
+                {(
+                  [
+                    'Hepsi',
+                    'Göğüs',
+                    'Sırt',
+                    'Bacak',
+                    'Omuz',
+                    'Ön Kol',
+                    'Arka Kol',
+                    'Karın',
+                    'Kardiyo',
+                  ] as const
+                ).map(cat => {
                   const isSelected = selectedPRCategory === cat;
                   return (
                     <TouchableOpacity
@@ -515,7 +714,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       style={[styles.prCatChip, isSelected && styles.prCatChipSelected]}
                       onPress={() => setSelectedPRCategory(cat)}
                     >
-                      <Text style={[styles.prCatChipText, isSelected && styles.prCatChipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.prCatChipText,
+                          isSelected && styles.prCatChipTextSelected,
+                        ]}
+                      >
                         {cat}
                       </Text>
                     </TouchableOpacity>
@@ -523,21 +727,21 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 })}
               </ScrollView>
 
-              {/* Interactive Exercise PR Cards */}
               {allExercisePRItems.length > 0 ? (
                 <View style={styles.prList}>
-                  {allExercisePRItems.slice(0, 15).map(item => (
+                  {allExercisePRItems.slice(0, 20).map((item, idx, arr) => (
                     <PRCardRow
                       key={item.id || item.name}
                       item={item}
+                      isLast={idx === arr.length - 1}
                       onSelect={handleSelectPRItem}
                     />
                   ))}
                 </View>
               ) : (
                 <View style={styles.emptyPrCard}>
-                  <Ionicons name="search-outline" size={28} color={COLORS.textMuted} />
-                  <Text style={styles.emptyPrText}>Aradığınız kriterde egzersiz bulunamadı.</Text>
+                  <Ionicons name="search-outline" size={24} color={COLORS.textMuted} />
+                  <Text style={styles.emptyPrText}>Eşleşen egzersiz bulunamadı.</Text>
                 </View>
               )}
             </View>
@@ -555,409 +759,413 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   );
 };
 
-const createStyles = () => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  subTabBar: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  subTabContainer: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 6,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 4,
-  },
-  subTabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 6,
-    borderRadius: 10,
-    gap: 5,
-    minHeight: 38,
-  },
-  subTabBtnSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  subTabBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  subTabBtnTextSelected: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 140,
-    gap: 16,
-  },
-  filterBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 6,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  filterBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  filterBtnSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  filterBtnText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterBtnTextSelected: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-  },
-  bentoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  bentoSquareCard: {
-    flex: 1,
-    minWidth: '46%',
-    maxWidth: '50%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 6,
-    ...SHADOWS.soft,
-  },
-  secondaryBentoRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  secondaryPillCard: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  secondaryCardValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  metricIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    letterSpacing: -0.5,
-  },
-  unitText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.textMuted,
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  cardioBentoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 14,
-    ...SHADOWS.soft,
-  },
-  cardioList: {
-    gap: 10,
-  },
-  cardioRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.surfaceSubtle,
-    padding: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cardioLeft: {
-    gap: 2,
-  },
-  cardioExName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  cardioMetaText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  speedPillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  speedPillBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.primaryText,
-  },
-  prBentoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 14,
-    ...SHADOWS.soft,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  prHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  prTitleBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
-  },
-  prTitleTextBox: {
-    flex: 1,
-    minWidth: 0,
-  },
-  prIconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  sectionSub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  openPickerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  openPickerBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.primaryText,
-  },
-  prSearchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  prSearchInput: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontSize: 13,
-    padding: 0,
-  },
-  prCategoryChips: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingVertical: 2,
-  },
-  prCatChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  prCatChipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  prCatChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  prCatChipTextSelected: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-  },
-  prList: {
-    gap: 8,
-  },
-  prCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 8,
-  },
-  prLeft: {
-    flex: 1,
-    gap: 4,
-    minWidth: 0,
-    justifyContent: 'center',
-  },
-  prExName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  prCardMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  prCatBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  prCatBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  recentBadge: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  recentBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  prDateText: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-  },
-  prRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 0,
-  },
-  prRightPill: {
-    alignItems: 'flex-end',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  prWeightText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: COLORS.textPrimary,
-  },
-  prRepsText: {
-    fontSize: 9,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  prInspectBadge: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  prInspectBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  emptyPrCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    gap: 8,
-  },
-  emptyPrText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-  },
-});
+const createStyles = () =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+    },
+    topHeader: {
+      backgroundColor: COLORS.surface,
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+      gap: 10,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    headerTitleCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    pageTitle: {
+      fontSize: 19,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      letterSpacing: -0.3,
+    },
+    pageSub: {
+      fontSize: 11.5,
+      color: COLORS.textMuted,
+      marginTop: 1,
+    },
+    periodPills: {
+      flexDirection: 'row',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 6,
+      padding: 2,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      flexShrink: 0,
+    },
+    periodPillBtn: {
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 4,
+    },
+    periodPillBtnOn: {
+      backgroundColor: COLORS.primary,
+    },
+    periodPillText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+      fontVariant: ['tabular-nums'],
+    },
+    periodPillTextOn: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+    },
+    subTabContainer: {
+      flexDirection: 'row',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 7,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 3,
+    },
+    subTabBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderRadius: 5,
+    },
+    subTabBtnSelected: {
+      backgroundColor: COLORS.primary,
+    },
+    subTabBtnText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+    },
+    subTabBtnTextSelected: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+    },
+    scrollArea: {
+      flex: 1,
+    },
+    content: {
+      padding: 16,
+      gap: 12,
+    },
+    kpiGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    kpiCard: {
+      flex: 1,
+      minWidth: '47%',
+      backgroundColor: COLORS.surface,
+      borderRadius: 9,
+      padding: 13,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 4,
+      ...SHADOWS.soft,
+    },
+    kicker: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.7,
+      color: COLORS.textMuted,
+    },
+    kpiValue: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      letterSpacing: -0.4,
+      fontVariant: ['tabular-nums'],
+    },
+    kpiUnit: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: COLORS.textSecondary,
+    },
+    kpiDelta: {
+      fontSize: 11,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    kpiDeltaMuted: {
+      color: COLORS.textMuted,
+    },
+    activityStrip: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    activityPill: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 7,
+    },
+    activityPillText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    focusTeaserCard: {
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 9,
+      padding: 13,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    focusTeaserLeft: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    focusTeaserTitle: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+    },
+    focusTeaserSub: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      fontVariant: ['tabular-nums'],
+    },
+    focusTeaserBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 6,
+      flexShrink: 0,
+    },
+    focusTeaserBtnText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+    },
+    cardioCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 8,
+    },
+    cardioHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    tagPill: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 5,
+    },
+    tagPillText: {
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    cardioRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+      gap: 8,
+    },
+    cardioRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 2,
+    },
+    cardioExName: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+    },
+    cardioMeta: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      fontVariant: ['tabular-nums'],
+      marginTop: 1,
+    },
+    speedBadge: {
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    speedBadgeText: {
+      fontSize: 11.5,
+      fontWeight: '700',
+      fontVariant: ['tabular-nums'],
+    },
+    prCardContainer: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 10,
+      ...SHADOWS.soft,
+    },
+    prCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    prCountText: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    prSearchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 7,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    prSearchInput: {
+      flex: 1,
+      color: COLORS.textPrimary,
+      fontSize: 13,
+      padding: 0,
+    },
+    prCategoryChips: {
+      flexDirection: 'row',
+      gap: 6,
+      paddingVertical: 2,
+    },
+    prCatChip: {
+      paddingHorizontal: 11,
+      paddingVertical: 5,
+      borderRadius: 6,
+      backgroundColor: COLORS.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    prCatChipSelected: {
+      backgroundColor: COLORS.primary,
+      borderColor: COLORS.primary,
+    },
+    prCatChipText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+    },
+    prCatChipTextSelected: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+    },
+    prList: {
+      gap: 0,
+    },
+    prRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+      gap: 10,
+    },
+    prRowLast: {
+      borderBottomWidth: 0,
+      paddingBottom: 2,
+    },
+    prLeft: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4,
+    },
+    prExName: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+    },
+    prMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    prCatBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    prCatBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    recentBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    recentBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    prDateText: {
+      fontSize: 10.5,
+      color: COLORS.textMuted,
+      fontVariant: ['tabular-nums'],
+    },
+    prRightRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+    },
+    prRightValCol: {
+      alignItems: 'flex-end',
+    },
+    prWeightText: {
+      fontSize: 13.5,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      fontVariant: ['tabular-nums'],
+    },
+    prRepsText: {
+      fontSize: 10,
+      color: COLORS.textMuted,
+      fontVariant: ['tabular-nums'],
+    },
+    prInspectText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+    },
+    emptyPrCard: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 22,
+      gap: 8,
+    },
+    emptyPrText: {
+      color: COLORS.textMuted,
+      fontSize: 12.5,
+    },
+  });
 
 let styles = createStyles();
 subscribeTheme(() => {

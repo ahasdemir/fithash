@@ -1216,7 +1216,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                   </Text>
                   {selectedSession.isPeak && (
                     <View style={styles.chartPeakBadge}>
-                      <Ionicons name="trophy" size={10} color="#F59E0B" />
+                      <Ionicons name="trophy" size={10} color={COLORS.pastel.amber} />
                       <Text style={styles.chartPeakBadgeText}>ZİRVE</Text>
                     </View>
                   )}
@@ -1370,7 +1370,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                         cx={pt.x}
                         cy={pt.y}
                         r={isSelected ? 6.5 : isPeak ? 6 : 4.5}
-                        fill={isPeak ? '#F59E0B' : COLORS.primary}
+                        fill={isPeak ? COLORS.pastel.amber : COLORS.primary}
                         stroke={COLORS.surface}
                         strokeWidth={2}
                       />
@@ -1391,7 +1391,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                           textAnchor="middle"
                           fontSize={isSelected ? 11 : 9.5}
                           fontWeight={isSelected ? '900' : '700'}
-                          fill={isPeak ? '#F59E0B' : isSelected ? COLORS.primary : COLORS.textPrimary}
+                          fill={isPeak ? COLORS.pastel.amber : isSelected ? COLORS.primary : COLORS.textPrimary}
                         >
                           {pt.session.chartValue}
                         </SvgText>
@@ -1637,7 +1637,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                     {trendDashedD ? (
                       <Path
                         d={trendDashedD}
-                        stroke="#A855F7"
+                        stroke={COLORS.pastel.lavender}
                         strokeWidth={2.5}
                         strokeDasharray="5 3"
                         fill="none"
@@ -2106,8 +2106,8 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
 
                 <View style={styles.windowFooterRow}>
                   <View style={styles.footerInfoItem}>
-                    <Ionicons name="checkmark-circle-outline" size={13} color="#10B981" />
-                    <Text style={[styles.footerInfoText, { color: '#10B981', fontWeight: '600' }]}>
+                    <Ionicons name="checkmark-circle-outline" size={13} color={COLORS.pastel.green} />
+                    <Text style={[styles.footerInfoText, { color: COLORS.pastel.green, fontWeight: '600' }]}>
                       Bu Hafta: {stats.weekly.totalSets} Set Tamamlandı
                     </Text>
                   </View>
@@ -2756,7 +2756,7 @@ const createStyles = () => StyleSheet.create({
   chartPeakBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: COLORS.pastel.amber,
   },
   chartDetailWorkoutText: {
     fontSize: 11,

@@ -1,4 +1,4 @@
-import React, { useState , useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
+import { DraggableList, DragGripHandle } from '../components/DraggableList';
 import { getExercises, getLocalDateString } from '../services/storage';
 
 interface WorkoutTabProps {
@@ -36,9 +36,6 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   onSaveRoutine,
   onReorderRoutines,
   onDeleteRoutine,
-  workouts = [],
-  workoutDays = [1, 2, 3, 4, 5, 6],
-  onOpenStreak,
 }) => {
   useTheme();
   const insets = useSafeAreaInsets();
@@ -46,17 +43,14 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [selectedRoutineForMenu, setSelectedRoutineForMenu] = useState<Routine | null>(null);
   const [deletingRoutine, setDeletingRoutine] = useState<Routine | null>(null);
-  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [isDraggingRoutine, setIsDraggingRoutine] = useState(false);
 
-  const handleMoveRoutine = (index: number, direction: -1 | 1) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= routines.length) return;
-    const copy = [...routines];
-    const temp = copy[index];
-    copy[index] = copy[targetIndex];
-    copy[targetIndex] = temp;
-    onReorderRoutines(copy);
-  };
+  const handleReorder = useCallback(
+    (nextRoutines: Routine[]) => {
+      onReorderRoutines(nextRoutines);
+    },
+    [onReorderRoutines]
+  );
 
   const handleStartFreestyle = () => {
     const session: WorkoutSession = {
@@ -79,7 +73,9 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
     const exercises = routine.exercises.map((rEx, idx) => {
       const exObj = allExercises.find(e => e.id === rEx.exerciseId);
       const isCardio = rEx.category === 'Kardiyo' || exObj?.category === 'Kardiyo';
-      const isIso = /plank|hollow body|dead bug|bird dog|statik/i.test(rEx.exerciseName) || !!rEx.targetDurationSeconds;
+      const isIso =
+        /plank|hollow body|dead bug|bird dog|statik/i.test(rEx.exerciseName) ||
+        !!rEx.targetDurationSeconds;
       const warmupCount = rEx.targetWarmupSets || 0;
 
       const warmupSets = Array.from({ length: warmupCount }, (_, i) => ({
@@ -89,9 +85,9 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
         rir: undefined,
         isWarmup: true,
-        durationSeconds: isIso ? (rEx.targetDurationSeconds || 60) : undefined,
-        durationMinutes: isCardio ? (rEx.targetDurationMinutes || 15) : undefined,
-        distanceKm: isCardio ? (rEx.targetDistanceKm || 2.5) : undefined,
+        durationSeconds: isIso ? rEx.targetDurationSeconds || 60 : undefined,
+        durationMinutes: isCardio ? rEx.targetDurationMinutes || 15 : undefined,
+        distanceKm: isCardio ? rEx.targetDistanceKm || 2.5 : undefined,
         completed: false,
       }));
 
@@ -100,11 +96,11 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         setNumber: i + 1,
         weight: rEx.targetWeight || 0,
         reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
-        rir: isCardio ? undefined : (rEx.targetRir ?? 1),
+        rir: isCardio ? undefined : rEx.targetRir ?? 1,
         isWarmup: false,
-        durationSeconds: isIso ? (rEx.targetDurationSeconds || 60) : undefined,
-        durationMinutes: isCardio ? (rEx.targetDurationMinutes || 15) : undefined,
-        distanceKm: isCardio ? (rEx.targetDistanceKm || 2.5) : undefined,
+        durationSeconds: isIso ? rEx.targetDurationSeconds || 60 : undefined,
+        durationMinutes: isCardio ? rEx.targetDurationMinutes || 15 : undefined,
+        distanceKm: isCardio ? rEx.targetDistanceKm || 2.5 : undefined,
         completed: false,
       }));
 
@@ -155,6 +151,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   return (
     <ScrollView
       style={styles.container}
+      scrollEnabled={!isDraggingRoutine}
       contentContainerStyle={[
         styles.content,
         { paddingBottom: 120 + Math.max(insets.bottom, 16) },
@@ -168,158 +165,146 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           onPress={onOpenActiveSession}
         >
           <View style={styles.activeBannerLeft}>
-            <View style={styles.activePulseDot} />
+            <View style={[styles.activePulseDot, { backgroundColor: COLORS.pastel.green }]} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.activeTitle}>Devam Eden Antrenman</Text>
-              <Text style={styles.activeSubtitle} numberOfLines={1}>{activeSession.name}</Text>
+              <Text style={styles.activeTitle}>DEVAM EDEN ANTRENMAN</Text>
+              <Text style={styles.activeSubtitle} numberOfLines={1}>
+                {activeSession.name}
+              </Text>
             </View>
           </View>
 
           <View style={styles.activeBannerRight}>
             <Text style={styles.resumeText}>Devam Et</Text>
-            <Ionicons name="chevron-forward" size={16} color={COLORS.primaryText} />
+            <Ionicons name="chevron-forward" size={14} color={COLORS.primaryText} />
           </View>
         </TouchableOpacity>
       )}
 
-      {/* Hero Bento Card */}
-      <View style={styles.heroCard}>
-        <View style={styles.heroBadge}>
-          <Text style={styles.heroBadgeText}>Hızlı Kayıt</Text>
-        </View>
-
-        <View style={styles.heroTextContainer}>
-          <Text style={styles.heroTitle}>Bugünkü Antrenmanını Kaydet</Text>
-          <Text style={styles.heroSubtitle}>
-            Serbest antrenman başlat veya aşağıdan hazır günlük rutinlerinden birini seç.
+      {/* Compact Quick-Start Bar (Keeps routines immediately visible above the fold) */}
+      <View style={styles.quickStartCard}>
+        <View style={styles.quickStartLeft}>
+          <Text style={styles.kicker}>HIZLI BAŞLAT</Text>
+          <Text style={styles.quickStartTitle}>Serbest Antrenman</Text>
+          <Text style={styles.quickStartSub} numberOfLines={1}>
+            Program seçmeden anında kaydet
           </Text>
         </View>
 
         <TouchableOpacity
-          style={styles.startFreestyleBtn}
+          style={styles.quickStartBtn}
           activeOpacity={0.85}
           onPress={handleStartFreestyle}
         >
-          <Ionicons name="flash" size={20} color={COLORS.primaryText} />
-          <Text style={styles.startFreestyleBtnText}>Serbest Antrenman Başlat</Text>
+          <Ionicons name="flash-outline" size={15} color={COLORS.primaryText} />
+          <Text style={styles.quickStartBtnText}>Başlat</Text>
         </TouchableOpacity>
       </View>
 
       {/* Routine Section Header */}
       <View style={styles.sectionHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.sectionTitle}>Antrenman Programlarım</Text>
-          {isReorderMode && (
-            <Text style={styles.sectionSubtitle}>Sıralamak için okları kullanın</Text>
-          )}
-        </View>
-
-        <View style={styles.headerBtnGroup}>
+          <Text style={styles.sectionTitle}>Programlarım</Text>
           {routines.length > 1 && (
-            <TouchableOpacity
-              style={[styles.reorderToggleBtn, isReorderMode && styles.reorderToggleBtnActive]}
-              onPress={() => setIsReorderMode(!isReorderMode)}
-            >
-              <Ionicons
-                name={isReorderMode ? 'checkmark' : 'swap-vertical'}
-                size={14}
-                color={isReorderMode ? COLORS.primaryText : COLORS.textPrimary}
-              />
-              <Text style={[styles.reorderToggleBtnText, isReorderMode && styles.reorderToggleBtnTextActive]}>
-                {isReorderMode ? 'Tamam' : 'Sırala'}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionSubtitle}>Sıralamak için tutamaçtan sürükle</Text>
           )}
-
-          <TouchableOpacity
-            style={styles.createRoutineBtn}
-            onPress={() => {
-              setEditingRoutine(null);
-              setShowRoutineBuilder(true);
-            }}
-          >
-            <Ionicons name="add" size={16} color={COLORS.primaryText} />
-            <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.createRoutineBtn}
+          onPress={() => {
+            setEditingRoutine(null);
+            setShowRoutineBuilder(true);
+          }}
+        >
+          <Ionicons name="add" size={15} color={COLORS.primaryText} />
+          <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Routines Bento Grid */}
-      <View style={styles.routinesList}>
-        {routines.map((routine, index) => (
-          <View key={routine.id} style={styles.routineCard}>
-            <View style={styles.routineHeader}>
-              <View style={styles.routineTitleLeft}>
-                <Text style={styles.routineName} numberOfLines={2} ellipsizeMode="tail">{routine.name}</Text>
-                <View style={styles.routineTag}>
-                  <Text style={styles.routineTagText}>{routine.category}</Text>
-                </View>
-              </View>
-
-              <View style={styles.routineHeaderRight}>
-                {isReorderMode && routines.length > 1 && (
-                  <View style={styles.reorderPill}>
-                    <TouchableOpacity
-                      style={[styles.reorderPillBtn, index === 0 && styles.reorderPillBtnDisabled]}
-                      disabled={index === 0}
-                      onPress={() => handleMoveRoutine(index, -1)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Ionicons name="chevron-up" size={14} color={index === 0 ? COLORS.textMuted : COLORS.textPrimary} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.reorderPillBtn, index === routines.length - 1 && styles.reorderPillBtnDisabled]}
-                      disabled={index === routines.length - 1}
-                      onPress={() => handleMoveRoutine(index, 1)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                      <Ionicons name="chevron-down" size={14} color={index === routines.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
-                    </TouchableOpacity>
-                  </View>
+      {/* Draggable Routines List */}
+      <DraggableList
+        items={routines}
+        keyExtractor={r => r.id}
+        onReorder={handleReorder}
+        onDragStateChange={setIsDraggingRoutine}
+        gap={10}
+        renderItem={({ item: routine, isDragging, dragHandleProps }) => {
+          const totalSets = routine.exercises.reduce((sum, e) => sum + (e.targetSets || 0), 0);
+          return (
+            <View style={[styles.routineCard, isDragging && styles.routineCardDragging]}>
+              <View style={styles.routineHeader}>
+                {routines.length > 1 && (
+                  <DragGripHandle dragHandleProps={dragHandleProps} isDragging={isDragging} />
                 )}
+
+                <View style={styles.routineTitleLeft}>
+                  <Text style={styles.routineName} numberOfLines={2} ellipsizeMode="tail">
+                    {routine.name}
+                  </Text>
+                  <View style={styles.routineMetaRow}>
+                    <View
+                      style={[
+                        styles.routineTag,
+                        { backgroundColor: COLORS.pastel.blueBg },
+                      ]}
+                    >
+                      <Text style={[styles.routineTagText, { color: COLORS.pastel.blue }]}>
+                        {routine.category}
+                      </Text>
+                    </View>
+                    <Text style={styles.routineMetaCount}>
+                      {routine.exercises.length} hareket · {totalSets} set
+                    </Text>
+                  </View>
+                </View>
 
                 <TouchableOpacity
                   style={styles.dotsMenuBtn}
                   onPress={() => setSelectedRoutineForMenu(routine)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textMuted} />
+                  <Ionicons name="ellipsis-horizontal" size={18} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
-            </View>
 
-            <Text style={styles.routineDesc}>{routine.description}</Text>
-
-            {/* Exercise preview pills */}
-            <View style={styles.exercisesPreview}>
-              {routine.exercises.slice(0, 4).map((ex, idx) => (
-                <View key={idx} style={styles.exPill}>
-                  <Text style={styles.exPillText}>
-                    {ex.exerciseName} ({ex.targetWarmupSets ? `${ex.targetWarmupSets}W + ` : ''}{ex.targetSets}x{ex.targetReps})
-                  </Text>
-                </View>
-              ))}
-              {routine.exercises.length > 4 && (
-                <View style={styles.exPillMore}>
-                  <Text style={styles.exPillMoreText}>+{routine.exercises.length - 4} daha</Text>
-                </View>
+              {!!routine.description && (
+                <Text style={styles.routineDesc} numberOfLines={2}>
+                  {routine.description}
+                </Text>
               )}
+
+              {/* Exercise preview pills */}
+              <View style={styles.exercisesPreview}>
+                {routine.exercises.slice(0, 4).map((ex, idx) => (
+                  <View key={idx} style={styles.exPill}>
+                    <Text style={styles.exPillText}>
+                      {ex.exerciseName} ({ex.targetWarmupSets ? `${ex.targetWarmupSets}W+` : ''}
+                      {ex.targetSets}×{ex.targetReps})
+                    </Text>
+                  </View>
+                ))}
+                {routine.exercises.length > 4 && (
+                  <View style={styles.exPillMore}>
+                    <Text style={styles.exPillMoreText}>+{routine.exercises.length - 4}</Text>
+                  </View>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={styles.startRoutineBtn}
+                activeOpacity={0.85}
+                onPress={() => handleStartRoutine(routine)}
+              >
+                <Ionicons name="play" size={13} color={COLORS.primaryText} />
+                <Text style={styles.startRoutineBtnText}>Programı Başlat</Text>
+              </TouchableOpacity>
             </View>
+          );
+        }}
+      />
 
-            <TouchableOpacity
-              style={styles.startRoutineBtn}
-              activeOpacity={0.85}
-              onPress={() => handleStartRoutine(routine)}
-            >
-              <Ionicons name="play" size={14} color={COLORS.primaryText} />
-              <Text style={styles.startRoutineBtnText}>Bu Programı Başlat</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      {/* 3-Dots Action Sheet / Options Modal */}
+      {/* 3-Dots Action Sheet Modal */}
       {selectedRoutineForMenu && (
         <Modal visible transparent animationType="fade">
           <TouchableOpacity
@@ -330,48 +315,22 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
             <View style={styles.actionSheetContainer}>
               <Text style={styles.actionSheetTitle}>{selectedRoutineForMenu.name}</Text>
 
-              {routines.findIndex(r => r.id === selectedRoutineForMenu.id) > 0 && (
-                <TouchableOpacity
-                  style={styles.actionSheetItem}
-                  onPress={() => {
-                    const idx = routines.findIndex(r => r.id === selectedRoutineForMenu.id);
-                    handleMoveRoutine(idx, -1);
-                    setSelectedRoutineForMenu(null);
-                  }}
-                >
-                  <Ionicons name="arrow-up-circle-outline" size={20} color={COLORS.textPrimary} />
-                  <Text style={styles.actionSheetText}>Yukarı Taşı</Text>
-                </TouchableOpacity>
-              )}
-
-              {routines.findIndex(r => r.id === selectedRoutineForMenu.id) < routines.length - 1 && (
-                <TouchableOpacity
-                  style={styles.actionSheetItem}
-                  onPress={() => {
-                    const idx = routines.findIndex(r => r.id === selectedRoutineForMenu.id);
-                    handleMoveRoutine(idx, 1);
-                    setSelectedRoutineForMenu(null);
-                  }}
-                >
-                  <Ionicons name="arrow-down-circle-outline" size={20} color={COLORS.textPrimary} />
-                  <Text style={styles.actionSheetText}>Aşağı Taşı</Text>
-                </TouchableOpacity>
-              )}
-
               <TouchableOpacity
                 style={styles.actionSheetItem}
                 onPress={() => handleOpenEdit(selectedRoutineForMenu)}
               >
-                <Ionicons name="create-outline" size={20} color={COLORS.textPrimary} />
+                <Ionicons name="create-outline" size={19} color={COLORS.textPrimary} />
                 <Text style={styles.actionSheetText}>Programı Düzenle</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.actionSheetItem}
+                style={[styles.actionSheetItem, { backgroundColor: COLORS.pastel.roseBg, borderColor: 'transparent' }]}
                 onPress={() => handleDeletePrompt(selectedRoutineForMenu)}
               >
-                <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                <Text style={[styles.actionSheetText, { color: COLORS.danger }]}>Programı Sil</Text>
+                <Ionicons name="trash-outline" size={19} color={COLORS.pastel.rose} />
+                <Text style={[styles.actionSheetText, { color: COLORS.pastel.rose }]}>
+                  Programı Sil
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -391,7 +350,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           <View style={styles.actionModalOverlay}>
             <View style={styles.actionSheetContainer}>
               <View style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Ionicons name="trash" size={32} color={COLORS.danger} />
+                <Ionicons name="trash-outline" size={28} color={COLORS.pastel.rose} />
                 <Text style={styles.actionSheetTitle}>Programı Sil</Text>
                 <Text style={{ fontSize: 13, color: COLORS.textMuted, textAlign: 'center' }}>
                   "{deletingRoutine.name}" programını silmek istediğinize emin misiniz?
@@ -399,11 +358,16 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               </View>
 
               <TouchableOpacity
-                style={[styles.actionSheetItem, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: COLORS.danger }]}
+                style={[
+                  styles.actionSheetItem,
+                  { backgroundColor: COLORS.pastel.roseBg, borderColor: COLORS.pastel.rose },
+                ]}
                 onPress={confirmDeleteRoutine}
               >
-                <Ionicons name="trash" size={18} color={COLORS.danger} />
-                <Text style={[styles.actionSheetText, { color: COLORS.danger }]}>Evet, Programı Sil</Text>
+                <Ionicons name="trash" size={17} color={COLORS.pastel.rose} />
+                <Text style={[styles.actionSheetText, { color: COLORS.pastel.rose }]}>
+                  Evet, Programı Sil
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -433,345 +397,303 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   );
 };
 
-const createStyles = () => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 140, // Increased bottom padding so floating navbar never covers CTA buttons
-    gap: 16,
-  },
-  activeBanner: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...SHADOWS.soft,
-  },
-  activeBannerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingRight: 10,
-  },
-  activePulseDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.primary,
-  },
-  activeTitle: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  activeSubtitle: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  activeBannerRight: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  resumeText: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  heroCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 14,
-    ...SHADOWS.soft,
-  },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-  },
-  heroBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  heroTextContainer: {
-    gap: 4,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    letterSpacing: -0.4,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  startFreestyleBtn: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 6,
-    ...SHADOWS.soft,
-  },
-  startFreestyleBtnText: {
-    color: COLORS.primaryText,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  headerBtnGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  reorderToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 6,
-  },
-  reorderToggleBtnActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  reorderToggleBtnText: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  reorderToggleBtnTextActive: {
-    color: COLORS.primaryText,
-  },
-  createRoutineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  createRoutineBtnText: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  routinesList: {
-    gap: 12,
-  },
-  routineCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    ...SHADOWS.soft,
-  },
-  routineHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  routineHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  reorderPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-  },
-  reorderPillBtn: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  reorderPillBtnDisabled: {
-    opacity: 0.3,
-  },
-  routineTitleLeft: {
-    flex: 1,
-    gap: 6,
-  },
-  routineName: {
-    flexShrink: 1,
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    lineHeight: 22,
-  },
-  routineTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  routineTagText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dotsMenuBtn: {
-    flexShrink: 0,
-    padding: 6,
-    borderRadius: 6,
-  },
-  routineDesc: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    lineHeight: 18,
-  },
-  exercisesPreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  exPill: {
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  exPillText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  exPillMore: {
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-  },
-  exPillMoreText: {
-    fontSize: 11,
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-  },
-  startRoutineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  startRoutineBtnText: {
-    color: COLORS.primaryText,
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  actionModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    padding: 16,
-    paddingBottom: 40,
-  },
-  actionSheetContainer: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    ...SHADOWS.soft,
-  },
-  actionSheetTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  actionSheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  actionSheetText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  actionSheetCancel: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 4,
-  },
-  actionSheetCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-});
+const createStyles = () =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+    },
+    content: {
+      padding: 16,
+      gap: 12,
+    },
+    activeBanner: {
+      backgroundColor: COLORS.surfaceElevated,
+      borderRadius: 9,
+      padding: 13,
+      borderWidth: 1,
+      borderColor: COLORS.borderDark,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      ...SHADOWS.soft,
+    },
+    activeBannerLeft: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingRight: 10,
+    },
+    activePulseDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+    },
+    activeTitle: {
+      color: COLORS.textMuted,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
+    },
+    activeSubtitle: {
+      color: COLORS.textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    activeBannerRight: {
+      flexShrink: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: COLORS.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    resumeText: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+      fontSize: 12,
+    },
+    quickStartCard: {
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    quickStartLeft: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    kicker: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.7,
+      color: COLORS.textMuted,
+    },
+    quickStartTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      letterSpacing: -0.2,
+    },
+    quickStartSub: {
+      fontSize: 11.5,
+      color: COLORS.textSecondary,
+    },
+    quickStartBtn: {
+      backgroundColor: COLORS.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 7,
+      flexShrink: 0,
+    },
+    quickStartBtnText: {
+      color: COLORS.primaryText,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 4,
+      gap: 8,
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      letterSpacing: -0.2,
+    },
+    sectionSubtitle: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      marginTop: 1,
+    },
+    createRoutineBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: COLORS.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 6,
+    },
+    createRoutineBtnText: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+      fontSize: 12,
+    },
+    routineCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 10,
+      ...SHADOWS.soft,
+    },
+    routineCardDragging: {
+      borderColor: COLORS.primary,
+      backgroundColor: COLORS.surfaceElevated,
+    },
+    routineHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    routineTitleLeft: {
+      flex: 1,
+      minWidth: 0,
+      gap: 5,
+    },
+    routineName: {
+      flexShrink: 1,
+      fontSize: 15,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      lineHeight: 20,
+    },
+    routineMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap',
+    },
+    routineTag: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 5,
+    },
+    routineTagText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+    },
+    routineMetaCount: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      fontWeight: '600',
+      fontVariant: ['tabular-nums'],
+    },
+    dotsMenuBtn: {
+      flexShrink: 0,
+      padding: 6,
+      borderRadius: 6,
+    },
+    routineDesc: {
+      fontSize: 12,
+      color: COLORS.textSecondary,
+      lineHeight: 17,
+    },
+    exercisesPreview: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 5,
+    },
+    exPill: {
+      backgroundColor: COLORS.surfaceSubtle,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 5,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    exPillText: {
+      fontSize: 10.5,
+      color: COLORS.textSecondary,
+      fontWeight: '500',
+    },
+    exPillMore: {
+      backgroundColor: COLORS.surfaceSubtle,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 5,
+      borderWidth: 1,
+      borderColor: COLORS.borderDark,
+    },
+    exPillMoreText: {
+      fontSize: 10.5,
+      color: COLORS.textPrimary,
+      fontWeight: '700',
+    },
+    startRoutineBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: COLORS.primary,
+      paddingVertical: 10,
+      borderRadius: 7,
+      marginTop: 2,
+    },
+    startRoutineBtnText: {
+      color: COLORS.primaryText,
+      fontWeight: '800',
+      fontSize: 12.5,
+    },
+    actionModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+      padding: 16,
+      paddingBottom: 40,
+    },
+    actionSheetContainer: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 10,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 10,
+      ...SHADOWS.soft,
+    },
+    actionSheetTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    actionSheetItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: COLORS.surfaceSubtle,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    actionSheetText: {
+      fontSize: 13.5,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+    },
+    actionSheetCancel: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      marginTop: 2,
+    },
+    actionSheetCancelText: {
+      fontSize: 13.5,
+      fontWeight: '600',
+      color: COLORS.textMuted,
+    },
+  });
 
 let styles = createStyles();
 subscribeTheme(() => {

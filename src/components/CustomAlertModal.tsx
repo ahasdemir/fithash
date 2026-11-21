@@ -30,11 +30,11 @@ export const CustomAlertModal: React.FC<CustomAlertOptions> = ({
   const getIconProps = () => {
     switch (type) {
       case 'danger':
-        return { name: 'alert-circle', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.12)' };
+        return { name: 'alert-circle', color: COLORS.pastel.rose, bg: COLORS.pastel.roseBg };
       case 'warning':
-        return { name: 'warning', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.12)' };
+        return { name: 'warning', color: COLORS.pastel.amber, bg: COLORS.pastel.amberBg };
       case 'success':
-        return { name: 'checkmark-circle', color: '#10B981', bg: 'rgba(16, 185, 129, 0.12)' };
+        return { name: 'checkmark-circle', color: COLORS.pastel.green, bg: COLORS.pastel.greenBg };
       case 'info':
       default:
         return { name: 'information-circle', color: COLORS.textPrimary, bg: COLORS.surfaceSubtle };
@@ -163,10 +163,10 @@ const createStyles = () => StyleSheet.create({
     justifyContent: 'center',
   },
   dangerConfirmBtn: {
-    backgroundColor: '#EF4444',
+    backgroundColor: COLORS.danger,
   },
   successConfirmBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: COLORS.success,
   },
   confirmText: {
     fontSize: 13,

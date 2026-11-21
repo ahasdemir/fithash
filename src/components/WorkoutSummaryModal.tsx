@@ -55,19 +55,19 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="flame-outline" size={18} color="#EF4444" />
+                <Ionicons name="flame-outline" size={18} color={COLORS.pastel.rose} />
                 <Text style={styles.statVal}>~{calories}</Text>
                 <Text style={styles.statLabel}>Yakılan kcal</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="barbell-outline" size={18} color="#3B82F6" />
+                <Ionicons name="barbell-outline" size={18} color={COLORS.pastel.blue} />
                 <Text style={styles.statVal}>{volume.toLocaleString('tr-TR')} kg</Text>
                 <Text style={styles.statLabel}>Hacim</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
+                <Ionicons name="checkmark-done-circle-outline" size={18} color={COLORS.pastel.green} />
                 <Text style={styles.statVal}>{sets} Set</Text>
                 <Text style={styles.statLabel}>Tamamlanan</Text>
               </View>

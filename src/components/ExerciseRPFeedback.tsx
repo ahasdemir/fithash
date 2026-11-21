@@ -168,9 +168,9 @@ export const ExerciseRPFeedback: React.FC<ExerciseRPFeedbackProps> = ({
           size={16}
           color={
             adaptation.action === 'ADD_SET'
-              ? '#10B981'
+              ? COLORS.pastel.green
               : adaptation.action === 'DELOAD_OR_SWAP' || adaptation.action === 'REDUCE_SET'
-              ? '#EF4444'
+              ? COLORS.pastel.rose
               : COLORS.textSecondary
           }
         />
@@ -257,12 +257,12 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.primary,
   },
   optionBtnWarning: {
-    backgroundColor: '#F59E0B',
-    borderColor: '#F59E0B',
+    backgroundColor: COLORS.pastel.amber,
+    borderColor: COLORS.pastel.amber,
   },
   optionBtnDanger: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
+    backgroundColor: COLORS.pastel.rose,
+    borderColor: COLORS.pastel.rose,
   },
   optionText: {
     fontSize: 11,

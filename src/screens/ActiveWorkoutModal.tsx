@@ -24,6 +24,7 @@ import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertM
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
 import { ExerciseSwapModal } from '../components/ExerciseSwapModal';
 import { WorkoutCompletionModal } from '../components/WorkoutCompletionModal';
+import { DraggableList, DragGripHandle } from '../components/DraggableList';
 import { getExercises, getWorkouts, getActiveRestTimerEnd, saveActiveRestTimerEnd } from '../services/storage';
 import { scheduleRestTimerNotification, cancelRestTimerNotification } from '../services/notifications';
 import { syncRestTimerToWearable, WearRestTimerUpdate } from '../services/wearSyncService';
@@ -79,6 +80,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [selectedPRExercise, setSelectedPRExercise] = useState<Exercise | null>(null);
   const [swappingExercise, setSwappingExercise] = useState<{ exercise: WorkoutExercise; index: number } | null>(null);
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
+  const [isDraggingExercise, setIsDraggingExercise] = useState(false);
   const lastRecTapTimeRef = useRef<Record<string, number>>({});
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
@@ -396,20 +398,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onUpdateSession(updated);
   };
 
-  const handleMoveExercise = (index: number, direction: -1 | 1) => {
-    if (!session) return;
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= session.exercises.length) return;
-
-    const copy = [...session.exercises];
-    const temp = copy[index];
-    copy[index] = copy[targetIndex];
-    copy[targetIndex] = temp;
-
-    const updated = { ...session, exercises: copy };
-    setSession(updated);
-    onUpdateSession(updated);
-  };
+  const handleReorderExercises = useCallback((nextExercises: WorkoutExercise[]) => {
+    setSession(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, exercises: nextExercises };
+      onUpdateSession(updated);
+      return updated;
+    });
+  }, [onUpdateSession]);
 
   const isIsometricExercise = (name: string, cat?: string) => {
     return /plank|hollow body|dead bug|bird dog|statik/i.test(name);
@@ -836,11 +832,11 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const getRirColor = (rir?: number, isWarmup?: boolean) => {
-    if (isWarmup) return '#F97316';   // Warm Orange (Warmup)
-    if (rir === 0) return '#EF4444'; // Failure / Crimson Red
-    if (rir === 1) return '#F59E0B'; // Amber
-    if (rir === 2) return '#10B981'; // Emerald
-    if (rir === 3) return '#3B82F6'; // Muted Blue
+    if (isWarmup) return COLORS.pastel.amber; // Warmup pastel
+    if (rir === 0) return COLORS.pastel.rose; // Failure pastel
+    if (rir === 1) return COLORS.pastel.amber; // High effort pastel
+    if (rir === 2) return COLORS.pastel.green; // Sweet spot pastel
+    if (rir === 3) return COLORS.pastel.blue; // Controlled pastel
     return COLORS.textMuted;         // Empty / Undefined
   };
 
@@ -937,6 +933,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
         <ScrollView
           style={styles.scrollView}
+          scrollEnabled={!isDraggingExercise}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           nestedScrollEnabled={true}
@@ -946,17 +943,30 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             { paddingBottom: Math.max(insets.bottom, 20) + 70 }
           ]}
         >
-          {session.exercises.map((ex, exIndex) => {
+          <DraggableList
+            items={session.exercises}
+            keyExtractor={ex => ex.id}
+            onReorder={handleReorderExercises}
+            onDragStateChange={setIsDraggingExercise}
+            gap={14}
+            renderItem={({ item: ex, index: exIndex, isDragging, dragHandleProps }) => {
             const catColor = COLORS.category[ex.category] || COLORS.textPrimary;
             const isCardio = ex.category === 'Kardiyo';
             const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
             const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment, ex.category) : null;
 
             return (
-              <View key={ex.id} style={styles.exCard}>
+              <View style={[styles.exCard, isDragging && styles.exCardDragging]}>
                 <View style={styles.exCardHeader}>
-                  {/* Top Row: Exercise Name & Controls */}
+                  {/* Top Row: Drag Handle, Exercise Name & Controls */}
                   <View style={styles.exTopRow}>
+                    {session.exercises.length > 1 && (
+                      <DragGripHandle
+                        dragHandleProps={dragHandleProps}
+                        isDragging={isDragging}
+                        compact
+                      />
+                    )}
                     <Text style={styles.exName} numberOfLines={1} ellipsizeMode="tail">
                       {exIndex + 1}. {ex.exerciseName}
                     </Text>
@@ -975,28 +985,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                         >
                           <Ionicons name="swap-horizontal" size={16} color={COLORS.primary} />
                         </TouchableOpacity>
-                      )}
-
-                      {session.exercises.length > 1 && (
-                        <View style={styles.activeReorderGroup}>
-                          <TouchableOpacity
-                            style={[styles.activeReorderBtn, exIndex === 0 && styles.activeReorderBtnDisabled]}
-                            disabled={exIndex === 0}
-                            onPress={() => handleMoveExercise(exIndex, -1)}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          >
-                            <Ionicons name="chevron-up" size={16} color={exIndex === 0 ? COLORS.textMuted : COLORS.textPrimary} />
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.activeReorderBtn, exIndex === session.exercises.length - 1 && styles.activeReorderBtnDisabled]}
-                            disabled={exIndex === session.exercises.length - 1}
-                            onPress={() => handleMoveExercise(exIndex, 1)}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          >
-                            <Ionicons name="chevron-down" size={16} color={exIndex === session.exercises.length - 1 ? COLORS.textMuted : COLORS.textPrimary} />
-                          </TouchableOpacity>
-                        </View>
                       )}
 
                       <TouchableOpacity
@@ -1351,7 +1339,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                 </View>
               </View>
             );
-          })}
+          }}
+          />
 
           <TouchableOpacity
             style={styles.bigAddExBtn}
@@ -1541,9 +1530,7 @@ const createStyles = () => StyleSheet.create({
   },
   exCardDragging: {
     borderColor: COLORS.primary,
-    borderWidth: 2,
-    backgroundColor: COLORS.surfaceSubtle,
-    transform: [{ scale: 1.02 }],
+    backgroundColor: COLORS.surfaceElevated,
   },
   exCardHeader: {
     marginBottom: 12,
@@ -1565,23 +1552,6 @@ const createStyles = () => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flexShrink: 0,
-  },
-  activeReorderGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-  },
-  activeReorderBtn: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  activeReorderBtnDisabled: {
-    opacity: 0.3,
   },
   exName: {
     flex: 1,
