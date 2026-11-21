@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
 };
 
 export interface AppSettings {
+  themeMode?: 'dark' | 'light';
   defaultRestSeconds: number; // e.g. 30, 60, 90, 120, 180
   autoStartRestTimer: boolean;
   defaultRir: number; // 0, 1, 2, 3
@@ -23,6 +24,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  themeMode: 'dark',
   defaultRestSeconds: 90,
   autoStartRestTimer: true,
   defaultRir: 1,
@@ -249,4 +251,3 @@ export const importFullDataJSON = async (jsonString: string): Promise<boolean> =
     throw error;
   }
 };
-

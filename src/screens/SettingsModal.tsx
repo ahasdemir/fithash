@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -7,18 +7,16 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS, ThemeColors, ThemeMode, setThemeMode, useTheme } from '../theme';
 import {
   getAppSettings,
   saveAppSettings,
   exportFullDataJSON,
   exportWorkoutsCSV,
   importFullDataJSON,
-  AppSettings,
 } from '../services/settings';
 import {
   requestHealthConnectPermissions,
@@ -47,6 +45,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDataReload,
 }) => {
   const insets = useSafeAreaInsets();
+  const { mode, colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
@@ -76,6 +77,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDefaultRir(s.defaultRir ?? 1);
     setWeightUnit(s.weightUnit || 'kg');
     setHealthConnectEnabled(s.healthConnectEnabled ?? false);
+  };
+
+  const handleSelectThemeMode = async (nextMode: ThemeMode) => {
+    setThemeMode(nextMode);
+    await saveAppSettings({ themeMode: nextMode });
   };
 
   const handleToggleHealthConnect = async () => {
@@ -148,6 +154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSaveAllSettings = async () => {
     await saveAppSettings({
+      themeMode: mode,
       defaultRestSeconds,
       autoStartRestTimer,
       defaultRir,
@@ -211,7 +218,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const filename = `fithash_backup_${new Date().toISOString().split('T')[0]}.${extension}`;
 
       if (typeof document !== 'undefined') {
-        // Web Platform Download
         const blob = new Blob([exportContent], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -222,7 +228,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        // Mobile Native (Android & iOS) Export & Sharing
         const file = new File(Paths.document, filename);
         if (!file.exists) {
           file.create();
@@ -329,7 +334,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const routines = await getRoutines();
       const settings = await getAppSettings();
-      const count = await syncRoutinesToWearable(routines, settings);
+      await syncRoutinesToWearable(routines, settings);
       setCustomAlert({
         visible: true,
         type: 'success',
@@ -354,11 +359,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
-            <Ionicons name="cog" size={22} color="#111111" />
+            <Ionicons name="settings-outline" size={20} color={colors.textPrimary} />
             <Text style={styles.title}>Uygulama Ayarları</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
+            <Ionicons name="close" size={18} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -369,11 +374,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           showsVerticalScrollIndicator={true}
           nestedScrollEnabled={true}
         >
+          {/* SECTION 0: APPEARANCE & THEME SYSTEM */}
+          <View style={styles.bentoSection}>
+            <View style={styles.sectionTitleRow}>
+              <View style={styles.iconCircle}>
+                <Ionicons
+                  name={mode === 'dark' ? 'moon-outline' : 'sunny-outline'}
+                  size={16}
+                  color={colors.primaryText}
+                />
+              </View>
+              <View>
+                <Text style={styles.sectionTitle}>Görünüm & Tema Sistemi</Text>
+                <Text style={styles.sectionSub}>Shadcn Koyu veya Swiss Açık arayüz modu</Text>
+              </View>
+            </View>
+
+            <View style={styles.pillsRow}>
+              <TouchableOpacity
+                style={[styles.themeBtn, mode === 'dark' && styles.pillBtnSelected]}
+                onPress={() => handleSelectThemeMode('dark')}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="moon-outline"
+                  size={15}
+                  color={mode === 'dark' ? colors.primaryText : colors.textSecondary}
+                />
+                <Text style={[styles.pillBtnText, mode === 'dark' && styles.pillBtnTextSelected]}>
+                  Koyu (Shadcn Zinc)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.themeBtn, mode === 'light' && styles.pillBtnSelected]}
+                onPress={() => handleSelectThemeMode('light')}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="sunny-outline"
+                  size={15}
+                  color={mode === 'light' ? colors.primaryText : colors.textSecondary}
+                />
+                <Text style={[styles.pillBtnText, mode === 'light' && styles.pillBtnTextSelected]}>
+                  Açık (Swiss Paper)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* SECTION 1: WORKOUT & TIMER PREFERENCES */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
               <View style={styles.iconCircle}>
-                <Ionicons name="timer" size={18} color="#111111" />
+                <Ionicons name="timer-outline" size={16} color={colors.primaryText} />
               </View>
               <View>
                 <Text style={styles.sectionTitle}>Antrenman & Dinlenme Ayarları</Text>
@@ -464,19 +518,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
           </View>
 
-
-
           {/* SAVE ALL SETTINGS BUTTON */}
           <TouchableOpacity
             style={[styles.saveSettingsBtn, saveSuccess && styles.saveSettingsSuccess]}
             onPress={handleSaveAllSettings}
           >
             <Ionicons
-              name={saveSuccess ? "checkmark-circle" : "save"}
+              name={saveSuccess ? 'checkmark-circle' : 'save-outline'}
               size={18}
-              color="#111111"
+              color={saveSuccess ? '#FFFFFF' : colors.primaryText}
             />
-            <Text style={styles.saveSettingsBtnText}>
+            <Text
+              style={[
+                styles.saveSettingsBtnText,
+                saveSuccess && { color: '#FFFFFF' },
+              ]}
+            >
               {saveSuccess ? 'Ayarlar Kaydedildi!' : 'Tüm Ayarları Kaydet'}
             </Text>
           </TouchableOpacity>
@@ -484,8 +541,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* SECTION: HEALTH CONNECT */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#10B981' }]}>
-                <Ionicons name="fitness" size={18} color="#FFFFFF" />
+              <View style={[styles.iconCircle, { backgroundColor: colors.success }]}>
+                <Ionicons name="fitness-outline" size={16} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Health Connect Entegrasyonu</Text>
@@ -497,36 +554,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               style={[
                 styles.modelCard,
                 healthConnectEnabled && styles.modelCardSelected,
-                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }
+                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
               ]}
               onPress={handleToggleHealthConnect}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Ionicons
-                  name={healthConnectEnabled ? "checkmark-circle" : "ellipse-outline"}
-                  size={22}
-                  color={healthConnectEnabled ? COLORS.primary : COLORS.textMuted}
+                  name={healthConnectEnabled ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={healthConnectEnabled ? colors.primary : colors.textMuted}
                 />
                 <View>
                   <Text style={[styles.modelName, healthConnectEnabled && styles.modelNameSelected]}>
                     Health Connect {healthConnectEnabled ? 'Aktif' : 'Pasif'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: COLORS.textMuted }}>
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
                     {healthConnectEnabled ? 'Otomatik senkronize edilir' : 'Dokunarak izin verin'}
                   </Text>
                 </View>
               </View>
-              <Ionicons name="logo-android" size={22} color={healthConnectEnabled ? COLORS.primary : COLORS.textMuted} />
+              <Ionicons
+                name="logo-android"
+                size={20}
+                color={healthConnectEnabled ? colors.primary : colors.textMuted}
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.importBtn, { marginTop: 12, backgroundColor: '#10B981' }]}
+              style={[styles.importBtn, { marginTop: 12, backgroundColor: colors.success }]}
               onPress={handleSyncAllHealthConnect}
               disabled={isSyncingHC}
             >
-              <Ionicons name="sync" size={18} color="#FFFFFF" />
+              <Ionicons name="sync" size={16} color="#FFFFFF" />
               <Text style={[styles.importBtnText, { color: '#FFFFFF' }]}>
-                {isSyncingHC ? 'Aktarılıyor...' : 'Tüm Geçmişi Health Connect\'e Aktar'}
+                {isSyncingHC ? 'Aktarılıyor...' : "Tüm Geçmişi Health Connect'e Aktar"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -534,8 +595,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* SECTION: WEAR OS WATCH SYNC */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#C6F035' }]}>
-                <Ionicons name="watch" size={18} color="#111111" />
+              <View style={styles.iconCircle}>
+                <Ionicons name="watch-outline" size={16} color={colors.primaryText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Wear OS Akıllı Saat Senkronizasyonu</Text>
@@ -544,12 +605,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
 
             <TouchableOpacity
-              style={[styles.importBtn, { marginTop: 12, backgroundColor: '#C6F035' }]}
+              style={[styles.importBtn, { marginTop: 12 }]}
               onPress={handleSyncWearable}
               activeOpacity={0.8}
             >
-              <Ionicons name="refresh" size={18} color="#111111" />
-              <Text style={[styles.importBtnText, { color: '#111111', fontWeight: 'bold' }]}>
+              <Ionicons name="refresh" size={16} color={colors.primaryText} />
+              <Text style={styles.importBtnText}>
                 Rutinleri Saate Şimdi Eşitle
               </Text>
             </TouchableOpacity>
@@ -558,8 +619,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* SECTION 3: DATA BACKUP & EXPORT / IMPORT */}
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#111111' }]}>
-                <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+              <View style={styles.iconCircle}>
+                <Ionicons name="swap-horizontal" size={16} color={colors.primaryText} />
               </View>
               <View>
                 <Text style={styles.sectionTitle}>Veri Yedekleme & Aktarım</Text>
@@ -573,7 +634,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={styles.exportCardBtn}
                 onPress={handleExportJSON}
               >
-                <Ionicons name="document-text" size={22} color="#111111" />
+                <Ionicons name="document-text-outline" size={20} color={colors.textPrimary} />
                 <Text style={styles.exportCardTitle}>JSON Dışa Aktar</Text>
                 <Text style={styles.exportCardSub}>Tam sistem yedeği al</Text>
               </TouchableOpacity>
@@ -582,7 +643,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 style={styles.exportCardBtn}
                 onPress={handleExportCSV}
               >
-                <Ionicons name="grid-outline" size={22} color="#111111" />
+                <Ionicons name="grid-outline" size={20} color={colors.textPrimary} />
                 <Text style={styles.exportCardTitle}>CSV Dışa Aktar</Text>
                 <Text style={styles.exportCardSub}>Excel / Tablo formatı</Text>
               </TouchableOpacity>
@@ -592,7 +653,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               style={styles.importBtn}
               onPress={() => setShowImportModal(true)}
             >
-              <Ionicons name="cloud-upload" size={18} color="#111111" />
+              <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryText} />
               <Text style={styles.importBtnText}>Yedekten Geri Yükle (JSON İçe Aktar)</Text>
             </TouchableOpacity>
           </View>
@@ -605,8 +666,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{exportType} Dışa Aktarılan Veri</Text>
-                  <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                    <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
+                  <TouchableOpacity onPress={() => setShowExportModal(false)} style={styles.closeBtn}>
+                    <Ionicons name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
@@ -625,7 +686,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={styles.downloadFileBtn}
                     onPress={handleDownloadFile}
                   >
-                    <Ionicons name="download" size={16} color="#111111" />
+                    <Ionicons name="download-outline" size={16} color={colors.primaryText} />
                     <Text style={styles.downloadFileBtnText}>
                       Dosya Olarak İndir (.{exportType.toLowerCase()})
                     </Text>
@@ -635,7 +696,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={styles.copyBtn}
                     onPress={handleCopyClipboard}
                   >
-                    <Ionicons name="copy" size={16} color="#111111" />
+                    <Ionicons name="copy-outline" size={16} color={colors.textPrimary} />
                     <Text style={styles.copyBtnText}>Kopyala</Text>
                   </TouchableOpacity>
                 </View>
@@ -651,8 +712,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>JSON Yedeği İçe Aktar</Text>
-                  <TouchableOpacity onPress={() => setShowImportModal(false)}>
-                    <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
+                  <TouchableOpacity onPress={() => setShowImportModal(false)} style={styles.closeBtn}>
+                    <Ionicons name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
 
@@ -665,14 +726,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={styles.pickFileBtn}
                     onPress={handlePickBackupFile}
                   >
-                    <Ionicons name="folder-open" size={18} color="#111111" />
+                    <Ionicons name="folder-open-outline" size={16} color={colors.primaryText} />
                     <Text style={styles.pickFileBtnText}>Dosyadan Seç (.json)</Text>
                   </TouchableOpacity>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 4 }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: COLORS.border }} />
-                    <Text style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: '600' }}>VEYA METİN YAPIŞTIR</Text>
-                    <View style={{ flex: 1, height: 1, backgroundColor: COLORS.border }} />
+                    <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '600' }}>VEYA METİN YAPIŞTIR</Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                   </View>
                 </View>
 
@@ -680,7 +741,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={styles.importInput}
                   multiline
                   placeholder='{"version": "1.0.0", "workouts": [...]}'
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   value={importText}
                   onChangeText={setImportText}
                 />
@@ -690,7 +751,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     style={styles.restoreSubmitBtn}
                     onPress={handleImportSubmit}
                   >
-                    <Ionicons name="checkmark-circle" size={18} color="#111111" />
+                    <Ionicons name="checkmark-circle-outline" size={18} color={colors.primaryText} />
                     <Text style={styles.restoreSubmitText}>Verileri Geri Yükle</Text>
                   </TouchableOpacity>
                 </View>
@@ -698,367 +759,338 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </View>
           </Modal>
         )}
-        {customAlert && (
-          <CustomAlertModal
-            {...customAlert}
-          />
-        )}
+        {customAlert && <CustomAlertModal {...customAlert} />}
       </SafeAreaView>
     </Modal>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  closeBtn: {
-    padding: 4,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 60,
-    gap: 16,
-    flexGrow: 1,
-  },
-  bentoSection: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 14,
-    ...SHADOWS.soft,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  sectionSub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginTop: 6,
-  },
-  pillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  pillBtn: {
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  pillBtnSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
-  },
-  pillBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  pillBtnTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 100,
-    paddingHorizontal: 16,
-    height: 44,
-  },
-  input: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-  },
-  hintText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    lineHeight: 16,
-  },
-  modelsContainer: {
-    gap: 8,
-  },
-  modelCard: {
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modelCardSelected: {
-    backgroundColor: COLORS.primaryGlow,
-    borderColor: '#111111',
-  },
-  modelCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modelName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  modelNameSelected: {
-    color: '#111111',
-  },
-  modelTag: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modelTagSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  modelTagText: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  modelTagTextSelected: {
-    color: '#111111',
-    fontWeight: '800',
-  },
-  saveSettingsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 100,
-    marginVertical: 4,
-    ...SHADOWS.soft,
-  },
-  saveSettingsSuccess: {
-    backgroundColor: '#10B981',
-  },
-  saveSettingsBtnText: {
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  exportGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  exportCardBtn: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 4,
-    alignItems: 'flex-start',
-  },
-  exportCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginTop: 4,
-  },
-  exportCardSub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  importBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 100,
-    marginTop: 4,
-  },
-  importBtnText: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  codeScroll: {
-    maxHeight: 250,
-    marginVertical: 14,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  codeText: {
-    color: COLORS.textPrimary,
-    fontSize: 12,
-    fontFamily: 'monospace',
-  },
-  modalFooterRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingTop: 8,
-  },
-  downloadFileBtn: {
-    flex: 2,
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    borderRadius: 100,
-  },
-  downloadFileBtnText: {
-    color: '#111111',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  copyBtn: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    borderRadius: 100,
-  },
-  copyBtnText: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  modalFooter: {
-    paddingTop: 8,
-  },
-  importInstruction: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginVertical: 10,
-  },
-  pickFileBtn: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  pickFileBtnText: {
-    color: '#111111',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  importInput: {
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    padding: 12,
-    height: 140,
-    textAlignVertical: 'top',
-    color: COLORS.textPrimary,
-    fontSize: 12,
-    fontFamily: 'monospace',
-    marginBottom: 14,
-  },
-  restoreSubmitBtn: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 100,
-  },
-  restoreSubmitText: {
-    color: '#111111',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.3,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    content: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 60,
+      gap: 14,
+      flexGrow: 1,
+    },
+    bentoSection: {
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 12,
+      ...SHADOWS.soft,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    iconCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.2,
+    },
+    sectionSub: {
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginTop: 4,
+    },
+    pillsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    themeBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: colors.surfaceSubtle,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    pillBtn: {
+      backgroundColor: colors.surfaceSubtle,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    pillBtnSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    pillBtnText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      fontVariant: ['tabular-nums'],
+    },
+    pillBtnTextSelected: {
+      color: colors.primaryText,
+      fontWeight: '700',
+    },
+    modelCard: {
+      backgroundColor: colors.surfaceSubtle,
+      borderRadius: 8,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modelCardSelected: {
+      backgroundColor: colors.primaryGlow,
+      borderColor: colors.borderDark,
+    },
+    modelName: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    modelNameSelected: {
+      color: colors.textPrimary,
+    },
+    saveSettingsBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.primary,
+      paddingVertical: 13,
+      borderRadius: 6,
+      marginVertical: 2,
+      ...SHADOWS.soft,
+    },
+    saveSettingsSuccess: {
+      backgroundColor: colors.success,
+    },
+    saveSettingsBtnText: {
+      color: colors.primaryText,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    exportGrid: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    exportCardBtn: {
+      flex: 1,
+      backgroundColor: colors.surfaceSubtle,
+      borderRadius: 8,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+      alignItems: 'flex-start',
+    },
+    exportCardTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginTop: 4,
+    },
+    exportCardSub: {
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    importBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.primary,
+      paddingVertical: 13,
+      borderRadius: 6,
+      marginTop: 4,
+    },
+    importBtnText: {
+      color: colors.primaryText,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+      justifyContent: 'flex-end',
+    },
+    modalContainer: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 10,
+      borderTopRightRadius: 10,
+      maxHeight: '80%',
+      padding: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    codeScroll: {
+      maxHeight: 250,
+      marginVertical: 14,
+      backgroundColor: colors.surfaceSubtle,
+      borderRadius: 8,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    codeText: {
+      color: colors.textPrimary,
+      fontSize: 12,
+      fontFamily: 'monospace',
+    },
+    modalFooterRow: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingTop: 8,
+    },
+    downloadFileBtn: {
+      flex: 2,
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 13,
+      borderRadius: 6,
+    },
+    downloadFileBtnText: {
+      color: colors.primaryText,
+      fontWeight: '800',
+      fontSize: 13,
+    },
+    copyBtn: {
+      flex: 1,
+      backgroundColor: colors.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 13,
+      borderRadius: 6,
+    },
+    copyBtnText: {
+      color: colors.textPrimary,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+    modalFooter: {
+      paddingTop: 8,
+    },
+    importInstruction: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginVertical: 10,
+    },
+    pickFileBtn: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      borderRadius: 6,
+    },
+    pickFileBtnText: {
+      color: colors.primaryText,
+      fontWeight: '800',
+      fontSize: 13,
+    },
+    importInput: {
+      backgroundColor: colors.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      height: 140,
+      textAlignVertical: 'top',
+      color: colors.textPrimary,
+      fontSize: 12,
+      fontFamily: 'monospace',
+      marginBottom: 14,
+    },
+    restoreSubmitBtn: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 13,
+      borderRadius: 6,
+    },
+    restoreSubmitText: {
+      color: colors.primaryText,
+      fontWeight: '800',
+      fontSize: 14,
+    },
+  });

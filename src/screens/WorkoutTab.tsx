@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState , useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
 import { getExercises, getLocalDateString } from '../services/storage';
@@ -40,6 +40,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   workoutDays = [1, 2, 3, 4, 5, 6],
   onOpenStreak,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [showRoutineBuilder, setShowRoutineBuilder] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -176,7 +177,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
           <View style={styles.activeBannerRight}>
             <Text style={styles.resumeText}>Devam Et</Text>
-            <Ionicons name="chevron-forward" size={16} color="#111111" />
+            <Ionicons name="chevron-forward" size={16} color={COLORS.primaryText} />
           </View>
         </TouchableOpacity>
       )}
@@ -199,7 +200,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
           activeOpacity={0.85}
           onPress={handleStartFreestyle}
         >
-          <Ionicons name="flash" size={20} color="#111111" />
+          <Ionicons name="flash" size={20} color={COLORS.primaryText} />
           <Text style={styles.startFreestyleBtnText}>Serbest Antrenman Başlat</Text>
         </TouchableOpacity>
       </View>
@@ -222,7 +223,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               <Ionicons
                 name={isReorderMode ? 'checkmark' : 'swap-vertical'}
                 size={14}
-                color={isReorderMode ? '#111111' : COLORS.textPrimary}
+                color={isReorderMode ? COLORS.primaryText : COLORS.textPrimary}
               />
               <Text style={[styles.reorderToggleBtnText, isReorderMode && styles.reorderToggleBtnTextActive]}>
                 {isReorderMode ? 'Tamam' : 'Sırala'}
@@ -237,7 +238,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               setShowRoutineBuilder(true);
             }}
           >
-            <Ionicons name="add" size={16} color="#111111" />
+            <Ionicons name="add" size={16} color={COLORS.primaryText} />
             <Text style={styles.createRoutineBtnText}>Yeni Program</Text>
           </TouchableOpacity>
         </View>
@@ -311,7 +312,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               activeOpacity={0.85}
               onPress={() => handleStartRoutine(routine)}
             >
-              <Ionicons name="play" size={14} color="#111111" />
+              <Ionicons name="play" size={14} color={COLORS.primaryText} />
               <Text style={styles.startRoutineBtnText}>Bu Programı Başlat</Text>
             </TouchableOpacity>
           </View>
@@ -432,7 +433,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -443,8 +444,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   activeBanner: {
-    backgroundColor: '#111111',
-    borderRadius: 24,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 8,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeSubtitle: {
-    color: '#FFFFFF',
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -482,16 +483,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   resumeText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
     fontSize: 12,
   },
   heroCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -503,14 +504,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryGlow,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(198, 240, 53, 0.4)',
   },
   heroBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   heroTextContainer: {
     gap: 4,
@@ -533,11 +534,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
-    borderRadius: 100,
+    borderRadius: 6,
     ...SHADOWS.soft,
   },
   startFreestyleBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -570,7 +571,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   reorderToggleBtnActive: {
     backgroundColor: COLORS.primary,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   reorderToggleBtnTextActive: {
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   createRoutineBtn: {
     flexDirection: 'row',
@@ -591,10 +592,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   createRoutineBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
     fontSize: 12,
   },
@@ -603,7 +604,7 @@ const styles = StyleSheet.create({
   },
   routineCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -666,7 +667,7 @@ const styles = StyleSheet.create({
   dotsMenuBtn: {
     flexShrink: 0,
     padding: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   routineDesc: {
     fontSize: 13,
@@ -682,7 +683,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -695,11 +696,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryGlow,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   exPillMoreText: {
     fontSize: 11,
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   startRoutineBtn: {
@@ -709,11 +710,11 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: COLORS.primary,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 4,
   },
   startRoutineBtnText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -726,7 +727,7 @@ const styles = StyleSheet.create({
   },
   actionSheetContainer: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -747,7 +748,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -766,4 +767,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textMuted,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

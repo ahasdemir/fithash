@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, EquipmentType } from '../types/fitness';
 import {
   getExerciseSubstitutes,
@@ -40,6 +40,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
   onSelectSwap,
   onClose,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
 
   if (!sourceExercise) return null;
@@ -178,7 +179,7 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -186,8 +187,8 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     height: '92%',
     paddingTop: 18,
     paddingHorizontal: 0,
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 12,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 12,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
   },
   candidateCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -394,4 +395,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textMuted,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

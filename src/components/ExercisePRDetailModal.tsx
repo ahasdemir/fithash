@@ -21,7 +21,7 @@ import Svg, {
   G,
 } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, Exercise } from '../types/fitness';
 
 export interface ExercisePRStats {
@@ -1802,6 +1802,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
   exercise,
   workouts,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
 
   const stats = useMemo(() => {
@@ -1857,13 +1858,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                 const prReps = stats.allTime.maxReps;
                 const e1rm = stats.allTime.estimated1RM;
                 const date = stats.allTime.bestDate;
-                const msg = `🏆 FitHash PR Rekoru!
-🏋️ Egzersiz: ${stats.exerciseName} (${stats.category} • ${stats.equipment})
-⚡ Max Kaldırış: ${prWeight} kg × ${prReps} Tekrar
-🔥 Tahmini 1RM: ${e1rm} kg
-📅 Tarih: ${date || 'Kayıtlı'}
-
-#FitHash #PersonalRecord #GymProgress`;
+                const msg = `FitHash PR Rekoru\nEgzersiz: ${stats.exerciseName} (${stats.category} • ${stats.equipment})\nMax Kaldırış: ${prWeight} kg × ${prReps} Tekrar\nTahmini 1RM: ${e1rm} kg\nTarih: ${date || 'Kayıtlı'}\n\n#FitHash #PersonalRecord #GymProgress`;
                 Share.share({
                   title: `${stats.exerciseName} PR`,
                   message: msg,
@@ -2243,7 +2238,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -2283,7 +2278,7 @@ const styles = StyleSheet.create({
   catBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   catBadgeText: {
     fontSize: 11,
@@ -2295,7 +2290,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   equipmentBadgeText: {
     fontSize: 11,
@@ -2307,7 +2302,7 @@ const styles = StyleSheet.create({
   },
   sharePRBtn: {
     padding: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2329,7 +2324,7 @@ const styles = StyleSheet.create({
   },
   windowCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2359,7 +2354,7 @@ const styles = StyleSheet.create({
   windowIconBg: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2460,7 +2455,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
@@ -2490,7 +2485,7 @@ const styles = StyleSheet.create({
   },
   repTableCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2525,7 +2520,7 @@ const styles = StyleSheet.create({
     flexBasis: '21%',
     flexGrow: 1,
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 12,
+    borderRadius: 6,
     paddingVertical: 10,
     paddingHorizontal: 4,
     alignItems: 'center',
@@ -2569,7 +2564,7 @@ const styles = StyleSheet.create({
   },
   sessionCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2652,7 +2647,7 @@ const styles = StyleSheet.create({
   },
   emptyHistoryBox: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2667,7 +2662,7 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -2725,7 +2720,7 @@ const styles = StyleSheet.create({
   },
   chartDetailCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
@@ -2828,7 +2823,7 @@ const styles = StyleSheet.create({
   },
   chartEmptyBox: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2884,7 +2879,7 @@ const styles = StyleSheet.create({
   },
   predDetailCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 11,
     borderWidth: 1,
@@ -3004,7 +2999,7 @@ const styles = StyleSheet.create({
   },
   predEmptyCard: {
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3015,7 +3010,7 @@ const styles = StyleSheet.create({
   predEmptyIconBox: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 6,
     backgroundColor: 'rgba(139, 92, 246, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3047,4 +3042,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#8B5CF6',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

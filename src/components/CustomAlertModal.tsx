@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 
 export interface CustomAlertOptions {
   visible: boolean;
@@ -24,6 +24,7 @@ export const CustomAlertModal: React.FC<CustomAlertOptions> = ({
   onConfirm,
   onCancel,
 }) => {
+  useTheme();
   if (!visible) return null;
 
   const getIconProps = () => {
@@ -36,7 +37,7 @@ export const CustomAlertModal: React.FC<CustomAlertOptions> = ({
         return { name: 'checkmark-circle', color: '#10B981', bg: 'rgba(16, 185, 129, 0.12)' };
       case 'info':
       default:
-        return { name: 'information-circle', color: '#111111', bg: COLORS.primaryGlow };
+        return { name: 'information-circle', color: COLORS.primaryText, bg: COLORS.primaryGlow };
     }
   };
 
@@ -92,7 +93,7 @@ export const CustomAlertModal: React.FC<CustomAlertOptions> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   confirmBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -170,9 +171,14 @@ const styles = StyleSheet.create({
   confirmText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   whiteConfirmText: {
     color: '#FFFFFF',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

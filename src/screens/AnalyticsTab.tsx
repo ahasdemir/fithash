@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
@@ -104,6 +104,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   workoutDays,
   weeklyTargetHistory,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   type AnalyticsSubTab = 'overview' | 'fatigue' | 'prs';
   const [activeTab, setActiveTab] = useState<AnalyticsSubTab>('overview');
@@ -360,7 +361,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               {/* 1. Working Sets (Çalışma Seti Sayısı) */}
               <View style={[styles.bentoSquareCard, { backgroundColor: COLORS.surface, borderColor: COLORS.primary }]}>
                 <View style={styles.metricIconBg}>
-                  <Ionicons name="barbell" size={18} color="#111111" />
+                  <Ionicons name="barbell" size={18} color={COLORS.primaryText} />
                 </View>
                 <Text style={styles.metricValue}>
                   {stats.totalHardSets} <Text style={styles.unitText}>Set</Text>
@@ -427,7 +428,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <View style={styles.cardioBentoCard}>
                 <View style={styles.sectionHeader}>
                   <View style={[styles.prIconBadge, { backgroundColor: '#06B6D4' }]}>
-                    <Ionicons name="bicycle" size={18} color="#111111" />
+                    <Ionicons name="bicycle" size={18} color={COLORS.primaryText} />
                   </View>
                   <View>
                     <Text style={styles.sectionTitle}>Kardiyo & Hız Performansı</Text>
@@ -445,7 +446,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                         </Text>
                       </View>
                       <View style={styles.speedPillBadge}>
-                        <Ionicons name="speedometer" size={12} color="#111111" />
+                        <Ionicons name="speedometer" size={12} color={COLORS.primaryText} />
                         <Text style={styles.speedPillBadgeText}>{c.avgSpeedKmh} km/h</Text>
                       </View>
                     </View>
@@ -478,7 +479,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <View style={styles.prHeaderRow}>
                 <View style={styles.prTitleBox}>
                   <View style={styles.prIconBadge}>
-                    <Ionicons name="trophy-outline" size={16} color="#111111" />
+                    <Ionicons name="trophy-outline" size={16} color={COLORS.primaryText} />
                   </View>
                   <View style={styles.prTitleTextBox}>
                     <Text style={styles.sectionTitle} numberOfLines={1}>Kişisel Rekorlar (PR)</Text>
@@ -554,7 +555,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -569,7 +570,7 @@ const styles = StyleSheet.create({
   subTabContainer: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 14,
+    borderRadius: 6,
     padding: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
   },
   subTabBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   subTabBtnText: {
     fontSize: 12,
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   subTabBtnTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   scrollArea: {
@@ -609,7 +610,7 @@ const styles = StyleSheet.create({
   filterBar: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
-    borderRadius: 100,
+    borderRadius: 6,
     padding: 4,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -619,10 +620,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 100,
+    borderRadius: 6,
   },
   filterBtnSelected: {
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
   },
   filterBtnText: {
     color: COLORS.textSecondary,
@@ -630,7 +631,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterBtnTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   bentoGrid: {
@@ -643,7 +644,7 @@ const styles = StyleSheet.create({
     minWidth: '46%',
     maxWidth: '50%',
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -663,7 +664,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingVertical: 10,
     paddingHorizontal: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -675,7 +676,7 @@ const styles = StyleSheet.create({
   metricIconBg: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -698,7 +699,7 @@ const styles = StyleSheet.create({
   },
   cardioBentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -737,16 +738,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   speedPillBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   prBentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -799,19 +800,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 100,
+    borderRadius: 6,
     flexShrink: 0,
   },
   openPickerBtnText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#111111',
+    color: COLORS.primaryText,
   },
   prSearchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 100,
+    borderRadius: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 8,
@@ -832,14 +833,14 @@ const styles = StyleSheet.create({
   prCatChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   prCatChipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   prCatChipText: {
     fontSize: 11,
@@ -847,7 +848,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   prCatChipTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   prList: {
@@ -860,7 +861,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 8,
@@ -956,4 +957,9 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

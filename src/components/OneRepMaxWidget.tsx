@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../theme';
+import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 
 interface OneRepMaxWidgetProps {
@@ -10,6 +10,7 @@ interface OneRepMaxWidgetProps {
 }
 
 export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSelectExercise }) => {
+  useTheme();
   const calculate1RMData = () => {
     const exerciseMaxMap: Record<string, { exerciseName: string; max1RM: number; weight: number; reps: number; date: string }> = {};
 
@@ -49,7 +50,7 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
       <View style={styles.cardHeader}>
         <View style={styles.titleRow}>
           <View style={styles.iconCircle}>
-            <Ionicons name="calculator" size={16} color="#111111" />
+            <Ionicons name="calculator" size={16} color={COLORS.primaryText} />
           </View>
           <View>
             <Text style={styles.cardTitle}>Tahmini 1RM (Tek Tekrar Maksimum)</Text>
@@ -84,10 +85,10 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   bentoCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
+    borderRadius: 8,
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 8,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: COLORS.surfaceSubtle,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 8,
@@ -150,10 +151,10 @@ const styles = StyleSheet.create({
   },
   rmBadge: {
     alignItems: 'flex-end',
-    backgroundColor: '#111111',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   rmVal: {
     fontSize: 14,
@@ -165,4 +166,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });

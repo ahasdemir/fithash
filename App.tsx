@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StatusBar,
   StyleSheet,
@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from './src/theme';
+import { COLORS, SHADOWS, ThemeColors, ThemeMode, setThemeMode, useTheme } from './src/theme';
 import { Header } from './src/components/Header';
 import { WorkoutTab } from './src/screens/WorkoutTab';
 import { AnalyticsTab } from './src/screens/AnalyticsTab';
@@ -59,6 +59,9 @@ import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 import { updateStreakWidget } from './src/services/widgetService';
 
 export default function App() {
+  const { mode, colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [currentTab, setCurrentTab] = useState<'workout' | 'analytics' | 'history' | 'library'>('workout');
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -189,6 +192,9 @@ export default function App() {
     const rData = await getRoutines();
     const prData = await getPersonalRecords();
     const appSettings = await getAppSettings();
+    const resolvedTheme: ThemeMode = appSettings.themeMode === 'light' ? 'light' : 'dark';
+    setThemeMode(resolvedTheme);
+
     setWorkouts(wData);
     setRoutines(rData);
     setPrs(prData);
@@ -201,6 +207,12 @@ export default function App() {
       setWeeklyTargetHistory(appSettings.weeklyTargetHistory);
     }
   };
+
+  const handleToggleTheme = useCallback(async () => {
+    const nextMode: ThemeMode = mode === 'dark' ? 'light' : 'dark';
+    setThemeMode(nextMode);
+    await saveAppSettings({ themeMode: nextMode });
+  }, [mode]);
 
   const handleStartSession = (session: WorkoutSession) => {
     setActiveSession(session);
@@ -334,7 +346,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['right', 'bottom', 'left']}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+        <StatusBar
+          barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.background}
+        />
 
         {/* Top Application Header */}
         <Header
@@ -342,6 +357,7 @@ export default function App() {
           streakDays={stats.streakDays}
           onOpenSettings={() => setShowSettingsModal(true)}
           onOpenStreak={() => setShowStreakModal(true)}
+          onToggleTheme={handleToggleTheme}
         />
 
         {/* Tab Screen Content */}
@@ -385,9 +401,9 @@ export default function App() {
           )}
         </View>
 
-        {/* Floating Capsule Bottom Navigation Bar */}
+        {/* Structured 4-Column Segmented Bottom Navigation Bar */}
         <View style={styles.bottomNavContainer}>
-          <View style={styles.capsuleBar}>
+          <View style={styles.segmentedBar}>
             <TouchableOpacity
               style={[styles.navTab, currentTab === 'workout' && styles.activeNavTab]}
               onPress={() => setCurrentTab('workout')}
@@ -395,10 +411,15 @@ export default function App() {
             >
               <Ionicons
                 name={currentTab === 'workout' ? 'barbell' : 'barbell-outline'}
-                size={20}
-                color={currentTab === 'workout' ? COLORS.primary : COLORS.textMuted}
+                size={16}
+                color={currentTab === 'workout' ? colors.primaryText : colors.textSecondary}
               />
-              {currentTab === 'workout' && <Text style={styles.activeNavText}>Antrenman</Text>}
+              <Text
+                style={[styles.navText, currentTab === 'workout' && styles.activeNavText]}
+                numberOfLines={1}
+              >
+                Antrenman
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -408,10 +429,15 @@ export default function App() {
             >
               <Ionicons
                 name={currentTab === 'analytics' ? 'stats-chart' : 'stats-chart-outline'}
-                size={20}
-                color={currentTab === 'analytics' ? COLORS.primary : COLORS.textMuted}
+                size={16}
+                color={currentTab === 'analytics' ? colors.primaryText : colors.textSecondary}
               />
-              {currentTab === 'analytics' && <Text style={styles.activeNavText}>Analiz</Text>}
+              <Text
+                style={[styles.navText, currentTab === 'analytics' && styles.activeNavText]}
+                numberOfLines={1}
+              >
+                Analiz
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -421,10 +447,15 @@ export default function App() {
             >
               <Ionicons
                 name={currentTab === 'history' ? 'time' : 'time-outline'}
-                size={20}
-                color={currentTab === 'history' ? COLORS.primary : COLORS.textMuted}
+                size={16}
+                color={currentTab === 'history' ? colors.primaryText : colors.textSecondary}
               />
-              {currentTab === 'history' && <Text style={styles.activeNavText}>Geçmiş</Text>}
+              <Text
+                style={[styles.navText, currentTab === 'history' && styles.activeNavText]}
+                numberOfLines={1}
+              >
+                Geçmiş
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -434,10 +465,15 @@ export default function App() {
             >
               <Ionicons
                 name={currentTab === 'library' ? 'book' : 'book-outline'}
-                size={20}
-                color={currentTab === 'library' ? COLORS.primary : COLORS.textMuted}
+                size={16}
+                color={currentTab === 'library' ? colors.primaryText : colors.textSecondary}
               />
-              {currentTab === 'library' && <Text style={styles.activeNavText}>Kütüphane</Text>}
+              <Text
+                style={[styles.navText, currentTab === 'library' && styles.activeNavText]}
+                numberOfLines={1}
+              >
+                Kütüphane
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -504,48 +540,58 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  mainContent: {
-    flex: 1,
-  },
-  bottomNavContainer: {
-    position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  capsuleBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 8,
-    ...SHADOWS.medium,
-  },
-  navTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 100,
-  },
-  activeNavTab: {
-    backgroundColor: '#111111',
-  },
-  activeNavText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    mainContent: {
+      flex: 1,
+    },
+    bottomNavContainer: {
+      position: 'absolute',
+      bottom: 14,
+      left: 16,
+      right: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentedBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: '100%',
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 8,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+      ...SHADOWS.soft,
+    },
+    navTab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 5,
+      height: 38,
+      paddingHorizontal: 6,
+      borderRadius: 6,
+    },
+    activeNavTab: {
+      backgroundColor: colors.primary,
+    },
+    navText: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+      fontSize: 11,
+      letterSpacing: -0.2,
+    },
+    activeNavText: {
+      color: colors.primaryText,
+      fontWeight: '700',
+      fontSize: 11,
+      letterSpacing: -0.2,
+    },
+  });

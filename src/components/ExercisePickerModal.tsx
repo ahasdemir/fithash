@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect , useMemo } from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,7 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +39,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   onClose,
   onSelectExercise,
 }) => {
+  useTheme();
   const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,7 +119,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
             </View>
 
             <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-              <Ionicons name="add" size={20} color="#111111" />
+              <Ionicons name="add" size={20} color={COLORS.primaryText} />
             </TouchableOpacity>
           </View>
 
@@ -208,7 +209,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
                         <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                       </TouchableOpacity>
                     )}
-                    <Ionicons name="add-circle" size={26} color="#111111" />
+                    <Ionicons name="add-circle" size={26} color={COLORS.primaryText} />
                   </View>
                 </TouchableOpacity>
               );
@@ -244,7 +245,7 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -252,8 +253,8 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     height: '92%',
     paddingTop: 18,
     paddingHorizontal: 18,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 100,
+    borderRadius: 6,
     paddingHorizontal: 16,
     height: 42,
     gap: 8,
@@ -320,14 +321,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginRight: 6,
   },
   categoryChipSelected: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   categoryChipText: {
     color: COLORS.textSecondary,
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   categoryChipTextSelected: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '700',
   },
   listContainer: {
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -374,10 +375,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryGlow,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   customTagText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -389,7 +390,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
   },
   badgeText: {
     fontSize: 11,
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 100,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -421,11 +422,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 100,
+    borderRadius: 6,
     marginTop: 8,
   },
   createBtnInlineText: {
-    color: '#111111',
+    color: COLORS.primaryText,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -439,4 +440,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
   },
+});
+
+let styles = createStyles();
+subscribeTheme(() => {
+  styles = createStyles();
 });
