@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS, ThemeColors, ThemeMode, setThemeMode, useTheme } from './src/theme';
 import { Header } from './src/components/Header';
@@ -401,6 +402,14 @@ export default function App() {
           )}
         </View>
 
+        {/* Bottom fade: masks content scrolling beneath the floating nav */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={[`${colors.background}00`, `${colors.background}DB`, colors.background]}
+          locations={[0, 0.52, 1]}
+          style={styles.bottomFade}
+        />
+
         {/* Structured 4-Column Segmented Bottom Navigation Bar */}
         <View style={styles.bottomNavContainer}>
           <View style={styles.segmentedBar}>
@@ -548,6 +557,13 @@ const createStyles = (colors: ThemeColors) =>
     },
     mainContent: {
       flex: 1,
+    },
+    bottomFade: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 132,
     },
     bottomNavContainer: {
       position: 'absolute',
