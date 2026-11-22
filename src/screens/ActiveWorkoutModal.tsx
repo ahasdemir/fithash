@@ -259,6 +259,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     return () => clearInterval(timer);
   }, [visible, session?.startTime, session?.completed]);
 
+  const handleReorderExercises = useCallback((nextExercises: WorkoutExercise[]) => {
+    setSession(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, exercises: nextExercises };
+      onUpdateSession(updated);
+      return updated;
+    });
+  }, [onUpdateSession]);
+
   if (!session) return null;
 
   const formatTimer = (totalSecs: number) => {
@@ -397,15 +406,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     setSession(updated);
     onUpdateSession(updated);
   };
-
-  const handleReorderExercises = useCallback((nextExercises: WorkoutExercise[]) => {
-    setSession(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, exercises: nextExercises };
-      onUpdateSession(updated);
-      return updated;
-    });
-  }, [onUpdateSession]);
 
   const isIsometricExercise = (name: string, cat?: string) => {
     return /plank|hollow body|dead bug|bird dog|statik/i.test(name);
