@@ -230,7 +230,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         onDragStateChange={setIsDraggingRoutine}
         gap={10}
         renderItem={({ item: routine, isDragging, dragHandleProps }) => {
-          const totalSets = routine.exercises.reduce((sum, e) => sum + (e.targetSets || 0), 0);
+          const totalSets = (routine.exercises ?? []).reduce((sum, e) => sum + (e.targetSets || 0), 0);
           return (
             <View style={[styles.routineCard, isDragging && styles.routineCardDragging]}>
               <View style={styles.routineHeader}>

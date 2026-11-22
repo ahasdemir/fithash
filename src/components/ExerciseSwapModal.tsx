@@ -43,12 +43,12 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
   useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!sourceExercise) return null;
-
   const candidates: ExerciseSubstitutionCandidate[] = useMemo(() => {
     if (!sourceExercise) return [];
     return getExerciseSubstitutes(sourceExercise, allExercises);
   }, [sourceExercise, allExercises]);
+
+  if (!sourceExercise) return null;
 
   return (
     <Modal
