@@ -11,24 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, WorkoutSession, PersonalRecord } from '../types/fitness';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { AddExerciseModal } from '../components/AddExerciseModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { ExercisePRDetailModal } from '../components/ExercisePRDetailModal';
-
-const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
-  'Hepsi',
-  'Göğüs',
-  'Sırt',
-  'Bacak',
-  'Omuz',
-  'Ön Kol',
-  'Arka Kol',
-  'Karın',
-  'Kardiyo',
-];
+import { FILTER_CATEGORIES } from '../utils/exerciseHelpers';
 
 interface LibraryTabProps {
   workouts?: WorkoutSession[];
@@ -36,7 +25,7 @@ interface LibraryTabProps {
 }
 
 export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} }) => {
-  useTheme();
+  const { mode } = useTheme();
   const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,43 +44,27 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
     setExercises(data);
   };
 
+  // Track max lifted weight per strength exercise (excludes cardio/0kg and warmup sets)
   const exercisePRMap = useMemo(() => {
-    const map: Record<string, { maxWeight: number; maxReps: number; max1RM: number; isRecent: boolean }> = {};
-    const now = new Date().getTime();
+    const map: Record<string, { maxWeight: number }> = {};
 
     Object.values(prs).forEach(pr => {
-      const key = pr.exerciseName.toLowerCase().trim();
-      map[key] = {
-        maxWeight: pr.maxWeight,
-        maxReps: pr.maxReps,
-        max1RM: pr.maxEstimatedOneRepMax || Math.round(pr.maxWeight * 1.05),
-        isRecent: false,
-      };
+      if (pr.maxWeight > 0) {
+        const key = pr.exerciseName.toLowerCase().trim();
+        map[key] = { maxWeight: pr.maxWeight };
+      }
     });
 
     workouts.forEach(w => {
       if (w.completed === false) return;
-      const wTime = new Date(w.date).getTime();
-      const isThisWeek = now - wTime <= 7 * 24 * 3600 * 1000;
-
       w.exercises.forEach(ex => {
+        if (ex.category === 'Kardiyo') return;
         const key = ex.exerciseName.toLowerCase().trim();
-        const completedSets = ex.sets?.filter(s => s.completed) || [];
+        const completedSets = ex.sets?.filter(s => s.completed && !s.isWarmup) || [];
         completedSets.forEach(s => {
-          if (s.weight && s.reps) {
-            const e1rm = Math.round(s.weight * (1 + s.reps / 30));
-            if (!map[key]) {
-              map[key] = { maxWeight: s.weight, maxReps: s.reps, max1RM: e1rm, isRecent: isThisWeek };
-            } else {
-              if (
-                s.weight > map[key].maxWeight ||
-                (s.weight === map[key].maxWeight && s.reps > map[key].maxReps)
-              ) {
-                map[key].maxWeight = s.weight;
-                map[key].maxReps = s.reps;
-              }
-              if (e1rm > map[key].max1RM) map[key].max1RM = e1rm;
-              if (isThisWeek) map[key].isRecent = true;
+          if (s.weight > 0 && s.reps > 0) {
+            if (!map[key] || s.weight > map[key].maxWeight) {
+              map[key] = { maxWeight: s.weight };
             }
           }
         });
@@ -126,13 +99,17 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
     });
   };
 
-  const filteredExercises = exercises.filter(ex => {
-    const matchesCat = selectedCategory === 'Hepsi' || ex.category === selectedCategory;
-    const matchesSearch =
-      ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (ex.targetMuscle && ex.targetMuscle.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCat && matchesSearch;
-  });
+  const filteredExercises = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return exercises.filter(ex => {
+      const matchesCat = selectedCategory === 'Hepsi' || ex.category === selectedCategory;
+      const matchesSearch =
+        !query ||
+        ex.name.toLowerCase().includes(query) ||
+        (!!ex.targetMuscle && ex.targetMuscle.toLowerCase().includes(query));
+      return matchesCat && matchesSearch;
+    });
+  }, [exercises, selectedCategory, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -172,7 +149,8 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
       <View style={styles.categoriesWrapper}>
         <FlatList
           horizontal
-          data={CATEGORIES}
+          data={FILTER_CATEGORIES}
+          extraData={`${mode}_${selectedCategory}`}
           keyExtractor={item => item}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryListContent}
@@ -200,6 +178,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
       {/* Compact Scannable Exercise List */}
       <FlatList
         data={filteredExercises}
+        extraData={mode}
         keyExtractor={item => item.id}
         contentContainerStyle={[
           styles.listContent,
@@ -207,7 +186,10 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
         ]}
         renderItem={({ item }) => {
           const catColor = COLORS.category[item.category] || COLORS.textSecondary;
-          const prInfo = exercisePRMap[item.name.toLowerCase().trim()];
+          const prInfo =
+            item.category !== 'Kardiyo'
+              ? exercisePRMap[item.name.toLowerCase().trim()]
+              : undefined;
           return (
             <TouchableOpacity
               style={styles.card}
@@ -240,7 +222,7 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
               </View>
 
               <View style={styles.cardRight}>
-                {prInfo ? (
+                {prInfo && prInfo.maxWeight > 0 ? (
                   <View style={[styles.prBadge, { backgroundColor: COLORS.pastel.greenBg }]}>
                     <Text style={[styles.prBadgeText, { color: COLORS.pastel.green }]}>
                       {prInfo.maxWeight} kg
@@ -265,9 +247,22 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
 
       {/* Detail Modal */}
       {selectedExercise && (
-        <Modal visible animationType="slide" transparent>
-          <View style={styles.overlay}>
-            <View style={styles.modalContainer}>
+        <Modal
+          visible
+          animationType="slide"
+          transparent
+          onRequestClose={() => setSelectedExercise(null)}
+        >
+          <TouchableOpacity
+            style={styles.overlay}
+            activeOpacity={1}
+            onPress={() => setSelectedExercise(null)}
+          >
+            <TouchableOpacity
+              style={styles.modalContainer}
+              activeOpacity={1}
+              onPress={e => e.stopPropagation()}
+            >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{selectedExercise.name}</Text>
                 <TouchableOpacity onPress={() => setSelectedExercise(null)}>
@@ -357,8 +352,8 @@ export const LibraryTab: React.FC<LibraryTabProps> = ({ workouts = [], prs = {} 
                   </TouchableOpacity>
                 )}
               </ScrollView>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       )}
 
@@ -400,7 +395,7 @@ const createStyles = () =>
       letterSpacing: -0.3,
     },
     subtitle: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textMuted,
       fontVariant: ['tabular-nums'],
     },
@@ -429,7 +424,6 @@ const createStyles = () =>
       height: 38,
       gap: 8,
       marginBottom: 6,
-      ...SHADOWS.soft,
     },
     searchInput: {
       flex: 1,
@@ -459,7 +453,7 @@ const createStyles = () =>
     },
     categoryChipText: {
       color: COLORS.textSecondary,
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '600',
     },
     categoryChipTextSelected: {
@@ -481,7 +475,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     cardLeft: {
       flex: 1,
@@ -614,7 +607,7 @@ const createStyles = () =>
     },
     infoBoxText: {
       color: COLORS.textPrimary,
-      fontSize: 13.5,
+      fontSize: 14,
       lineHeight: 20,
     },
     prInspectActionBtn: {

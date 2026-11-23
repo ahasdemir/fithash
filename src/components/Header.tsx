@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, ThemeColors, useTheme } from '../theme';
+import { ThemeColors, useTheme } from '../theme';
 
 interface HeaderProps {
   title: string;
@@ -103,7 +103,6 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
-      ...SHADOWS.soft,
     },
     title: {
       fontSize: 20,

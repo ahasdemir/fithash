@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, EquipmentType } from '../types/fitness';
 import {
   getExerciseSubstitutes,
@@ -271,7 +271,6 @@ const createStyles = () => StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   cardTopRow: {
     flexDirection: 'row',

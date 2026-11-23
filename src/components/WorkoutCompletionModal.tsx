@@ -1,4 +1,4 @@
-import React, { useState , useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { MuscleCategory, SessionFeedback } from '../types/fitness';
 
 interface WorkoutCompletionModalProps {
@@ -37,6 +37,13 @@ export const WorkoutCompletionModal: React.FC<WorkoutCompletionModalProps> = ({
   const insets = useSafeAreaInsets();
   const [effortRating, setEffortRating] = useState<1 | 2 | 3>(2);
   const [jointComfort, setJointComfort] = useState<0 | 1 | 2>(0);
+
+  useEffect(() => {
+    if (visible) {
+      setEffortRating(2);
+      setJointComfort(0);
+    }
+  }, [visible]);
 
   if (!visible) return null;
 
@@ -280,7 +287,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingTop: 16,
-    ...SHADOWS.soft,
   },
   header: {
     flexDirection: 'row',
@@ -470,7 +476,6 @@ const createStyles = () => StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     minHeight: 48,
-    ...SHADOWS.soft,
   },
   saveBtnText: {
     fontSize: 15,

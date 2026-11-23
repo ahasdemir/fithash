@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -74,7 +74,7 @@ function DraggableRow<T>({
 
   const shiftAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!anyDragging) {
       shiftAnim.setValue(0);
       return;
@@ -207,13 +207,23 @@ export function DraggableList<T>({
   const onDragStateChangeRef = useRef(onDragStateChange);
   onDragStateChangeRef.current = onDragStateChange;
 
-  if (heightsRef.current.length !== items.length) {
-    const next = new Array(items.length).fill(0);
-    for (let i = 0; i < Math.min(items.length, heightsRef.current.length); i++) {
-      next[i] = heightsRef.current[i];
+  useEffect(() => {
+    if (heightsRef.current.length !== items.length) {
+      const next = new Array(items.length).fill(0);
+      for (let i = 0; i < Math.min(items.length, heightsRef.current.length); i++) {
+        next[i] = heightsRef.current[i];
+      }
+      heightsRef.current = next;
     }
-    heightsRef.current = next;
-  }
+  }, [items.length]);
+
+  useEffect(() => {
+    return () => {
+      if (draggingIndexRef.current !== null) {
+        onDragStateChangeRef.current?.(false);
+      }
+    };
+  }, []);
 
   const handleMeasureHeight = useCallback((index: number, height: number) => {
     heightsRef.current[index] = height;

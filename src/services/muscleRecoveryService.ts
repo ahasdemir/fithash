@@ -1,5 +1,6 @@
 import { WorkoutSession, MuscleCategory } from '../types/fitness';
 import { getBiomechanicalProfile } from './progressionEngine';
+import { parseLocalDateString } from '../utils/exerciseHelpers';
 
 export interface MuscleRecoveryStatus {
   muscleId: MuscleCategory;
@@ -111,15 +112,14 @@ export function calculateAllMuscleRecovery(
     let latestDateStr: string | undefined = undefined;
     let hasLengthened = false;
     let maxAxial = 0;
-    let worstSorenessRating: number = 2;
+    let worstSorenessRating: number | null = null;
     let recentHardSets = 0;
 
     // Scan backwards from newest workouts
     workouts
       .filter(w => w.completed !== false)
-      .slice(0, 10)
       .forEach(w => {
-        const wTime = w.endTime || (w.startTime ? w.startTime + (w.durationSeconds || 3600) * 1000 : new Date(w.date).getTime());
+        const wTime = w.endTime || (w.startTime ? w.startTime + (w.durationSeconds || 3600) * 1000 : parseLocalDateString(w.date).getTime());
         const hoursAgo = (nowMs - wTime) / (1000 * 3600);
 
         // Only consider valid past workouts within past 7 days (0 <= hoursAgo < 168)
@@ -144,10 +144,9 @@ export function calculateAllMuscleRecovery(
                 }
 
                 // Check RP / session feedback
-                if (ex.feedback?.sorenessRating) {
-                  worstSorenessRating = Math.max(worstSorenessRating, ex.feedback.sorenessRating);
-                } else if (w.sessionFeedback?.effortRating) {
-                  worstSorenessRating = Math.max(worstSorenessRating, w.sessionFeedback.effortRating);
+                const rating = ex.feedback?.sorenessRating ?? w.sessionFeedback?.effortRating;
+                if (rating !== undefined) {
+                  worstSorenessRating = worstSorenessRating === null ? rating : Math.max(worstSorenessRating, rating);
                 }
               }
             }

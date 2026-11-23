@@ -11,11 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { getMondayOfWeek } from '../services/storage';
+import { parseLocalDateString } from '../utils/exerciseHelpers';
 
-export interface VolumeBucket {
+interface VolumeBucket {
   id: string;
   label: string;
   fullLabel: string;
@@ -46,11 +47,6 @@ const MONTH_FULL_TR = [
 
 const DAY_SHORT_TR = ['Paz', 'Pzt', 'Sal', 'Çrş', 'Per', 'Cum', 'Cmt'];
 
-const parseISODate = (dateStr: string): Date => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
 const formatISODate = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -58,7 +54,7 @@ const formatISODate = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
-const formatVolumeShort = (vol: number): string => {
+const formatBarVolume = (vol: number): string => {
   if (vol >= 1000000) return `${(vol / 1000000).toFixed(1)}M`;
   if (vol >= 1000) return `${(vol / 1000).toFixed(1)}t`;
   return `${vol}`;
@@ -270,21 +266,22 @@ const getSmartAggregatedVolumeData = (
       buckets = getWeeklyBuckets(workouts, 8);
     } else {
       const dates = workouts.map(w => w.date).sort();
-      const minD = parseISODate(dates[0]);
-      const maxD = parseISODate(dates[dates.length - 1]);
-      const diffDays = Math.max(
+      const minD = parseLocalDateString(dates[0]);
+      const now = new Date();
+      // Measure span back from today so older historical workouts are always included in the window
+      const spanFromNow = Math.max(
         1,
-        Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 3600 * 24))
+        Math.ceil((now.getTime() - minD.getTime()) / (1000 * 3600 * 24))
       );
 
-      if (diffDays <= 45) {
-        const weeks = Math.max(4, Math.ceil(diffDays / 7));
+      if (spanFromNow <= 45) {
+        const weeks = Math.max(4, Math.ceil(spanFromNow / 7));
         buckets = getWeeklyBuckets(workouts, weeks);
-      } else if (diffDays <= 120) {
-        const weeks = Math.min(16, Math.max(8, Math.ceil(diffDays / 7)));
+      } else if (spanFromNow <= 120) {
+        const weeks = Math.min(16, Math.max(8, Math.ceil(spanFromNow / 7)));
         buckets = getWeeklyBuckets(workouts, weeks);
       } else {
-        const months = Math.min(12, Math.max(6, Math.ceil(diffDays / 30)));
+        const months = Math.min(12, Math.max(6, Math.ceil(spanFromNow / 30)));
         buckets = getMonthlyBuckets(workouts, months);
       }
     }
@@ -321,6 +318,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   minBarWidth = 26,
   barGap = 8,
 }) => {
+  useTheme();
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   if (!data.length) return null;
@@ -383,7 +381,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
           }
 
           const valText =
-            val > 0 ? (isSets ? `${val}` : formatVolumeShort(val)) : '';
+            val > 0 ? (isSets ? `${val}` : formatBarVolume(val)) : '';
 
           return (
             <G key={item.id}>
@@ -401,7 +399,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
                   x={x + barWidth / 2}
                   y={Math.max(12, y - 6)}
                   fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
-                  fontSize="9.5"
+                  fontSize="10"
                   fontWeight={isSelected ? '800' : '600'}
                   textAnchor="middle"
                 >
@@ -479,10 +477,11 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
   const selectedBucket = volumeData[resolvedIndex] || null;
 
-  // Expanded Modal Data
+  // Expanded Modal Data — skip computation while modal is closed
   const modalTargetWorkouts = allWorkouts && allWorkouts.length ? allWorkouts : workouts;
 
   const modalVolumeData = useMemo(() => {
+    if (!isModalOpen) return [];
     let buckets: VolumeBucket[] = [];
     if (modalResolution === 'daily') {
       buckets = getDailyBuckets(modalTargetWorkouts, 30);
@@ -500,7 +499,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     });
 
     return buckets;
-  }, [modalTargetWorkouts, modalResolution]);
+  }, [isModalOpen, modalTargetWorkouts, modalResolution]);
 
   const modalActiveIndex = useMemo(() => {
     if (modalSelectedIndex !== null && modalSelectedIndex < modalVolumeData.length) {
@@ -546,7 +545,7 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Single Unified Trend Card (Replaces 2 stacked charts) */}
+      {/* Single Unified Trend Card */}
       <View style={styles.trendCard} onLayout={handleLayout}>
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
@@ -847,7 +846,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     cardHeader: {
       flexDirection: 'row',

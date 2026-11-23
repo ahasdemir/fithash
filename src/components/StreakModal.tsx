@@ -1,4 +1,4 @@
-import React, { useState , useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { calculateStreakDays, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
@@ -42,7 +42,9 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
-  const targetDays = Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4);
+  if (!visible) return null;
+
+  const targetDays = Math.max(1, Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4));
   const streakCount = calculateStreakDays(workouts, targetDays, weeklyTargetHistory);
 
   const handleSelectTarget = (num: number) => {
@@ -184,7 +186,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         {/* Modal Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={styles.modalTitle}>Streak & Haftalık Hedef</Text>
             <Text style={styles.modalSubTitle}>Haftalık spor hedefini tamamladıkça serin kesintisiz devam eder.</Text>
           </View>
@@ -386,7 +388,6 @@ const createStyles = () => StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     gap: 4,
-    ...SHADOWS.soft,
   },
   heroTop: {
     flexDirection: 'row',
@@ -500,7 +501,6 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.soft,
   },
   stepperBtnDisabled: {
     opacity: 0.3,

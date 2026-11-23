@@ -54,7 +54,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       setName(initialRoutine.name);
       setDescription(initialRoutine.description || '');
       setCategory(initialRoutine.category || 'Özel');
-      setSelectedExercises(initialRoutine.exercises || []);
+      setSelectedExercises((initialRoutine.exercises || []).map(ex => ({ ...ex })));
     } else {
       setName('');
       setDescription('');
@@ -70,7 +70,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       const initialExs = initialRoutine.exercises || [];
       const nameChanged = name.trim() !== initialRoutine.name;
       const descChanged = (description.trim() || '') !== (initialRoutine.description || '');
-      const catChanged = (category.trim() || '') !== (initialRoutine.category || '');
+      const catChanged = (category.trim() || 'Özel') !== (initialRoutine.category || 'Özel');
       const exercisesChanged = JSON.stringify(selectedExercises) !== JSON.stringify(initialExs);
       return nameChanged || descChanged || catChanged || exercisesChanged;
     }
@@ -127,33 +127,28 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       | 'targetWarmupSets',
     delta: number
   ) => {
-    setSelectedExercises(prev => {
-      const copy = [...prev];
-      const currentVal = copy[index][field] ?? 0;
-
-      if (field === 'targetDurationMinutes') {
-        copy[index].targetDurationMinutes = Math.max(
-          5,
-          Math.min(180, (currentVal || 15) + delta * 5)
-        );
-      } else if (field === 'targetDurationSeconds') {
-        copy[index].targetDurationSeconds = Math.max(
-          10,
-          Math.min(600, (currentVal || 60) + delta)
-        );
-      } else if (field === 'targetDistanceKm') {
-        const val = Math.max(0.5, Math.min(50, (currentVal || 2.5) + delta * 0.5));
-        copy[index].targetDistanceKm = parseFloat(val.toFixed(1));
-      } else if (field === 'targetWarmupSets') {
-        copy[index].targetWarmupSets = Math.max(0, Math.min(5, (currentVal || 0) + delta));
-      } else {
+    setSelectedExercises(prev =>
+      prev.map((item, idx) => {
+        if (idx !== index) return item;
+        const currentVal = item[field] ?? 0;
+        if (field === 'targetDurationMinutes') {
+          return { ...item, targetDurationMinutes: Math.max(5, Math.min(180, (currentVal || 15) + delta * 5)) };
+        }
+        if (field === 'targetDurationSeconds') {
+          return { ...item, targetDurationSeconds: Math.max(10, Math.min(600, (currentVal || 60) + delta)) };
+        }
+        if (field === 'targetDistanceKm') {
+          const val = Math.max(0.5, Math.min(50, (currentVal || 2.5) + delta * 0.5));
+          return { ...item, targetDistanceKm: parseFloat(val.toFixed(1)) };
+        }
+        if (field === 'targetWarmupSets') {
+          return { ...item, targetWarmupSets: Math.max(0, Math.min(5, (currentVal || 0) + delta)) };
+        }
         const minVal = field === 'targetRir' ? 0 : 1;
         const maxVal = field === 'targetRir' ? 3 : 100;
-        copy[index][field] = Math.min(maxVal, Math.max(minVal, currentVal + delta));
-      }
-
-      return copy;
-    });
+        return { ...item, [field]: Math.min(maxVal, Math.max(minVal, currentVal + delta)) };
+      })
+    );
   };
 
   const handleRemoveExercise = (index: number) => {
@@ -207,7 +202,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleCloseAttempt}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
@@ -274,7 +269,13 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
             {selectedExercises.length > 0 ? (
               <DraggableList
                 items={selectedExercises}
-                keyExtractor={(ex, idx) => `${ex.exerciseId}_${idx}`}
+                keyExtractor={(ex, idx) => {
+                  let occ = 0;
+                  for (let i = 0; i < idx; i++) {
+                    if (selectedExercises[i]?.exerciseId === ex.exerciseId) occ++;
+                  }
+                  return `${ex.exerciseId}_occ_${occ}`;
+                }}
                 onReorder={handleReorderExercises}
                 onDragStateChange={setIsDraggingExercise}
                 gap={8}
@@ -576,7 +577,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={handleCloseAttempt}>
               <Text style={styles.cancelBtnText}>İptal</Text>
             </TouchableOpacity>
 

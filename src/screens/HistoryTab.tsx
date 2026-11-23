@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession, Routine } from '../types/fitness';
 import { EditWorkoutModal } from '../components/EditWorkoutModal';
+import { isIsometricExerciseName } from '../utils/exerciseHelpers';
 
 interface HistoryTabProps {
   workouts: WorkoutSession[];
@@ -39,6 +40,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
   onOpenDetail,
   onRequestDelete,
 }: WorkoutHistoryCardProps) {
+  useTheme();
   const hasVolume = (session.totalVolume || 0) > 0;
   const hasCalories = (session.totalCaloriesBurned || 0) > 0;
   const hasCardioDist = (session.totalCardioDistanceKm || 0) > 0;
@@ -129,7 +131,7 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
             </>
           )}
 
-          {hasCalories && !hasCardioDist && (
+          {hasCalories && (
             <>
               <View style={styles.metaDivider} />
               <View style={styles.metaItem}>
@@ -161,7 +163,12 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
                 </Text>
                 <Text style={[styles.exSummaryCount, isSkipped && styles.exSummaryItemSkipped]}>
                   {isCardio
-                    ? `${totalMins > 0 ? `${totalMins} dk` : ''}${totalDist > 0 ? ` · ${totalDist} km` : ''}`
+                    ? [
+                        totalMins > 0 ? `${totalMins} dk` : null,
+                        totalDist > 0 ? `${totalDist} km` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'Kardiyo'
                     : `${completedSets.length}/${ex.sets.length} set`}
                 </Text>
               </View>
@@ -181,7 +188,10 @@ const WorkoutHistoryCard = React.memo(function WorkoutHistoryCard({
   );
 });
 
-const HistoryCardSeparator = () => <View style={styles.cardSeparator} />;
+const HistoryCardSeparator = () => {
+  useTheme();
+  return <View style={styles.cardSeparator} />;
+};
 
 export const HistoryTab: React.FC<HistoryTabProps> = ({
   workouts,
@@ -190,7 +200,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onReuseWorkout,
   onUpdateWorkout,
 }) => {
-  useTheme();
+  const { mode } = useTheme();
   const insets = useSafeAreaInsets();
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutSession | null>(null);
   const [workoutToDelete, setWorkoutToDelete] = useState<WorkoutSession | null>(null);
@@ -199,17 +209,19 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   const historySummary = useMemo(() => {
     const now = new Date();
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let completedCount = 0;
     let thisMonthCount = 0;
     let totalVolKg = 0;
 
     workouts.forEach(w => {
       if (w.completed === false) return;
+      completedCount++;
       if (w.date?.startsWith(monthPrefix)) thisMonthCount++;
       totalVolKg += w.totalVolume || 0;
     });
 
     return {
-      totalCount: workouts.length,
+      totalCount: completedCount,
       thisMonthCount,
       totalVolLabel:
         totalVolKg >= 1000 ? `${(totalVolKg / 1000).toFixed(1)} t` : `${totalVolKg} kg`,
@@ -252,6 +264,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
       <FlatList
         style={styles.container}
         data={workouts}
+        extraData={mode}
         keyExtractor={keyExtractor}
         renderItem={renderWorkoutCard}
         ItemSeparatorComponent={HistoryCardSeparator}
@@ -302,13 +315,22 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
       {/* Delete Confirmation Modal */}
       {workoutToDelete && (
-        <Modal visible transparent animationType="fade">
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setWorkoutToDelete(null)}
+        >
           <TouchableOpacity
             style={styles.overlay}
             activeOpacity={1}
             onPress={() => setWorkoutToDelete(null)}
           >
-            <View style={styles.deleteConfirmBox}>
+            <TouchableOpacity
+              style={styles.deleteConfirmBox}
+              activeOpacity={1}
+              onPress={e => e.stopPropagation()}
+            >
               <Ionicons
                 name="trash-bin-outline"
                 size={28}
@@ -332,7 +354,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                   <Text style={styles.confirmDeleteText}>Evet, Sil</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
       )}
@@ -430,10 +452,18 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
                     <View style={styles.detailBentoCard}>
                       <Text style={styles.detailBentoLabel}>
-                        {selectedWorkout.totalCardioDistanceKm ? 'MESAFE' : 'HACİM'}
+                        {selectedWorkout.totalCardioDistanceKm && (selectedWorkout.totalVolume || 0) > 0
+                          ? 'HACİM · MESAFE'
+                          : selectedWorkout.totalCardioDistanceKm
+                          ? 'MESAFE'
+                          : 'HACİM'}
                       </Text>
                       <Text style={styles.detailBentoVal} numberOfLines={1}>
-                        {selectedWorkout.totalCardioDistanceKm
+                        {selectedWorkout.totalCardioDistanceKm && (selectedWorkout.totalVolume || 0) > 0
+                          ? `${(selectedWorkout.totalVolume || 0) >= 1000
+                              ? `${((selectedWorkout.totalVolume || 0) / 1000).toFixed(1)} t`
+                              : `${selectedWorkout.totalVolume} kg`} · ${selectedWorkout.totalCardioDistanceKm} km`
+                          : selectedWorkout.totalCardioDistanceKm
                           ? `${selectedWorkout.totalCardioDistanceKm} km`
                           : (selectedWorkout.totalVolume || 0) > 0
                           ? `${(selectedWorkout.totalVolume || 0).toLocaleString('tr-TR')} kg`
@@ -564,7 +594,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
                         {(() => {
                           const isIso =
-                            /plank|hollow body|dead bug|bird dog|statik/i.test(ex.exerciseName) ||
+                            isIsometricExerciseName(ex.exerciseName) ||
                             ex.sets.some(
                               s => s.durationSeconds !== undefined && s.durationSeconds > 0
                             );
@@ -954,7 +984,7 @@ const createStyles = () =>
       letterSpacing: -0.3,
     },
     subtitle: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textMuted,
       marginTop: 1,
     },
@@ -973,7 +1003,7 @@ const createStyles = () =>
       gap: 2,
     },
     summaryKicker: {
-      fontSize: 9.5,
+      fontSize: 10,
       fontWeight: '700',
       letterSpacing: 0.7,
       color: COLORS.textMuted,
@@ -991,7 +1021,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 8,
-      ...SHADOWS.soft,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -1005,7 +1034,7 @@ const createStyles = () =>
     },
     dateText: {
       color: COLORS.textMuted,
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '600',
       fontVariant: ['tabular-nums'],
     },
@@ -1024,7 +1053,7 @@ const createStyles = () =>
       backgroundColor: COLORS.pastel.roseBg,
     },
     sessionName: {
-      fontSize: 15.5,
+      fontSize: 16,
       fontWeight: '800',
       color: COLORS.textPrimary,
       marginBottom: 8,
@@ -1047,7 +1076,7 @@ const createStyles = () =>
       gap: 1,
     },
     metaVal: {
-      fontSize: 12.5,
+      fontSize: 12,
       fontWeight: '800',
       color: COLORS.textPrimary,
       fontVariant: ['tabular-nums'],
@@ -1117,7 +1146,7 @@ const createStyles = () =>
     },
     emptySub: {
       color: COLORS.textMuted,
-      fontSize: 12.5,
+      fontSize: 12,
       textAlign: 'center',
       maxWidth: 250,
     },
@@ -1298,7 +1327,7 @@ const createStyles = () =>
       marginBottom: 4,
     },
     setTh: {
-      fontSize: 9.5,
+      fontSize: 10,
       fontWeight: '700',
       color: COLORS.textMuted,
     },
@@ -1360,7 +1389,7 @@ const createStyles = () =>
       color: COLORS.textPrimary,
     },
     skippedExSub: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textSecondary,
     },
     modalFooterRow: {

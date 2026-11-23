@@ -9,11 +9,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
 import { DraggableList, DragGripHandle } from '../components/DraggableList';
-import { getExercises, getLocalDateString } from '../services/storage';
+import { getLocalDateString } from '../services/storage';
+import { isIsometricExerciseName } from '../utils/exerciseHelpers';
 
 interface WorkoutTabProps {
   routines: Routine[];
@@ -23,9 +24,6 @@ interface WorkoutTabProps {
   onSaveRoutine: (routine: Routine) => void;
   onReorderRoutines: (routines: Routine[]) => void;
   onDeleteRoutine: (id: string) => void;
-  workouts?: WorkoutSession[];
-  workoutDays?: number[];
-  onOpenStreak?: () => void;
 }
 
 export const WorkoutTab: React.FC<WorkoutTabProps> = ({
@@ -67,22 +65,20 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
     onStartSession(session);
   };
 
-  const handleStartRoutine = async (routine: Routine) => {
-    const allExercises = await getExercises();
-
+  const handleStartRoutine = (routine: Routine) => {
+    const now = Date.now();
     const exercises = routine.exercises.map((rEx, idx) => {
-      const exObj = allExercises.find(e => e.id === rEx.exerciseId);
-      const isCardio = rEx.category === 'Kardiyo' || exObj?.category === 'Kardiyo';
+      const isCardio = rEx.category === 'Kardiyo';
       const isIso =
-        /plank|hollow body|dead bug|bird dog|statik/i.test(rEx.exerciseName) ||
-        !!rEx.targetDurationSeconds;
+        !isCardio &&
+        (isIsometricExerciseName(rEx.exerciseName) || !!rEx.targetDurationSeconds);
       const warmupCount = rEx.targetWarmupSets || 0;
 
       const warmupSets = Array.from({ length: warmupCount }, (_, i) => ({
-        id: `set_${idx}_w_${i}_${Date.now()}`,
+        id: `set_${idx}_w_${i}_${now}`,
         setNumber: i + 1,
         weight: 0,
-        reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
+        reps: isCardio || isIso ? 0 : rEx.targetReps || 10,
         rir: undefined,
         isWarmup: true,
         durationSeconds: isIso ? rEx.targetDurationSeconds || 60 : undefined,
@@ -92,10 +88,10 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       }));
 
       const workingSets = Array.from({ length: rEx.targetSets }, (_, i) => ({
-        id: `set_${idx}_${i}_${Date.now()}`,
+        id: `set_${idx}_${i}_${now}`,
         setNumber: i + 1,
         weight: rEx.targetWeight || 0,
-        reps: rEx.targetReps || (isCardio || isIso ? 0 : 10),
+        reps: isCardio || isIso ? 0 : rEx.targetReps || 10,
         rir: isCardio ? undefined : rEx.targetRir ?? 1,
         isWarmup: false,
         durationSeconds: isIso ? rEx.targetDurationSeconds || 60 : undefined,
@@ -105,7 +101,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
       }));
 
       return {
-        id: `wex_${idx}_${Date.now()}`,
+        id: `wex_${idx}_${now}`,
         exerciseId: rEx.exerciseId,
         exerciseName: rEx.exerciseName,
         category: rEx.category,
@@ -115,11 +111,11 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
     });
 
     const session: WorkoutSession = {
-      id: `session_${Date.now()}`,
+      id: `session_${now}`,
       name: routine.name,
       routineId: routine.id,
       date: getLocalDateString(),
-      startTime: Date.now(),
+      startTime: now,
       durationSeconds: 0,
       exercises,
       totalVolume: 0,
@@ -181,7 +177,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Compact Quick-Start Bar (Keeps routines immediately visible above the fold) */}
+      {/* Compact Quick-Start Bar */}
       <View style={styles.quickStartCard}>
         <View style={styles.quickStartLeft}>
           <Text style={styles.kicker}>HIZLI BAŞLAT</Text>
@@ -228,7 +224,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         keyExtractor={r => r.id}
         onReorder={handleReorder}
         onDragStateChange={setIsDraggingRoutine}
-        gap={10}
+        gap={9}
         renderItem={({ item: routine, isDragging, dragHandleProps }) => {
           const totalSets = (routine.exercises ?? []).reduce((sum, e) => sum + (e.targetSets || 0), 0);
           return (
@@ -239,7 +235,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                 )}
 
                 <View style={styles.routineTitleLeft}>
-                  <Text style={styles.routineName} numberOfLines={2} ellipsizeMode="tail">
+                  <Text style={styles.routineName} numberOfLines={1} ellipsizeMode="tail">
                     {routine.name}
                   </Text>
                   <View style={styles.routineMetaRow}>
@@ -268,28 +264,42 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
                 </TouchableOpacity>
               </View>
 
-              {!!routine.description && (
-                <Text style={styles.routineDesc} numberOfLines={2}>
+              {/* Show description only when no exercise pills are present (avoids repeating exercise names) */}
+              {!!routine.description && routine.exercises.length === 0 && (
+                <Text style={styles.routineDesc} numberOfLines={1}>
                   {routine.description}
                 </Text>
               )}
 
-              {/* Exercise preview pills */}
-              <View style={styles.exercisesPreview}>
-                {routine.exercises.slice(0, 4).map((ex, idx) => (
-                  <View key={idx} style={styles.exPill}>
-                    <Text style={styles.exPillText}>
-                      {ex.exerciseName} ({ex.targetWarmupSets ? `${ex.targetWarmupSets}W+` : ''}
-                      {ex.targetSets}×{ex.targetReps})
-                    </Text>
-                  </View>
-                ))}
-                {routine.exercises.length > 4 && (
-                  <View style={styles.exPillMore}>
-                    <Text style={styles.exPillMoreText}>+{routine.exercises.length - 4}</Text>
-                  </View>
-                )}
-              </View>
+              {/* Compact Exercise preview pills */}
+              {routine.exercises.length > 0 && (
+                <View style={styles.exercisesPreview}>
+                  {routine.exercises.slice(0, 4).map((ex, idx) => {
+                    const isCardio = ex.category === 'Kardiyo';
+                    const isIso =
+                      !isCardio &&
+                      (isIsometricExerciseName(ex.exerciseName) || !!ex.targetDurationSeconds);
+                    const detail = isCardio
+                      ? `${ex.targetDurationMinutes || 15} dk${ex.targetDistanceKm ? ` · ${ex.targetDistanceKm} km` : ''}`
+                      : isIso
+                      ? `${ex.targetSets}×${ex.targetDurationSeconds || 60} sn`
+                      : `${ex.targetWarmupSets ? `${ex.targetWarmupSets}W+` : ''}${ex.targetSets}×${ex.targetReps}`;
+
+                    return (
+                      <View key={idx} style={styles.exPill}>
+                        <Text style={styles.exPillText} numberOfLines={1}>
+                          {ex.exerciseName} ({detail})
+                        </Text>
+                      </View>
+                    );
+                  })}
+                  {routine.exercises.length > 4 && (
+                    <View style={styles.exPillMore}>
+                      <Text style={styles.exPillMoreText}>+{routine.exercises.length - 4}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               <TouchableOpacity
                 style={styles.startRoutineBtn}
@@ -306,13 +316,22 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
 
       {/* 3-Dots Action Sheet Modal */}
       {selectedRoutineForMenu && (
-        <Modal visible transparent animationType="fade">
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedRoutineForMenu(null)}
+        >
           <TouchableOpacity
             style={styles.actionModalOverlay}
             activeOpacity={1}
             onPress={() => setSelectedRoutineForMenu(null)}
           >
-            <View style={styles.actionSheetContainer}>
+            <TouchableOpacity
+              style={styles.actionSheetContainer}
+              activeOpacity={1}
+              onPress={e => e.stopPropagation()}
+            >
               <Text style={styles.actionSheetTitle}>{selectedRoutineForMenu.name}</Text>
 
               <TouchableOpacity
@@ -339,16 +358,29 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               >
                 <Text style={styles.actionSheetCancelText}>İptal</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
       )}
 
       {/* Routine Deletion Confirmation Modal */}
       {deletingRoutine && (
-        <Modal visible transparent animationType="fade">
-          <View style={styles.actionModalOverlay}>
-            <View style={styles.actionSheetContainer}>
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDeletingRoutine(null)}
+        >
+          <TouchableOpacity
+            style={styles.actionModalOverlay}
+            activeOpacity={1}
+            onPress={() => setDeletingRoutine(null)}
+          >
+            <TouchableOpacity
+              style={styles.actionSheetContainer}
+              activeOpacity={1}
+              onPress={e => e.stopPropagation()}
+            >
               <View style={{ alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <Ionicons name="trash-outline" size={28} color={COLORS.pastel.rose} />
                 <Text style={styles.actionSheetTitle}>Programı Sil</Text>
@@ -376,8 +408,8 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
               >
                 <Text style={styles.actionSheetCancelText}>Vazgeç</Text>
               </TouchableOpacity>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </Modal>
       )}
 
@@ -405,18 +437,17 @@ const createStyles = () =>
     },
     content: {
       padding: 16,
-      gap: 12,
+      gap: 11,
     },
     activeBanner: {
       backgroundColor: COLORS.surfaceElevated,
       borderRadius: 9,
-      padding: 13,
+      padding: 12,
       borderWidth: 1,
       borderColor: COLORS.borderDark,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      ...SHADOWS.soft,
     },
     activeBannerLeft: {
       flex: 1,
@@ -459,7 +490,8 @@ const createStyles = () =>
     quickStartCard: {
       backgroundColor: COLORS.surfaceSubtle,
       borderRadius: 10,
-      padding: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
       borderWidth: 1,
       borderColor: COLORS.border,
       flexDirection: 'row',
@@ -485,7 +517,7 @@ const createStyles = () =>
       letterSpacing: -0.2,
     },
     quickStartSub: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textSecondary,
     },
     quickStartBtn: {
@@ -495,7 +527,7 @@ const createStyles = () =>
       justifyContent: 'center',
       gap: 5,
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingVertical: 9,
       borderRadius: 7,
       flexShrink: 0,
     },
@@ -508,7 +540,7 @@ const createStyles = () =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 4,
+      marginTop: 2,
       gap: 8,
     },
     sectionTitle: {
@@ -539,11 +571,10 @@ const createStyles = () =>
     routineCard: {
       backgroundColor: COLORS.surface,
       borderRadius: 10,
-      padding: 14,
+      padding: 12,
       borderWidth: 1,
       borderColor: COLORS.border,
-      gap: 10,
-      ...SHADOWS.soft,
+      gap: 8,
     },
     routineCardDragging: {
       borderColor: COLORS.primary,
@@ -558,7 +589,7 @@ const createStyles = () =>
     routineTitleLeft: {
       flex: 1,
       minWidth: 0,
-      gap: 5,
+      gap: 4,
     },
     routineName: {
       flexShrink: 1,
@@ -579,7 +610,7 @@ const createStyles = () =>
       borderRadius: 5,
     },
     routineTagText: {
-      fontSize: 10.5,
+      fontSize: 11,
       fontWeight: '700',
     },
     routineMetaCount: {
@@ -596,7 +627,7 @@ const createStyles = () =>
     routineDesc: {
       fontSize: 12,
       color: COLORS.textSecondary,
-      lineHeight: 17,
+      lineHeight: 16,
     },
     exercisesPreview: {
       flexDirection: 'row',
@@ -606,26 +637,26 @@ const createStyles = () =>
     exPill: {
       backgroundColor: COLORS.surfaceSubtle,
       paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingVertical: 3,
       borderRadius: 5,
       borderWidth: 1,
       borderColor: COLORS.border,
     },
     exPillText: {
-      fontSize: 10.5,
+      fontSize: 11,
       color: COLORS.textSecondary,
       fontWeight: '500',
     },
     exPillMore: {
       backgroundColor: COLORS.surfaceSubtle,
       paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingVertical: 3,
       borderRadius: 5,
       borderWidth: 1,
       borderColor: COLORS.borderDark,
     },
     exPillMoreText: {
-      fontSize: 10.5,
+      fontSize: 11,
       color: COLORS.textPrimary,
       fontWeight: '700',
     },
@@ -635,14 +666,14 @@ const createStyles = () =>
       justifyContent: 'center',
       gap: 6,
       backgroundColor: COLORS.primary,
-      paddingVertical: 10,
+      paddingVertical: 9,
       borderRadius: 7,
-      marginTop: 2,
+      marginTop: 1,
     },
     startRoutineBtnText: {
       color: COLORS.primaryText,
       fontWeight: '800',
-      fontSize: 12.5,
+      fontSize: 12,
     },
     actionModalOverlay: {
       flex: 1,
@@ -658,7 +689,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     actionSheetTitle: {
       fontSize: 15,
@@ -679,7 +709,7 @@ const createStyles = () =>
       borderColor: COLORS.border,
     },
     actionSheetText: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '700',
       color: COLORS.textPrimary,
     },
@@ -689,7 +719,7 @@ const createStyles = () =>
       marginTop: 2,
     },
     actionSheetCancelText: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '600',
       color: COLORS.textMuted,
     },

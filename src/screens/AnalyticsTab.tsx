@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession, PersonalRecord, MuscleCategory } from '../types/fitness';
 import { AnalyticsCharts } from '../components/AnalyticsCharts';
 import { OneRepMaxWidget } from '../components/OneRepMaxWidget';
@@ -21,7 +21,8 @@ import {
 } from '../components/MuscleRecoveryHeatmap';
 import { calculateAllMuscleRecovery } from '../services/muscleRecoveryService';
 import { calculateUserStats, getMondayOfWeek, getLocalDateString } from '../services/storage';
-import { calculateAutoregulatedE1RM } from '../services/progressionEngine';
+import { calculateAutoregulatedE1RM } from '../utils/e1rm';
+import { FILTER_CATEGORIES, parseLocalDateString } from '../utils/exerciseHelpers';
 
 interface AnalyticsTabProps {
   workouts: WorkoutSession[];
@@ -50,6 +51,7 @@ interface PRCardRowProps {
 }
 
 const PRCardRow = React.memo(function PRCardRow({ item, isLast, onSelect }: PRCardRowProps) {
+  useTheme();
   const catColor = (COLORS.category as Record<string, string>)[item.category] || COLORS.textSecondary;
   return (
     <TouchableOpacity
@@ -127,6 +129,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
   } | null>(null);
   const [prSearchQuery, setPrSearchQuery] = useState('');
   const [selectedPRCategory, setSelectedPRCategory] = useState<MuscleCategory | 'Hepsi'>('Hepsi');
+  const [showAllPRs, setShowAllPRs] = useState(false);
 
   // Current week bounds (also used for unified weekly muscle volume on Kaslar tab)
   const dateBounds = useMemo(() => {
@@ -188,6 +191,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     () => calculateUserStats(filteredWorkouts, workoutDays, weeklyTargetHistory),
     [filteredWorkouts, workoutDays, weeklyTargetHistory]
   );
+
+  // Detect whether any completed non-warmup strength set in the period recorded an RIR value
+  const hasRirData = useMemo(() => {
+    return filteredWorkouts.some(w =>
+      w.exercises?.some(
+        ex =>
+          ex.category !== 'Kardiyo' &&
+          ex.sets?.some(s => s.completed && !s.isWarmup && s.rir !== undefined)
+      )
+    );
+  }, [filteredWorkouts]);
 
   // Weekly direct working sets & volume per muscle group (always current calendar week)
   const weeklyMuscleSets = useMemo(() => {
@@ -255,8 +269,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     setSelectedExerciseForPR(null);
   }, []);
 
-  // All-time Exercise PR list
-  const allExercisePRItems = useMemo(() => {
+  // Base All-Time Exercise PR aggregation (split from search/category filter)
+  const baseExercisePRItems = useMemo(() => {
     const exerciseMap: Record<string, ExercisePRListItem> = {};
 
     Object.values(prs).forEach(pr => {
@@ -268,17 +282,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
         equipment: 'Barbell',
         pr,
         isRecent: false,
-        allTimeWeight: pr.maxWeight,
-        allTimeReps: pr.maxReps,
-        allTime1RM: pr.maxEstimatedOneRepMax,
+        allTimeWeight: pr.maxWeight > 0 ? pr.maxWeight : undefined,
+        allTimeReps: pr.maxReps > 0 ? pr.maxReps : undefined,
+        allTime1RM: (pr.maxEstimatedOneRepMax || 0) > 0 ? pr.maxEstimatedOneRepMax : undefined,
       };
     });
 
-    const now = new Date().getTime();
+    const now = Date.now();
     workouts.forEach(w => {
       if (w.completed === false) return;
-      const wDate = new Date(w.date).getTime();
-      const isThisWeek = now - wDate <= 7 * 24 * 3600 * 1000;
+      const wDateMs = parseLocalDateString(w.date).getTime();
+      const isThisWeek = now - wDateMs <= 7 * 24 * 3600 * 1000;
 
       w.exercises.forEach(ex => {
         const completedSets = ex.sets?.filter(s => s.completed) || [];
@@ -290,10 +304,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
           let maxR = 0;
           let max1RM = 0;
           completedSets.forEach(s => {
-            if (s.weight && s.reps && (s.weight > maxW || (s.weight === maxW && s.reps > maxR))) {
-              maxW = s.weight;
-              maxR = s.reps;
-              max1RM = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1));
+            if (!s.isWarmup && s.weight > 0 && s.reps > 0) {
+              const e1rm = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir));
+              if (e1rm > max1RM) max1RM = e1rm;
+              if (s.weight > maxW || (s.weight === maxW && s.reps > maxR)) {
+                maxW = s.weight;
+                maxR = s.reps;
+              }
             }
           });
 
@@ -309,27 +326,26 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
             allTime1RM: max1RM > 0 ? max1RM : undefined,
           };
         } else {
-          if (ex.category) exerciseMap[key].category = ex.category;
-          if (ex.equipment) exerciseMap[key].equipment = ex.equipment;
-          if (
-            !exerciseMap[key].lastWorkoutDate ||
-            new Date(w.date) > new Date(exerciseMap[key].lastWorkoutDate!)
-          ) {
-            exerciseMap[key].lastWorkoutDate = w.date;
+          const entry = exerciseMap[key];
+          if (ex.category) entry.category = ex.category;
+          if (ex.equipment) entry.equipment = ex.equipment;
+          if (!entry.lastWorkoutDate || w.date > entry.lastWorkoutDate) {
+            entry.lastWorkoutDate = w.date;
           }
           if (isThisWeek) {
-            exerciseMap[key].isRecent = true;
+            entry.isRecent = true;
           }
           completedSets.forEach(s => {
-            if (s.weight && s.reps) {
-              const curW = exerciseMap[key].allTimeWeight || 0;
-              const curR = exerciseMap[key].allTimeReps || 0;
+            if (!s.isWarmup && s.weight > 0 && s.reps > 0) {
+              const e1rm = Math.round(calculateAutoregulatedE1RM(s.weight, s.reps, s.rir));
+              if (e1rm > (entry.allTime1RM || 0)) {
+                entry.allTime1RM = e1rm;
+              }
+              const curW = entry.allTimeWeight || 0;
+              const curR = entry.allTimeReps || 0;
               if (s.weight > curW || (s.weight === curW && s.reps > curR)) {
-                exerciseMap[key].allTimeWeight = s.weight;
-                exerciseMap[key].allTimeReps = s.reps;
-                exerciseMap[key].allTime1RM = Math.round(
-                  calculateAutoregulatedE1RM(s.weight, s.reps, s.rir ?? 1)
-                );
+                entry.allTimeWeight = s.weight;
+                entry.allTimeReps = s.reps;
               }
             }
           });
@@ -337,19 +353,29 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       });
     });
 
-    return Object.values(exerciseMap)
-      .filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(prSearchQuery.toLowerCase());
-        const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
-        return matchesSearch && matchesCat;
-      })
-      .sort((a, b) => {
-        const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0);
-        const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0);
-        if (bScore !== aScore) return bScore - aScore;
-        return a.name.localeCompare(b.name, 'tr');
-      });
-  }, [prs, workouts, prSearchQuery, selectedPRCategory]);
+    return Object.values(exerciseMap).sort((a, b) => {
+      const aScore = (a.allTimeWeight ? 100 : 0) + (a.isRecent ? 50 : 0);
+      const bScore = (b.allTimeWeight ? 100 : 0) + (b.isRecent ? 50 : 0);
+      if (bScore !== aScore) return bScore - aScore;
+      return a.name.localeCompare(b.name, 'tr');
+    });
+  }, [prs, workouts]);
+
+  const allExercisePRItems = useMemo(() => {
+    const query = prSearchQuery.trim().toLowerCase();
+    return baseExercisePRItems.filter(item => {
+      const matchesSearch = !query || item.name.toLowerCase().includes(query);
+      const matchesCat = selectedPRCategory === 'Hepsi' || item.category === selectedPRCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [baseExercisePRItems, prSearchQuery, selectedPRCategory]);
+
+  const displayedPRItems = useMemo(() => {
+    if (showAllPRs || prSearchQuery.trim().length > 0 || selectedPRCategory !== 'Hepsi') {
+      return allExercisePRItems;
+    }
+    return allExercisePRItems.slice(0, 20);
+  }, [allExercisePRItems, showAllPRs, prSearchQuery, selectedPRCategory]);
 
   const cardioSummary = useMemo(() => {
     const cardioStatsMap: Record<string, { totalDist: number; totalMins: number }> = {};
@@ -396,20 +422,21 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       ? 'Anlık toparlanma & haftalık RP set hedefi'
       : `Tüm zamanlar · ${allExercisePRItems.length} hareket`;
 
-  const rirZoneText =
-    stats.avgRir === 0
-      ? 'Veri bekleniyor'
-      : stats.avgRir <= 2
-      ? 'Hipertrofi bölgesi'
-      : 'Kontrollü yüklenme';
+  const rirZoneText = !hasRirData
+    ? 'Veri bekleniyor'
+    : stats.avgRir === 0
+    ? 'Tükeniş (0 RIR)'
+    : stats.avgRir <= 2
+    ? 'Hipertrofi bölgesi'
+    : 'Kontrollü yüklenme';
 
   const hasSecondaryActivity =
     stats.totalCaloriesBurned > 0 || stats.totalCardioDistanceKm > 0;
 
   return (
     <View style={styles.container}>
-      {/* Compact Header + Single Segmented Bar (No Double Stacked Filter Bars) */}
-      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) }]}>
+      {/* Compact Header + Single Segmented Bar */}
+      <View style={styles.topHeader}>
         <View style={styles.headerRow}>
           <View style={styles.headerTitleCol}>
             <Text style={styles.pageTitle}>Analiz</Text>
@@ -525,12 +552,18 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <View style={styles.kpiCard}>
                 <Text style={styles.kicker}>ORT. YOĞUNLUK</Text>
                 <Text style={styles.kpiValue}>
-                  {stats.avgRir} <Text style={styles.kpiUnit}>RIR</Text>
+                  {hasRirData ? (
+                    <>
+                      {stats.avgRir} <Text style={styles.kpiUnit}>RIR</Text>
+                    </>
+                  ) : (
+                    '—'
+                  )}
                 </Text>
                 <Text
                   style={[
                     styles.kpiDelta,
-                    stats.avgRir > 0 && stats.avgRir <= 2
+                    hasRirData && stats.avgRir <= 2
                       ? { color: COLORS.pastel.lavender }
                       : styles.kpiDeltaMuted,
                   ]}
@@ -543,11 +576,19 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
               <View style={styles.kpiCard}>
                 <Text style={styles.kicker}>UYUM &amp; AKTİF SÜRE</Text>
                 <Text style={styles.kpiValue}>
-                  %{stats.avgWorkoutCompliance}{' '}
-                  <Text style={styles.kpiUnit}>· {stats.activeWorkTimeMinutes} dk</Text>
+                  {filteredWorkouts.length > 0 ? (
+                    <>
+                      %{stats.avgWorkoutCompliance}{' '}
+                      <Text style={styles.kpiUnit}>· {stats.activeWorkTimeMinutes} dk</Text>
+                    </>
+                  ) : (
+                    '—'
+                  )}
                 </Text>
                 <Text style={[styles.kpiDelta, styles.kpiDeltaMuted]} numberOfLines={1}>
-                  Gerilim altında süre (TUT)
+                  {filteredWorkouts.length > 0
+                    ? 'Gerilim altında süre (TUT)'
+                    : 'Bu dönem seans yok'}
                 </Text>
               </View>
             </View>
@@ -694,19 +735,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.prCategoryChips}
               >
-                {(
-                  [
-                    'Hepsi',
-                    'Göğüs',
-                    'Sırt',
-                    'Bacak',
-                    'Omuz',
-                    'Ön Kol',
-                    'Arka Kol',
-                    'Karın',
-                    'Kardiyo',
-                  ] as const
-                ).map(cat => {
+                {FILTER_CATEGORIES.map(cat => {
                   const isSelected = selectedPRCategory === cat;
                   return (
                     <TouchableOpacity
@@ -727,9 +756,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                 })}
               </ScrollView>
 
-              {allExercisePRItems.length > 0 ? (
+              {displayedPRItems.length > 0 ? (
                 <View style={styles.prList}>
-                  {allExercisePRItems.slice(0, 20).map((item, idx, arr) => (
+                  {displayedPRItems.map((item, idx, arr) => (
                     <PRCardRow
                       key={item.id || item.name}
                       item={item}
@@ -737,6 +766,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       onSelect={handleSelectPRItem}
                     />
                   ))}
+                  {allExercisePRItems.length > displayedPRItems.length && (
+                    <TouchableOpacity
+                      style={styles.showMorePrBtn}
+                      onPress={() => setShowAllPRs(true)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={styles.showMorePrText}>
+                        Tümünü Göster (+{allExercisePRItems.length - displayedPRItems.length})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <View style={styles.emptyPrCard}>
@@ -767,6 +807,7 @@ const createStyles = () =>
     },
     topHeader: {
       backgroundColor: COLORS.surface,
+      paddingTop: 12,
       paddingHorizontal: 16,
       paddingBottom: 12,
       borderBottomWidth: 1,
@@ -790,7 +831,7 @@ const createStyles = () =>
       letterSpacing: -0.3,
     },
     pageSub: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textMuted,
       marginTop: 1,
     },
@@ -870,7 +911,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 4,
-      ...SHADOWS.soft,
     },
     kicker: {
       fontSize: 10,
@@ -913,7 +953,7 @@ const createStyles = () =>
       borderRadius: 7,
     },
     activityPillText: {
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '700',
       fontVariant: ['tabular-nums'],
     },
@@ -934,7 +974,7 @@ const createStyles = () =>
       gap: 2,
     },
     focusTeaserTitle: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '700',
       color: COLORS.textPrimary,
     },
@@ -953,7 +993,7 @@ const createStyles = () =>
       flexShrink: 0,
     },
     focusTeaserBtnText: {
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '700',
     },
     cardioCard: {
@@ -1008,7 +1048,7 @@ const createStyles = () =>
       borderRadius: 6,
     },
     speedBadgeText: {
-      fontSize: 11.5,
+      fontSize: 12,
       fontWeight: '700',
       fontVariant: ['tabular-nums'],
     },
@@ -1019,7 +1059,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     prCardHeader: {
       flexDirection: 'row',
@@ -1097,7 +1136,7 @@ const createStyles = () =>
       gap: 4,
     },
     prExName: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '700',
       color: COLORS.textPrimary,
     },
@@ -1126,7 +1165,7 @@ const createStyles = () =>
       fontWeight: '700',
     },
     prDateText: {
-      fontSize: 10.5,
+      fontSize: 11,
       color: COLORS.textMuted,
       fontVariant: ['tabular-nums'],
     },
@@ -1140,7 +1179,7 @@ const createStyles = () =>
       alignItems: 'flex-end',
     },
     prWeightText: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '800',
       color: COLORS.textPrimary,
       fontVariant: ['tabular-nums'],
@@ -1155,6 +1194,20 @@ const createStyles = () =>
       fontWeight: '600',
       color: COLORS.textSecondary,
     },
+    showMorePrBtn: {
+      marginTop: 10,
+      paddingVertical: 9,
+      borderRadius: 6,
+      backgroundColor: COLORS.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      alignItems: 'center',
+    },
+    showMorePrText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+    },
     emptyPrCard: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -1163,7 +1216,7 @@ const createStyles = () =>
     },
     emptyPrText: {
       color: COLORS.textMuted,
-      fontSize: 12.5,
+      fontSize: 12,
     },
   });
 

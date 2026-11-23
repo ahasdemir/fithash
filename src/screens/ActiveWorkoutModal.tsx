@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback , useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -7,17 +7,17 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   PanResponder,
   Animated,
-  Dimensions,
   AppState,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
-import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, ExerciseFeedback, SessionFeedback, MuscleCategory } from '../types/fitness';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
+import { WorkoutSession, WorkoutExercise, ExerciseSet, Exercise, SessionFeedback } from '../types/fitness';
+import { isIsometricExerciseName } from '../utils/exerciseHelpers';
 import { RestTimerBar } from '../components/RestTimerBar';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
@@ -55,7 +55,45 @@ interface ActiveWorkoutModalProps {
   remoteRestTimer?: WearRestTimerUpdate | null;
 }
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+const formatTimer = (totalSecs: number) => {
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+};
+
+const SessionElapsedTimer: React.FC<{ startTime: number; active: boolean }> = React.memo(
+  ({ startTime, active }) => {
+    useTheme();
+    const [elapsedSeconds, setElapsedSeconds] = useState(() =>
+      Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+    );
+
+    useEffect(() => {
+      if (!active) return;
+      const updateElapsed = () => {
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+      };
+      updateElapsed();
+      const timer = setInterval(updateElapsed, 1000);
+      const sub = AppState.addEventListener('change', nextState => {
+        if (nextState === 'active') updateElapsed();
+      });
+      return () => {
+        clearInterval(timer);
+        sub.remove();
+      };
+    }, [active, startTime]);
+
+    return (
+      <View style={styles.timerBadge}>
+        <Ionicons name="time" size={12} color={COLORS.primaryText} />
+        <Text style={styles.timerText}>{formatTimer(elapsedSeconds)}</Text>
+      </View>
+    );
+  }
+);
 
 export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   visible,
@@ -68,9 +106,16 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 }) => {
   useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const windowHeightRef = useRef(windowHeight);
+  windowHeightRef.current = windowHeight;
+
   const [session, setSession] = useState<WorkoutSession | null>(activeSession);
+  const sessionRef = useRef<WorkoutSession | null>(activeSession);
+  sessionRef.current = session;
+
   const [pastWorkouts, setPastWorkouts] = useState<WorkoutSession[]>([]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [completionDurationSeconds, setCompletionDurationSeconds] = useState(0);
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
@@ -84,6 +129,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [isDraggingExercise, setIsDraggingExercise] = useState(false);
   const lastRecTapTimeRef = useRef<Record<string, number>>({});
+  const skipNextRestSyncRef = useRef(false);
 
   const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
     defaultRestSeconds: 90,
@@ -94,19 +140,15 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   useEffect(() => {
     setSession(activeSession);
-    if (activeSession) {
-      const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
-      setElapsedSeconds(elapsed > 0 ? elapsed : 0);
-    }
   }, [activeSession]);
+
+  useEffect(() => {
+    setRawInputMap({});
+  }, [activeSession?.id]);
 
   useEffect(() => {
     if (visible) {
       restoredTimerRef.current = false;
-      if (activeSession) {
-        const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
-        setElapsedSeconds(elapsed > 0 ? elapsed : 0);
-      }
       getWorkouts().then(data => setPastWorkouts(data));
       getExercises().then(data => setAvailableExercises(data));
       getAppSettings().then(s => {
@@ -138,6 +180,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       return;
     }
     const remaining = Math.max(1, Math.ceil((endTimeMs - Date.now()) / 1000));
+    skipNextRestSyncRef.current = true;
     saveActiveRestTimerEnd(endTimeMs);
     scheduleRestTimerNotification(endTimeMs);
     setRestTimerSeconds(remaining);
@@ -147,16 +190,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   // Handle app coming to foreground from locked screen
   useEffect(() => {
+    if (!visible) return;
     const subscription = AppState.addEventListener('change', async (nextState) => {
       if (nextState === 'active') {
-        if (activeSession) {
-          const elapsed = Math.floor((Date.now() - activeSession.startTime) / 1000);
-          setElapsedSeconds(elapsed > 0 ? elapsed : 0);
-        }
         const endTime = await getActiveRestTimerEnd();
         if (endTime !== null) {
           if (endTime > Date.now()) {
             const remaining = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+            skipNextRestSyncRef.current = true;
             setRestTimerSeconds(remaining);
             setShowRestTimer(true);
           } else {
@@ -171,7 +212,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     return () => {
       subscription.remove();
     };
-  }, [activeSession]);
+  }, [visible]);
 
   const restoreRestTimer = async () => {
     const endTime = await getActiveRestTimerEnd();
@@ -179,6 +220,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
     if (endTime > Date.now()) {
       const remaining = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
+      skipNextRestSyncRef.current = true;
       setRestTimerSeconds(remaining);
       setRestTimerKey(Date.now());
       setShowRestTimer(true);
@@ -190,10 +232,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleRestDeadlineChange = useCallback((endTime: number | null) => {
+    if (skipNextRestSyncRef.current) {
+      skipNextRestSyncRef.current = false;
+      return;
+    }
     saveActiveRestTimerEnd(endTime);
     if (endTime !== null) {
       scheduleRestTimerNotification(endTime);
-      // +/-15 sn veya devam ettirme: kalan süreyi saate aynala.
+      // Set başlatma, +/-15 sn veya devam ettirme: kalan süreyi saate aynala.
       const remainingSecs = Math.max(1, Math.ceil((endTime - Date.now()) / 1000));
       syncRestTimerToWearable(endTime, Math.max(restTimerSeconds, remainingSecs));
     } else {
@@ -213,13 +259,16 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
   const handleMinimize = useCallback(() => {
     Animated.timing(translateY, {
-      toValue: SCREEN_HEIGHT,
+      toValue: windowHeightRef.current,
       duration: 180,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(() => {
       handleBackground();
     });
   }, [handleBackground, translateY]);
+
+  const handleMinimizeRef = useRef(handleMinimize);
+  handleMinimizeRef.current = handleMinimize;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -234,69 +283,46 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy > 100 || gestureState.vy > 0.35) {
-          handleMinimize();
+          handleMinimizeRef.current();
         } else if (Math.abs(gestureState.dy) < 6 && Math.abs(gestureState.dx) < 6) {
-          handleMinimize();
+          handleMinimizeRef.current();
         } else {
           Animated.spring(translateY, {
             toValue: 0,
             bounciness: 4,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
           }).start();
         }
       },
     })
   ).current;
 
-  useEffect(() => {
-    let timer: any = null;
-    if (visible && session && session.completed === false) {
-      const updateElapsed = () => {
-        const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
-        setElapsedSeconds(elapsed > 0 ? elapsed : 0);
-      };
-      updateElapsed();
-      timer = setInterval(updateElapsed, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [visible, session?.startTime, session?.completed]);
-
   const handleReorderExercises = useCallback((nextExercises: WorkoutExercise[]) => {
-    setSession(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, exercises: nextExercises };
-      onUpdateSession(updated);
-      return updated;
-    });
+    const current = sessionRef.current;
+    if (!current) return;
+    const updated = { ...current, exercises: nextExercises };
+    setSession(updated);
+    onUpdateSession(updated);
   }, [onUpdateSession]);
 
-  if (!session) return null;
-
-  const formatTimer = (totalSecs: number) => {
-    const hrs = Math.floor(totalSecs / 3600);
-    const mins = Math.floor((totalSecs % 3600) / 60);
-    const secs = totalSecs % 60;
-    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
-    return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
-  };
-
   // Progressive Overload weight recommendation engine (Gold-Standard Double Progression & RP Model)
-  const calculateRecommendation = (
+  const calculateRecommendation = useCallback((
     exName: string,
     exId: string,
     equipment: string = '',
     category: string = ''
   ): SmartOverloadRecommendation | null => {
+    const currentId = sessionRef.current?.id;
     const pastSessions: ExerciseSet[][] = [];
     for (const past of pastWorkouts) {
-      if (past.id === session.id) continue;
+      if (past.id === currentId) continue;
 
       const match = past.exercises.find(e => e.exerciseId === exId || e.exerciseName.toLowerCase() === exName.toLowerCase());
       if (match) {
         const validSets = match.sets.filter(s => s.completed && !s.isWarmup && s.weight > 0);
         if (validSets.length > 0) {
           pastSessions.push(validSets);
-          if (pastSessions.length >= 3) break; // Collect up to 3 past sessions for trend analysis
+          if (pastSessions.length >= 3) break;
         }
       }
     }
@@ -305,7 +331,25 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       return calculateSmartAutoregulatedOverload(exName, equipment, pastSessions, undefined, category);
     }
     return null;
-  };
+  }, [pastWorkouts]);
+
+  const exerciseSignature = useMemo(
+    () => (session ? session.exercises.map(e => `${e.id}:${e.exerciseId}:${e.exerciseName}:${e.equipment || ''}:${e.category}`).join('|') : ''),
+    [session]
+  );
+
+  const recommendationsByExId = useMemo(() => {
+    const map: Record<string, SmartOverloadRecommendation | null> = {};
+    if (!session) return map;
+    for (const ex of session.exercises) {
+      map[ex.id] = ex.category === 'Kardiyo'
+        ? null
+        : calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment, ex.category);
+    }
+    return map;
+  }, [exerciseSignature, calculateRecommendation]);
+
+  if (!session) return null;
 
   const handleToggleRecView = (exId: string) => {
     setToggledRecs(prev => ({ ...prev, [exId]: !prev[exId] }));
@@ -380,7 +424,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     const rec = calculateRecommendation(ex.name, ex.id, ex.equipment, ex.category);
     const defaultWeight = rec ? rec.recWeight : 0;
     const isCardio = ex.category === 'Kardiyo';
-    const isIso = isIsometricExercise(ex.name, ex.category);
+    const isIso = isIsometricExerciseName(ex.name);
 
     const newWorkoutEx: WorkoutExercise = {
       id: `wex_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
@@ -412,14 +456,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     onUpdateSession(updated);
   };
 
-  const isIsometricExercise = (name: string, cat?: string) => {
-    return /plank|hollow body|dead bug|bird dog|statik/i.test(name);
-  };
-
   const handleSetChange = (exId: string, setIdx: number, field: keyof ExerciseSet, val: any) => {
+    const targetEx = session.exercises.find(e => e.id === exId);
+    const targetSet = targetEx?.sets[setIdx];
+    if (!targetSet) return;
+
     let cleanString = typeof val === 'string' ? val : (val != null ? String(val) : '');
     const isDecimalField = field === 'weight' || field === 'distanceKm';
-    const rawKey = `${exId}_${setIdx}_${field}`;
+    const rawKey = `${exId}_${targetSet.id}_${field}`;
 
     if (isDecimalField && typeof val === 'string') {
       // Normalize Samsung keyboard comma (,) to dot (.) and sanitize
@@ -450,9 +494,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       if (field === 'durationMinutes' || field === 'distanceKm') {
         const mins = field === 'durationMinutes' ? parsedVal : (updatedSet.durationMinutes || 0);
         const dist = field === 'distanceKm' ? parsedVal : (updatedSet.distanceKm || 0);
-        if (mins > 0 && dist > 0) {
-          updatedSet.avgSpeedKmh = parseFloat(((dist / mins) * 60).toFixed(1));
-        }
+        updatedSet.avgSpeedKmh = mins > 0 && dist > 0
+          ? parseFloat(((dist / mins) * 60).toFixed(1))
+          : undefined;
       }
 
       copySets[setIdx] = updatedSet;
@@ -530,6 +574,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     let isNowCompleted = false;
     let completedExercise: WorkoutExercise | undefined;
     let completedSet: ExerciseSet | undefined;
+    let backOffUpdatedSetId: string | null = null;
 
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
@@ -541,12 +586,17 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         completed: isNowCompleted,
       };
 
-      // Autoregulation: If set was completed and there is a subsequent set,
+      // Autoregulation: If a resistance working set was completed and there is a subsequent working set,
       // evaluate intra-workout neuromuscular fatigue decay and suggest back-off weight drop if needed.
-      if (isNowCompleted && setIdx < copySets.length - 1) {
+      if (
+        isNowCompleted &&
+        setIdx < copySets.length - 1 &&
+        ex.category !== 'Kardiyo' &&
+        !isIsometricExerciseName(ex.exerciseName)
+      ) {
+        const finishedSet = copySets[setIdx];
         const nextSet = copySets[setIdx + 1];
-        if (!nextSet.completed && !nextSet.isWarmup) {
-          const finishedSet = copySets[setIdx];
+        if (!finishedSet.isWarmup && finishedSet.weight > 0 && !nextSet.completed && !nextSet.isWarmup) {
           const biomech = getBiomechanicalProfile(ex.exerciseName, ex.equipment, ex.category);
           const repBracket = getHypertrophyRepBracket(ex.exerciseName, ex.equipment, ex.category);
           const predictedNextReps = predictFatigueDecayReps(
@@ -570,6 +620,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
               weight: backOff.recommendedWeight,
               reps: Math.max(repBracket.minReps, nextSet.reps),
             };
+            backOffUpdatedSetId = nextSet.id;
           }
         }
       }
@@ -578,6 +629,17 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       completedSet = copySets[setIdx];
       return { ...ex, sets: copySets };
     });
+
+    if (backOffUpdatedSetId) {
+      const prefix = `${exId}_${backOffUpdatedSetId}_`;
+      setRawInputMap(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(k => {
+          if (k.startsWith(prefix)) delete next[k];
+        });
+        return next;
+      });
+    }
 
     const updated = { ...session, exercises: updatedExercises };
     setSession(updated);
@@ -598,11 +660,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         );
       }
 
-      const targetEnd = Date.now() + restSecs * 1000;
-      saveActiveRestTimerEnd(targetEnd);
-      scheduleRestTimerNotification(targetEnd);
-      // Set tamamlanınca otomatik başlayan dinlenmeyi saate aynala (§7.3).
-      syncRestTimerToWearable(targetEnd, restSecs);
+      // RestTimerBar mounts with the new key and invokes handleRestDeadlineChange once,
+      // which persists the deadline, schedules the notification, and syncs to Wear OS.
+      skipNextRestSyncRef.current = false;
       setRestTimerSeconds(restSecs);
       setRestTimerKey(Date.now());
       setShowRestTimer(true);
@@ -614,7 +674,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       if (ex.id !== exId) return ex;
       const lastSet = ex.sets[ex.sets.length - 1];
       const isCardio = ex.category === 'Kardiyo';
-      const isIsometric = isIsometricExercise(ex.exerciseName, ex.category);
+      const isIsometric = isIsometricExerciseName(ex.exerciseName);
 
       const newSet: ExerciseSet = {
         id: `set_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -651,6 +711,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   const handleRemoveSet = (exId: string, setIdx: number) => {
+    const targetEx = session.exercises.find(e => e.id === exId);
+    const removedSet = targetEx?.sets[setIdx];
+
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== exId) return ex;
       if (ex.sets.length <= 1) {
@@ -678,6 +741,17 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       return { ...ex, sets: reindexedSets };
     });
 
+    if (removedSet && targetEx && targetEx.sets.length > 1) {
+      const prefix = `${exId}_${removedSet.id}_`;
+      setRawInputMap(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(k => {
+          if (k.startsWith(prefix)) delete next[k];
+        });
+        return next;
+      });
+    }
+
     const updated = { ...session, exercises: updatedExercises };
     setSession(updated);
     onUpdateSession(updated);
@@ -687,8 +761,16 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     if (!swappingExercise) return;
     const { exercise: oldEx } = swappingExercise;
 
+    setRawInputMap(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => {
+        if (k.startsWith(`${oldEx.id}_`)) delete next[k];
+      });
+      return next;
+    });
+
     const isCardio = newEx.category === 'Kardiyo';
-    const isIso = isIsometricExercise(newEx.name, newEx.category);
+    const isIso = isIsometricExerciseName(newEx.name);
 
     const updatedExercises = session.exercises.map(ex => {
       if (ex.id !== oldEx.id) return ex;
@@ -740,6 +822,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
     }
 
     // Open post-workout review modal
+    setCompletionDurationSeconds(Math.max(0, Math.floor((Date.now() - (session.startTime || Date.now())) / 1000)));
     setShowCompletionModal(true);
   };
 
@@ -757,7 +840,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
     session.exercises.forEach(ex => {
       const isCardio = ex.category === 'Kardiyo';
-      const isIso = isIsometricExercise(ex.exerciseName, ex.category);
+      const isIso = isIsometricExerciseName(ex.exerciseName);
 
       ex.sets.forEach(s => {
         if (s.completed) {
@@ -791,8 +874,6 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             if (name.includes('yürüyüş') || name.includes('walk')) met = 3.8;
             else if (name.includes('koşu') || name.includes('treadmill')) met = 9.8;
             else if (name.includes('bisiklet') || name.includes('cycle')) met = 7.5;
-            else if (name.includes('eliptik')) met = 7.0;
-            else if (name.includes('kürek') || name.includes('row')) met = 7.0;
 
             const kcal = Math.round(met * 75 * (mins / 60));
             totalCaloriesBurned += kcal;
@@ -814,11 +895,12 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       };
     });
 
+    const now = Date.now();
     const finalSession: WorkoutSession = {
       ...session,
       exercises: updatedExercises,
-      endTime: Date.now(),
-      durationSeconds: elapsedSeconds,
+      endTime: now,
+      durationSeconds: Math.max(0, Math.floor((now - (session.startTime || now)) / 1000)),
       totalVolume,
       totalSets: totalSetsCount,
       avgRir: rirCount > 0 ? Math.round((rirSum / rirCount) * 10) / 10 : undefined,
@@ -871,19 +953,23 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="none" transparent>
+    <Modal
+      visible={visible}
+      animationType="none"
+      transparent
+      onRequestClose={onBackgroundSession ? handleMinimize : handleCancelSession}
+    >
       <Animated.View style={[styles.container, { paddingTop: Math.max(10, insets.top), transform: [{ translateY }] }]}>
         {/* Top Sheet Drag Handle Bar for Minimizing */}
         {onBackgroundSession && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleMinimize}
+          <View
             {...panResponder.panHandlers}
             style={styles.topDragHandleBarContainer}
-            hitSlop={{ top: 10, bottom: 10, left: 20, right: 20 }}
+            accessibilityRole="button"
+            accessibilityLabel="Antrenmanı küçült"
           >
             <View style={styles.topDragHandleBar} />
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* Header Bar */}
@@ -908,10 +994,10 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                 onUpdateSession(updated);
               }}
             />
-            <View style={styles.timerBadge}>
-              <Ionicons name="time" size={12} color={COLORS.primaryText} />
-              <Text style={styles.timerText}>{formatTimer(elapsedSeconds)}</Text>
-            </View>
+            <SessionElapsedTimer
+              startTime={session.startTime}
+              active={visible && !session.completed}
+            />
           </View>
 
           <TouchableOpacity style={styles.finishBtn} onPress={handleFinish} activeOpacity={0.8}>
@@ -924,13 +1010,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             <RestTimerBar
               key={restTimerKey}
               initialSeconds={restTimerSeconds}
-              onClose={() => {
-                saveActiveRestTimerEnd(null);
-                cancelRestTimerNotification();
-                // Kullanıcı dinlenmeyi atladı; saate cleared gönder.
-                syncRestTimerToWearable(null, 0);
-                setShowRestTimer(false);
-              }}
+              onClose={() => setShowRestTimer(false)}
               onDeadlineChange={handleRestDeadlineChange}
             />
           </View>
@@ -958,7 +1038,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             const catColor = COLORS.category[ex.category] || COLORS.textPrimary;
             const isCardio = ex.category === 'Kardiyo';
             const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
-            const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment, ex.category) : null;
+            const recommendation = !isCardio ? (recommendationsByExId[ex.id] ?? null) : null;
             const setPlan = !isCardio ? buildSetTargetPlan(ex.sets, recommendation) : null;
 
             return (
@@ -1038,7 +1118,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                                   : 'shield-checkmark-outline')
                             }
                             size={12}
-                            color={isToggled ? COLORS.textPrimary : (recommendation.actionType === 'DELOAD' ? COLORS.warning || '#f59e0b' : COLORS.primaryText)}
+                            color={isToggled ? COLORS.textPrimary : COLORS.primaryText}
                           />
                           <Text style={[styles.recBadgeText, isToggled && styles.recBadgeTextToggled]}>
                             {displayText}
@@ -1059,7 +1139,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     <Text style={[styles.th, { width: 36, textAlign: 'center' }]}>ONAY</Text>
                     <Text style={[styles.th, { width: 28, textAlign: 'center' }]}></Text>
                   </View>
-                ) : isIsometricExercise(ex.exerciseName, ex.category) ? (
+                ) : isIsometricExerciseName(ex.exerciseName) ? (
                   <View style={styles.tableHeader}>
                     <Text style={[styles.th, { width: 28 }]}>SET</Text>
                     <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>SÜRE (SN)</Text>
@@ -1082,7 +1162,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                 {/* Sets Rows */}
                 {ex.sets.map((set, setIdx) => {
-                  const isIso = isIsometricExercise(ex.exerciseName, ex.category);
+                  const isIso = isIsometricExerciseName(ex.exerciseName);
                   const isBodyweight = ex.equipment === 'Vücut Ağırlığı' && !isCardio && !isIso;
                   const workingSetIndex = ex.sets.slice(0, setIdx + 1).filter(s => !s.isWarmup).length;
                   const displaySetNumber = set.isWarmup ? 'W' : (workingSetIndex || set.setNumber);
@@ -1091,8 +1171,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                     const mins = set.durationMinutes || 0;
                     const dist = set.distanceKm || 0;
                     const speed = mins > 0 && dist > 0 ? ((dist / mins) * 60).toFixed(1) : '-';
-                    const durRawKey = `${ex.id}_${setIdx}_durationMinutes`;
-                    const distRawKey = `${ex.id}_${setIdx}_distanceKm`;
+                    const durRawKey = `${ex.id}_${set.id}_durationMinutes`;
+                    const distRawKey = `${ex.id}_${set.id}_distanceKm`;
                     const durDisplay = rawInputMap[durRawKey] !== undefined ? rawInputMap[durRawKey] : (mins > 0 ? mins.toString() : '');
                     const distDisplay = rawInputMap[distRawKey] !== undefined ? rawInputMap[distRawKey] : (dist > 0 ? dist.toString() : '');
 
@@ -1157,7 +1237,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                   if (isIso) {
                     const secs = set.durationSeconds !== undefined ? set.durationSeconds : 60;
-                    const durRawKey = `${ex.id}_${setIdx}_durationSeconds`;
+                    const durRawKey = `${ex.id}_${set.id}_durationSeconds`;
                     const durDisplay = rawInputMap[durRawKey] !== undefined ? rawInputMap[durRawKey] : (secs > 0 ? secs.toString() : '');
                     const rirColor = getRirColor(set.rir, set.isWarmup);
                     const rirLabel = getRirLabel(set.rir, set.isWarmup);
@@ -1233,8 +1313,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
                   const rirColor = getRirColor(set.rir, set.isWarmup);
                   const rirLabel = getRirLabel(set.rir, set.isWarmup);
-                  const weightRawKey = `${ex.id}_${setIdx}_weight`;
-                  const repsRawKey = `${ex.id}_${setIdx}_reps`;
+                  const weightRawKey = `${ex.id}_${set.id}_weight`;
+                  const repsRawKey = `${ex.id}_${set.id}_reps`;
                   const weightDisplay = rawInputMap[weightRawKey] !== undefined ? rawInputMap[weightRawKey] : (set.weight > 0 ? set.weight.toString() : '');
                   const repsDisplay = rawInputMap[repsRawKey] !== undefined ? rawInputMap[repsRawKey] : (set.reps > 0 ? set.reps.toString() : '');
 
@@ -1424,7 +1504,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                 )
               : 0
           }
-          durationSeconds={elapsedSeconds}
+          durationSeconds={completionDurationSeconds}
           onConfirm={handleConfirmCompletion}
           onClose={() => setShowCompletionModal(false)}
         />
@@ -1468,7 +1548,7 @@ const createStyles = () => StyleSheet.create({
     flexShrink: 0,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: COLORS.pastel.roseBg,
     borderRadius: 6,
   },
   cancelText: {
@@ -1532,7 +1612,6 @@ const createStyles = () => StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   exCardDragging: {
     borderColor: COLORS.primary,
@@ -1547,11 +1626,6 @@ const createStyles = () => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-  },
-  dragGripBtn: {
-    paddingRight: 4,
-    paddingVertical: 2,
-    justifyContent: 'center',
   },
   exCardHeaderRight: {
     flexDirection: 'row',
@@ -1609,38 +1683,6 @@ const createStyles = () => StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: '600',
   },
-  applyRecIconBtn: {
-    height: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  applyRecIconBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.primaryText,
-    lineHeight: 14,
-  },
-  pulleyRatioBtn: {
-    height: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  pulleyRatioText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    lineHeight: 14,
-  },
   exVolumeText: {
     color: COLORS.textMuted,
     fontSize: 11,
@@ -1655,23 +1697,6 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  swapExBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 6,
-  },
-  swapExBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -1699,7 +1724,7 @@ const createStyles = () => StyleSheet.create({
     backgroundColor: COLORS.primaryGlow,
   },
   tableRowWarmup: {
-    backgroundColor: 'rgba(249, 115, 22, 0.06)',
+    backgroundColor: COLORS.pastel.amberBg,
   },
   setNumberText: {
     width: 22,
@@ -1709,7 +1734,7 @@ const createStyles = () => StyleSheet.create({
     fontSize: 12,
   },
   setNumberWarmup: {
-    color: '#F97316',
+    color: COLORS.pastel.amber,
     fontWeight: '900',
   },
   inputCell: {
@@ -1810,7 +1835,6 @@ const createStyles = () => StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 6,
     marginTop: 6,
-    ...SHADOWS.soft,
   },
   bigAddExBtnText: {
     color: COLORS.primaryText,

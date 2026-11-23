@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 
 export interface CustomAlertOptions {
   visible: boolean;
@@ -111,7 +111,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 12,
-    ...SHADOWS.medium,
   },
   iconCircle: {
     width: 52,
@@ -174,7 +173,7 @@ const createStyles = () => StyleSheet.create({
     color: COLORS.primaryText,
   },
   whiteConfirmText: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
   },
 });
 

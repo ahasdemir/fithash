@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
+import { calculateAutoregulatedE1RM } from '../utils/e1rm';
 
 interface OneRepMaxWidgetProps {
   workouts: WorkoutSession[];
@@ -22,15 +23,16 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
       if (session.completed === false) return;
       session.exercises.forEach(ex => {
         ex.sets.forEach(set => {
-          if (set.completed && set.weight > 0 && set.reps > 0) {
-            const epley1RM = Math.round(set.weight * (1 + set.reps / 30));
-            const current = exerciseMaxMap[ex.exerciseName];
+          if (set.completed && !set.isWarmup && set.weight > 0 && set.reps > 0) {
+            const estimated1RM = Math.round(calculateAutoregulatedE1RM(set.weight, set.reps, set.rir ?? 1));
+            const key = ex.exerciseName.trim().toLowerCase();
+            const current = exerciseMaxMap[key];
 
-            if (!current || epley1RM > current.max1RM) {
-              exerciseMaxMap[ex.exerciseName] = {
+            if (!current || estimated1RM > current.max1RM) {
+              exerciseMaxMap[key] = {
                 exerciseName: ex.exerciseName,
                 category: ex.category,
-                max1RM: epley1RM,
+                max1RM: estimated1RM,
                 weight: set.weight,
                 reps: set.reps,
                 date: session.date,
@@ -53,7 +55,7 @@ export const OneRepMaxWidget: React.FC<OneRepMaxWidgetProps> = ({ workouts, onSe
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.kicker}>TAHMİNİ 1RM ZİRVESİ (TÜM ZAMANLAR)</Text>
-          <Text style={styles.sub}>Epley formülü · en güçlü 5 hareket</Text>
+          <Text style={styles.sub}>RIR destekli e1RM · en güçlü 5 hareket</Text>
         </View>
         <View style={[styles.tagPill, { backgroundColor: COLORS.pastel.blueBg }]}>
           <Text style={[styles.tagText, { color: COLORS.pastel.blue }]}>e1RM</Text>
@@ -101,7 +103,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     headerRow: {
       flexDirection: 'row',
@@ -151,7 +152,7 @@ const createStyles = () =>
       gap: 2,
     },
     exName: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '700',
       color: COLORS.textPrimary,
     },
@@ -176,7 +177,7 @@ const createStyles = () =>
       fontVariant: ['tabular-nums'],
     },
     rmLabel: {
-      fontSize: 9.5,
+      fontSize: 10,
       fontWeight: '600',
       color: COLORS.textMuted,
     },

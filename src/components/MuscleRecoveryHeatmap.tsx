@@ -7,12 +7,13 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, useTheme, subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { MuscleCategory } from '../types/fitness';
 import {
   MuscleRecoveryStatus,
   MUSCLE_RECOVERY_CONFIG,
 } from '../services/muscleRecoveryService';
+import { formatVolumeShort } from '../utils/exerciseHelpers';
 
 export interface WeeklyMuscleVolume {
   sets: number;
@@ -93,6 +94,7 @@ const MuscleRowCard = React.memo(function MuscleRowCard({
   isSelected,
   onToggle,
 }: MuscleRowCardProps) {
+  useTheme();
   const tone = getPastelStatusColors(item.status);
   const target = RP_WEEKLY_SET_TARGET[cat] ?? 12;
 
@@ -141,7 +143,7 @@ const MuscleRowCard = React.memo(function MuscleRowCard({
         </Text>
         <Text style={styles.rowMetaMono} numberOfLines={1}>
           {weeklyVolume > 0
-            ? `${formatTargetHint(cat, weeklySets, target)} · ${(weeklyVolume / 1000).toFixed(1)}t`
+            ? `${formatTargetHint(cat, weeklySets, target)} · ${formatVolumeShort(weeklyVolume)}`
             : formatTargetHint(cat, weeklySets, target)}
         </Text>
       </View>
@@ -449,7 +451,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 10,
-      ...SHADOWS.soft,
     },
     focusHeader: {
       flexDirection: 'row',
@@ -540,7 +541,7 @@ const createStyles = () =>
       minWidth: 0,
     },
     muscleName: {
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: '700',
       color: COLORS.textPrimary,
     },
@@ -613,7 +614,6 @@ const createStyles = () =>
       borderWidth: 1,
       borderColor: COLORS.border,
       gap: 14,
-      ...SHADOWS.medium,
     },
     detailHeader: {
       flexDirection: 'row',
@@ -669,7 +669,7 @@ const createStyles = () =>
       fontVariant: ['tabular-nums'],
     },
     calloutSub: {
-      fontSize: 11.5,
+      fontSize: 12,
       color: COLORS.textSecondary,
       lineHeight: 16,
     },

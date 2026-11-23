@@ -211,18 +211,17 @@ export const ThemeProvider: React.FC<{
   onModeChange?: (mode: ThemeMode) => void;
   children: React.ReactNode;
 }> = ({ initialMode = 'dark', onModeChange, children }) => {
-  const [mode, setModeState] = useState<ThemeMode>(() => {
+  const [mode, setModeState] = useState<ThemeMode>(currentThemeMode);
+
+  useEffect(() => {
     if (initialMode !== currentThemeMode) {
       setThemeMode(initialMode);
     }
-    return currentThemeMode;
-  });
-
-  useEffect(() => {
+    setModeState(currentThemeMode);
     return subscribeTheme(newMode => {
       setModeState(newMode);
     });
-  }, []);
+  }, [initialMode]);
 
   const handleSetMode = useCallback(
     (nextMode: ThemeMode) => {
@@ -261,6 +260,9 @@ export const useTheme = (): ThemeContextValue => {
 
   useEffect(() => {
     if (ctx) return;
+    if (mode !== currentThemeMode) {
+      setModeState(currentThemeMode);
+    }
     return subscribeTheme(newMode => {
       setModeState(newMode);
     });
@@ -286,30 +288,3 @@ export const useTheme = (): ThemeContextValue => {
   };
 };
 
-export const SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 14,
-  lg: 20,
-  xl: 28,
-};
-
-const ZERO_SHADOW = {
-  shadowColor: 'transparent',
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0,
-  shadowRadius: 0,
-  elevation: 0,
-};
-
-/**
- * Flat zero-elevation shadows — depth is achieved strictly via 1px hairline borders
- * and surface color contrast.
- */
-export const SHADOWS = {
-  soft: ZERO_SHADOW,
-  medium: ZERO_SHADOW,
-  floatingTab: ZERO_SHADOW,
-  lime: ZERO_SHADOW,
-  floating: ZERO_SHADOW,
-};
