@@ -35,65 +35,11 @@ import {
   calculateDynamicRestSeconds,
   predictFatigueDecayReps,
   suggestBackOffWeightDrop,
-  getHypertrophyRepBracket
+  getHypertrophyRepBracket,
+  buildSetTargetPlan,
 } from '../services/progressionEngine';
 import { getAppSettings } from '../services/settings';
 
-
-/** Warm-up rows take a fraction of the working weight — they are never the working weight itself. */
-const WARMUP_RAMP = [0.5, 0.7, 0.85];
-
-interface PlannedSetTarget {
-  weight: number;
-  reps: number;
-  rir?: number;
-}
-
-/**
- * Maps a recommendation onto the sets that actually exist in the session.
- *
- * The overload engine derives its per-set targets from the previous session set-by-set, so a
- * light first set from history (an unmarked warm-up) comes back as a "target" for set 1. Warm-up
- * rows therefore get an explicit ramp off the working weight, and every working row gets the
- * working weight itself — no warm-up weight can land in a non-warm-up set.
- */
-const buildSetTargetPlan = (
-  sets: ExerciseSet[],
-  rec: SmartOverloadRecommendation | null,
-  fallbackWeight = 0
-): Record<string, PlannedSetTarget> => {
-  const plan: Record<string, PlannedSetTarget> = {};
-  if (!sets.length) return plan;
-
-  const recWeights = (rec?.setTargets || []).map(t => t.weight).filter(w => w > 0);
-  const workingWeight =
-    recWeights.length > 0 ? Math.max(...recWeights) : rec && rec.recWeight > 0 ? rec.recWeight : fallbackWeight;
-
-  let warmupIdx = 0;
-  let workingIdx = 0;
-
-  for (const set of sets) {
-    if (set.isWarmup) {
-      const pct = WARMUP_RAMP[Math.min(warmupIdx, WARMUP_RAMP.length - 1)];
-      plan[set.id] = {
-        weight: Math.round(workingWeight * pct * 2) / 2,
-        reps: set.reps || 10,
-      };
-      warmupIdx += 1;
-      continue;
-    }
-
-    const target = rec?.setTargets?.[workingIdx];
-    plan[set.id] = {
-      weight: workingWeight,
-      reps: target?.reps ?? rec?.recReps ?? set.reps,
-      rir: target?.targetRir,
-    };
-    workingIdx += 1;
-  }
-
-  return plan;
-};
 
 interface ActiveWorkoutModalProps {
   visible: boolean;
@@ -347,7 +293,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
 
       const match = past.exercises.find(e => e.exerciseId === exId || e.exerciseName.toLowerCase() === exName.toLowerCase());
       if (match) {
-        const validSets = match.sets.filter(s => s.completed && s.weight > 0);
+        const validSets = match.sets.filter(s => s.completed && !s.isWarmup && s.weight > 0);
         if (validSets.length > 0) {
           pastSessions.push(validSets);
           if (pastSessions.length >= 3) break; // Collect up to 3 past sessions for trend analysis
@@ -407,7 +353,9 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
       // If DELOAD recommendation provides a custom number of sets (e.g. 50% volume cut)
       let setsToApply = ex.sets;
       if (rec.actionType === 'DELOAD' && rec.setTargets && rec.setTargets.length > 0) {
-        setsToApply = ex.sets.slice(0, rec.setTargets.length);
+        const warmups = ex.sets.filter(s => s.isWarmup);
+        const working = ex.sets.filter(s => !s.isWarmup).slice(0, rec.setTargets.length);
+        setsToApply = [...warmups, ...working];
       }
 
       const plan = buildSetTargetPlan(setsToApply, rec);

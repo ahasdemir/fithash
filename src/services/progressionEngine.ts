@@ -293,10 +293,62 @@ export const detectPlateauAndDeload = (
  * mistake; letting it through makes the engine prescribe it again as "set 1 target".
  */
 const dropWarmupLikeSets = (sets: ExerciseSet[]): ExerciseSet[] => {
-  const valid = sets.filter(s => s.completed && s.weight > 0);
+  const valid = sets.filter(s => s.completed && !s.isWarmup && s.weight > 0);
   if (valid.length < 2) return valid;
   const topWeight = Math.max(...valid.map(s => s.weight));
   return valid.filter(s => s.weight >= topWeight * 0.65);
+};
+
+/** Warm-up rows take a fraction of the working weight — they are never the working weight itself. */
+export const WARMUP_RAMP = [0.5, 0.7, 0.85] as const;
+
+export interface PlannedSetTarget {
+  weight: number;
+  reps: number;
+  rir?: number;
+}
+
+/**
+ * Maps a recommendation onto the sets that actually exist in the session.
+ * Warm-up rows get an explicit ramp off the working weight, and every working row gets the
+ * working weight itself — no warm-up weight can land in a non-warm-up set.
+ */
+export const buildSetTargetPlan = (
+  sets: ExerciseSet[],
+  rec: SmartOverloadRecommendation | null,
+  fallbackWeight = 0
+): Record<string, PlannedSetTarget> => {
+  const plan: Record<string, PlannedSetTarget> = {};
+  if (!sets.length) return plan;
+
+  const recWeights = (rec?.setTargets || []).map(t => t.weight).filter(w => w > 0);
+  const workingWeight =
+    recWeights.length > 0 ? Math.max(...recWeights) : rec && rec.recWeight > 0 ? rec.recWeight : fallbackWeight;
+
+  let warmupIdx = 0;
+  let workingIdx = 0;
+
+  for (const set of sets) {
+    if (set.isWarmup) {
+      const pct = WARMUP_RAMP[Math.min(warmupIdx, WARMUP_RAMP.length - 1)];
+      plan[set.id] = {
+        weight: Math.round(workingWeight * pct * 2) / 2,
+        reps: set.reps || 10,
+      };
+      warmupIdx += 1;
+      continue;
+    }
+
+    const target = rec?.setTargets?.[workingIdx];
+    plan[set.id] = {
+      weight: workingWeight,
+      reps: target?.reps ?? rec?.recReps ?? set.reps,
+      rir: target?.targetRir,
+    };
+    workingIdx += 1;
+  }
+
+  return plan;
 };
 
 export const calculateSmartAutoregulatedOverload = (
