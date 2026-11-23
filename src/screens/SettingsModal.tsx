@@ -52,7 +52,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [defaultRestSeconds, setDefaultRestSeconds] = useState(90);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [defaultRir, setDefaultRir] = useState(1);
-  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
   const [healthConnectEnabled, setHealthConnectEnabled] = useState(false);
   const [isSyncingHC, setIsSyncingHC] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -84,7 +83,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDefaultRestSeconds(s.defaultRestSeconds ?? 90);
     setAutoStartRestTimer(s.autoStartRestTimer ?? true);
     setDefaultRir(s.defaultRir ?? 1);
-    setWeightUnit(s.weightUnit || 'kg');
     setHealthConnectEnabled(s.healthConnectEnabled ?? false);
   };
 
@@ -185,7 +183,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       defaultRestSeconds,
       autoStartRestTimer,
       defaultRir,
-      weightUnit,
       healthConnectEnabled,
     });
     await clearCachedAIAnalysis();
@@ -537,27 +534,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               })}
             </View>
 
-            {/* Weight Unit */}
-            <Text style={styles.label}>Ağırlık Birimi</Text>
-            <View style={styles.pillsRow}>
-              <TouchableOpacity
-                style={[styles.pillBtn, weightUnit === 'kg' && styles.pillBtnSelected]}
-                onPress={() => setWeightUnit('kg')}
-              >
-                <Text style={[styles.pillBtnText, weightUnit === 'kg' && styles.pillBtnTextSelected]}>
-                  Kilogram (KG)
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.pillBtn, weightUnit === 'lbs' && styles.pillBtnSelected]}
-                onPress={() => setWeightUnit('lbs')}
-              >
-                <Text style={[styles.pillBtnText, weightUnit === 'lbs' && styles.pillBtnTextSelected]}>
-                  Pound (LBS)
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* SAVE ALL SETTINGS BUTTON */}

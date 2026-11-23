@@ -71,9 +71,13 @@ describe('calculateAutoregulatedE1RM', () => {
     expect(calculateAutoregulatedE1RM(100, 8, 2)).toBeCloseTo(133.3333, 3);
   });
 
-  it('switches to the Lombardi model above 10 effective reps', () => {
-    // 9 reps + 2 RIR = 11 effective reps -> 100 * 11^0.1
-    expect(calculateAutoregulatedE1RM(100, 9, 2)).toBeCloseTo(127.098, 2);
+  it('uses a continuously anchored Lombardi tail above 10 effective reps (no drop at 10 -> 11)', () => {
+    // 9 reps + 2 RIR = 11 effective reps -> 100 * (4/3) * (11/10)^0.10 ≈ 134.61
+    expect(calculateAutoregulatedE1RM(100, 9, 2)).toBeCloseTo(134.61, 2);
+    // Regression check: 70 kg x 10 @ RIR 1 (11 eff) must be > 70 kg x 9 @ RIR 1 (10 eff)
+    expect(calculateAutoregulatedE1RM(70, 10, 1)).toBeGreaterThan(
+      calculateAutoregulatedE1RM(70, 9, 1)
+    );
   });
 
   it('clamps RIR into the 0..5 range', () => {
@@ -90,12 +94,13 @@ describe('calculateAutoregulatedE1RM', () => {
     expect(calculateAutoregulatedE1RM(100, -3, 1)).toBe(0);
   });
 
-  it('is monotonic in reps at a fixed weight', () => {
-    const e1rm5 = calculateAutoregulatedE1RM(100, 5, 1);
-    const e1rm6 = calculateAutoregulatedE1RM(100, 6, 1);
-    const e1rm7 = calculateAutoregulatedE1RM(100, 7, 1);
-    expect(e1rm5).toBeLessThan(e1rm6);
-    expect(e1rm6).toBeLessThan(e1rm7);
+  it('is strictly monotonic in reps across the full 1..30 rep range at a fixed weight', () => {
+    let prev = calculateAutoregulatedE1RM(100, 1, 1);
+    for (let reps = 2; reps <= 30; reps++) {
+      const next = calculateAutoregulatedE1RM(100, reps, 1);
+      expect(next).toBeGreaterThan(prev);
+      prev = next;
+    }
   });
 });
 
@@ -116,26 +121,39 @@ describe('getHypertrophyRepBracket', () => {
     expect(bracket.maxReps).toBe(8);
   });
 
-  it('matches the first branch: incline barbell bench press stays in 5-8', () => {
-    // "incline press" literal never matches "Incline Barbell Bench Press",
-    // so the squat/bench/deadlift branch wins first.
+  it('routes incline barbell bench press to the 6-10 moderate free-weight bracket', () => {
     const bracket = getHypertrophyRepBracket('Incline Barbell Bench Press', 'Barbell', 'Göğüs');
-    expect(bracket.minReps).toBe(5);
-    expect(bracket.maxReps).toBe(8);
+    expect(bracket.minReps).toBe(6);
+    expect(bracket.maxReps).toBe(10);
   });
 
-  it('routes romanian deadlifts and barbell rows to the 6-10 bracket', () => {
-    // Hyphenated "Bent-Over" misses the "bent over" literal but "barbell row" still matches.
+  it('routes romanian deadlifts and barbell rows to the 6-10 bracket without deadlift shadowing', () => {
     const row = getHypertrophyRepBracket('Bent-Over Barbell Row', 'Barbell', 'Sırt');
     expect(row.minReps).toBe(6);
     expect(row.maxReps).toBe(10);
 
-    // Documented quirk: the heavy-compound branch matches on the bare
-    // "deadlift" name literal with NO romanian exclusion, so barbell RDLs land
-    // in 5-8 before the 6-10 "romanian" case can ever match.
     const rdl = getHypertrophyRepBracket('Romanian Deadlift (RDL)', 'Barbell', 'Bacak');
-    expect(rdl.minReps).toBe(5);
-    expect(rdl.maxReps).toBe(8);
+    expect(rdl.minReps).toBe(6);
+    expect(rdl.maxReps).toBe(10);
+
+    const dl = getHypertrophyRepBracket('Barbell Deadlift', 'Barbell', 'Sırt');
+    expect(dl.minReps).toBe(5);
+    expect(dl.maxReps).toBe(8);
+  });
+
+  it('routes machine and cable isolations to 10-15 rather than machine/cable compounds', () => {
+    expect(getHypertrophyRepBracket('Leg Extension', 'Makine', 'Bacak')).toMatchObject({
+      minReps: 10,
+      maxReps: 15,
+    });
+    expect(getHypertrophyRepBracket('Fly Machine', 'Makine', 'Göğüs')).toMatchObject({
+      minReps: 10,
+      maxReps: 15,
+    });
+    expect(getHypertrophyRepBracket('Rope Pushdown', 'Kablo', 'Arka Kol')).toMatchObject({
+      minReps: 10,
+      maxReps: 15,
+    });
   });
 
   it('routes machines and cables to the 8-12 bracket', () => {
@@ -537,19 +555,45 @@ describe('getBiomechanicalProfile', () => {
     expect(incline.stimulusMultiplier).toBe(1.25);
   });
 
-  it('profiles lengthened-biased isolations at index 0', () => {
+  it('profiles lengthened-biased isolations (including dumbbell/barbell) at index 0', () => {
     const curl = getBiomechanicalProfile('Seated Leg Curl', 'Makine', 'Bacak');
     expect(curl.axialLoadingIndex).toBe(0);
     expect(curl.resistanceProfile).toBe('LENGTHENED');
     expect(curl.stimulusMultiplier).toBe(1.35);
     expect(curl.standardRestSeconds).toBe(90);
+
+    const inclineCurl = getBiomechanicalProfile('Incline Dumbbell Curl', 'Dumbbell', 'Ön Kol');
+    expect(inclineCurl.axialLoadingIndex).toBe(0);
+    expect(inclineCurl.resistanceProfile).toBe('LENGTHENED');
+    expect(inclineCurl.stimulusMultiplier).toBe(1.35);
+
+    const flye = getBiomechanicalProfile('Dumbbell Flye', 'Dumbbell', 'Göğüs');
+    expect(flye.axialLoadingIndex).toBe(0);
+    expect(flye.resistanceProfile).toBe('LENGTHENED');
+
+    const ohExt = getBiomechanicalProfile('Overhead Dumbbell Triceps Extension', 'Dumbbell', 'Arka Kol');
+    expect(ohExt.axialLoadingIndex).toBe(0);
+    expect(ohExt.resistanceProfile).toBe('LENGTHENED');
   });
 
-  it('profiles shortened-biased isolations', () => {
+  it('profiles shortened-biased isolations (including Barbell Hip Thrust and shrugs) at index 0', () => {
     const deck = getBiomechanicalProfile('Pec Deck', 'Makine', 'Göğüs');
     expect(deck.resistanceProfile).toBe('SHORTENED');
     expect(deck.stimulusMultiplier).toBe(1.05);
     expect(deck.standardRestSeconds).toBe(60);
+
+    const hipThrust = getBiomechanicalProfile('Barbell Hip Thrust', 'Barbell', 'Bacak');
+    expect(hipThrust.axialLoadingIndex).toBe(0);
+    expect(hipThrust.resistanceProfile).toBe('SHORTENED');
+    expect(hipThrust.stimulusMultiplier).toBe(1.05);
+
+    const frontSquat = getBiomechanicalProfile('Barbell Front Squat', 'Barbell', 'Bacak');
+    expect(frontSquat.axialLoadingIndex).toBe(2);
+    expect(frontSquat.stimulusMultiplier).toBe(1.40);
+
+    const bbCurl = getBiomechanicalProfile('Barbell Curl', 'Barbell', 'Ön Kol');
+    expect(bbCurl.axialLoadingIndex).toBe(0);
+    expect(bbCurl.resistanceProfile).toBe('UNIFORM');
   });
 
   it('falls back to a uniform peripheral profile with category-tuned rest', () => {

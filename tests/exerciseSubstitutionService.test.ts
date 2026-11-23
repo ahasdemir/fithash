@@ -2,12 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { getExerciseSubstitutes } from '../src/services/exerciseSubstitutionService';
 import { Exercise } from '../src/types/fitness';
 
-// NOTE on hand-derived expectations: getBiomechanicalProfile branch C ends with
-// a `(barbell || dumbbell)` equipment catch-all, so ANY dumbbell/barbell lift is
-// profiled as axial-1 "compound" before the lengthened-isolation branch D can
-// match (e.g. "Dumbbell Flye" -> axial 1, UNIFORM). Lengthened isolations are
-// only reachable via cable/machine/bodyweight names ("fly", "pullover", ...).
-
 const göğüsPool: Exercise[] = [
   { id: 'src', name: 'Incline Dumbbell Press', category: 'Göğüs', equipment: 'Dumbbell' },
   { id: 'e1', name: 'Dumbbell Flye', category: 'Göğüs', equipment: 'Dumbbell', targetMuscle: 'Göğüs İzolasyon' },
@@ -19,7 +13,7 @@ const göğüsPool: Exercise[] = [
   { id: 'e4', name: 'Barbell Back Squat', category: 'Bacak', equipment: 'Barbell' },
 ];
 
-// Source: Incline Dumbbell Press -> C branch (dumbbell + "incline") ->
+// Source: Incline Dumbbell Press -> low-axial compound (dumbbell + "incline") ->
 // axial 1, LENGTHENED profile.
 const inclineSource = {
   id: 'src',
@@ -40,24 +34,29 @@ describe('getExerciseSubstitutes', () => {
 
   it('scores profile, axial and equipment overlap and orders best-first', () => {
     const result = getExerciseSubstitutes(inclineSource, göğüsPool);
-    // Best match: Cable Crossover (lengthened profile match +20, lower axial +10)
-    const crossover = result[0];
+
+    // Best match: Dumbbell Flye (lengthened profile match +20, lower axial 0 < 1 -> +10,
+    // same equipment Dumbbell -> +10) = 90.
+    const flye = result[0];
+    expect(flye.exercise.id).toBe('e1');
+    expect(flye.matchScore).toBe(90);
+    expect(flye.axialRating).toBe(0);
+    expect(flye.resistanceProfile).toBe('LENGTHENED');
+    expect(flye.stretchBiasScore).toBe(1.35);
+    expect(flye.matchReason).toContain('Direnç profili eşleşiyor: LENGTHENED');
+    expect(flye.matchReason).toContain('Daha düşük omurga/aksiyel yük (A:0 vs A:1)');
+    expect(flye.matchReason).toContain('Aynı ekipman: Dumbbell');
+
+    // Second: Cable Crossover / Fly (lengthened profile match +20, lower axial +10) = 80.
+    const crossover = result[1];
     expect(crossover.exercise.id).toBe('e2');
     expect(crossover.matchScore).toBe(80);
     expect(crossover.axialRating).toBe(0);
     expect(crossover.resistanceProfile).toBe('LENGTHENED');
     expect(crossover.stretchBiasScore).toBe(1.35);
     expect(crossover.recommendedStartingWeight).toBe(30); // same leverage class, 2.5-rounded
-    expect(crossover.matchReason).toContain('Direnç profili eşleşiyor: LENGTHENED');
-    expect(crossover.matchReason).toContain('Daha düşük omurga/aksiyel yük (A:0 vs A:1)');
 
-    // Dumbbell Flye: equipment match +10, equal axial +5, profile partial credit +5 -> 70.
-    const flye = result[1];
-    expect(flye.exercise.id).toBe('e1');
-    expect(flye.matchScore).toBe(70);
-    expect(flye.matchReason).toContain('Aynı ekipman: Dumbbell');
-
-    // Barbell Bench Press: profile partial credit +5, equal axial +5 -> 60.
+    // Third: Barbell Bench Press (profile partial credit +5, equal axial +5) = 60.
     const bench = result[2];
     expect(bench.exercise.id).toBe('e3');
     expect(bench.matchScore).toBe(60);
@@ -112,8 +111,10 @@ describe('getExerciseSubstitutes', () => {
       { id: 'e1', name: 'Dumbbell Flye', category: 'Göğüs', equipment: 'Dumbbell', targetMuscle: 'Göğüs İzolasyon' },
     ];
     const [flye] = getExerciseSubstitutes(source, candidates);
-    // base 50 + target muscle 20 + uniform profile match 20 + equal axial 5 = 95
-    expect(flye.matchScore).toBe(95);
+    // base 50 + target muscle 20 + profile 0 (UNIFORM vs LENGTHENED) + lower axial 10 (0 < 1) = 80
+    expect(flye.matchScore).toBe(80);
+    expect(flye.axialRating).toBe(0);
+    expect(flye.resistanceProfile).toBe('LENGTHENED');
     // barbell -> dumbbell is 0.42; source axial is 1 so no extra axial deload:
     // round(100 * 0.42 / 2.5) * 2.5 = 42.5
     expect(flye.recommendedStartingWeight).toBe(42.5);

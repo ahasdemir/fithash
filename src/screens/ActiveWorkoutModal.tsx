@@ -131,9 +131,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
   const lastRecTapTimeRef = useRef<Record<string, number>>({});
   const skipNextRestSyncRef = useRef(false);
 
-  const [userSettings, setUserSettings] = useState<{ defaultRestSeconds: number; autoStartRestTimer: boolean }>({
+  const [userSettings, setUserSettings] = useState<{
+    defaultRestSeconds: number;
+    autoStartRestTimer: boolean;
+    defaultRir: number;
+  }>({
     defaultRestSeconds: 90,
     autoStartRestTimer: true,
+    defaultRir: 1,
   });
 
   const restoredTimerRef = useRef(false);
@@ -155,6 +160,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         setUserSettings({
           defaultRestSeconds: s.defaultRestSeconds ?? 90,
           autoStartRestTimer: s.autoStartRestTimer ?? true,
+          defaultRir: s.defaultRir ?? 1,
         });
       });
     }
@@ -409,7 +415,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           ...s,
           weight: planned ? planned.weight : s.weight,
           reps: planned ? planned.reps : s.reps,
-          rir: s.isWarmup ? s.rir : planned?.rir ?? s.rir ?? 1,
+          rir: s.isWarmup ? s.rir : planned?.rir ?? s.rir ?? userSettings.defaultRir,
         };
       });
       return { ...ex, sets: copySets };
@@ -438,7 +444,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
           setNumber: 1,
           weight: isCardio || isIso ? 0 : defaultWeight,
           reps: isCardio || isIso ? 0 : 10,
-          rir: isCardio ? undefined : 1,
+          rir: isCardio ? undefined : userSettings.defaultRir,
           durationSeconds: isIso ? 60 : undefined,
           durationMinutes: isCardio ? 15 : undefined,
           distanceKm: isCardio ? 2.5 : undefined,
@@ -682,7 +688,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         weight: lastSet ? lastSet.weight : 0,
         reps: lastSet ? lastSet.reps : (isIsometric ? 0 : 10),
         isWarmup: false,
-        rir: lastSet && !lastSet.isWarmup ? lastSet.rir : 1,
+        rir: isCardio ? undefined : (lastSet && !lastSet.isWarmup && lastSet.rir !== undefined ? lastSet.rir : userSettings.defaultRir),
         durationSeconds: lastSet?.durationSeconds ?? (isIsometric ? 60 : undefined),
         durationMinutes: lastSet?.durationMinutes ?? (isCardio ? 15 : undefined),
         distanceKm: lastSet?.distanceKm ?? (isCardio ? 2.5 : undefined),

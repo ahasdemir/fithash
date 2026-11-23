@@ -9,7 +9,9 @@ import {
   insertRecords,
   readRecords,
   ExerciseType,
+  RecordingMethod,
   Permission,
+  Metadata,
 } from 'react-native-health-connect';
 import { WorkoutSession, HealthDataSummary } from '../types/fitness';
 
@@ -25,6 +27,34 @@ const REQUIRED_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'Steps' },
   { accessType: 'write', recordType: 'Steps' },
 ];
+
+type HealthConnectRecordSuffix =
+  | 'exercise_session'
+  | 'active_calories'
+  | 'total_calories'
+  | 'distance';
+
+/**
+ * Deterministic Health Connect metadata for deduplicating / upserting records
+ * across repeated single-session and batch syncs.
+ */
+export const buildHealthConnectMetadata = (
+  session: WorkoutSession,
+  suffix: HealthConnectRecordSuffix,
+  startTimeMs: number,
+  endTimeMs: number,
+  clientRecordVersion: number = Date.now()
+): Metadata => {
+  const stableSessionKey = session.id?.trim()
+    ? session.id.trim()
+    : `${session.date || 'unknown'}:${startTimeMs}:${endTimeMs}`;
+
+  return {
+    clientRecordId: `fithash:${stableSessionKey}:${suffix}`,
+    clientRecordVersion,
+    recordingMethod: RecordingMethod.RECORDING_METHOD_ACTIVELY_RECORDED,
+  };
+};
 
 /**
  * Health Connect SDK'sını başlatır.
@@ -172,6 +202,7 @@ export const getHealthConnectExerciseType = (session: WorkoutSession): number =>
 
 /**
  * Tamamlanan bir antrenman oturumunu, yakılan kaloriyi ve kardiyo mesafesini Health Connect'e kaydeder.
+ * Deterministik `metadata.clientRecordId` kullanarak tekrarlanan senkronizasyonlarda çift kayıt oluşmasını önler.
  */
 export const syncWorkoutToHealthConnect = async (
   session: WorkoutSession
@@ -192,6 +223,7 @@ export const syncWorkoutToHealthConnect = async (
 
     const startIso = new Date(startTimeMs).toISOString();
     const endIso = new Date(endTimeMs).toISOString();
+    const syncVersion = Date.now();
 
     const exerciseType = getHealthConnectExerciseType(session);
 
@@ -220,6 +252,13 @@ export const syncWorkoutToHealthConnect = async (
           exerciseType,
           title: session.name || 'Antrenman',
           notes: notesStr,
+          metadata: buildHealthConnectMetadata(
+            session,
+            'exercise_session',
+            startTimeMs,
+            endTimeMs,
+            syncVersion
+          ),
         },
       ]);
       syncedAny = true;
@@ -246,6 +285,13 @@ export const syncWorkoutToHealthConnect = async (
               value: caloriesToSync,
               unit: 'kilocalories',
             },
+            metadata: buildHealthConnectMetadata(
+              session,
+              'active_calories',
+              startTimeMs,
+              endTimeMs,
+              syncVersion
+            ),
           },
         ]);
         syncedAny = true;
@@ -264,6 +310,13 @@ export const syncWorkoutToHealthConnect = async (
               value: caloriesToSync,
               unit: 'kilocalories',
             },
+            metadata: buildHealthConnectMetadata(
+              session,
+              'total_calories',
+              startTimeMs,
+              endTimeMs,
+              syncVersion
+            ),
           },
         ]);
       } catch (err) {
@@ -283,6 +336,13 @@ export const syncWorkoutToHealthConnect = async (
               value: session.totalCardioDistanceKm * 1000, // metre cinsinden
               unit: 'meters',
             },
+            metadata: buildHealthConnectMetadata(
+              session,
+              'distance',
+              startTimeMs,
+              endTimeMs,
+              syncVersion
+            ),
           },
         ]);
         syncedAny = true;
@@ -301,6 +361,7 @@ export const syncWorkoutToHealthConnect = async (
 
 /**
  * Tüm geçmiş antrenmanları toplu olarak Health Connect'e aktarır.
+ * Her oturum deterministik `clientRecordId` ile yazıldığından tekrarlanan toplu aktarımlarda çift kayıt oluşmaz.
  */
 export const syncAllWorkoutsToHealthConnect = async (
   workouts: WorkoutSession[]
@@ -309,6 +370,7 @@ export const syncAllWorkoutsToHealthConnect = async (
   let failed = 0;
 
   for (const session of workouts) {
+    if (session.completed === false) continue;
     const res = await syncWorkoutToHealthConnect(session);
     if (res) {
       success++;
@@ -406,4 +468,3 @@ export const readTodayHealthData = async (): Promise<HealthDataSummary | null> =
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   return readHealthConnectData(startOfDay, now);
 };
-

@@ -57,11 +57,14 @@ export const getHypertrophyRepBracket = (
   // 1. High-Metabolic / Micro-Load / Delts / Calves / Abs (12 - 20 Reps)
   if (
     name.includes('lateral raise') ||
+    name.includes('front raise') ||
     name.includes('yan omuz') ||
     name.includes('rear delt') ||
     name.includes('face pull') ||
+    name.includes('upright row') ||
     name.includes('calf') ||
     name.includes('kalf') ||
+    name.includes('tibialis') ||
     name.includes('shrug') ||
     name.includes('crunch') ||
     name.includes('leg raise') ||
@@ -72,32 +75,74 @@ export const getHypertrophyRepBracket = (
     return { minReps: 12, maxReps: 20, archetype: 'Metabolik & İzolasyon (12-20 Reps)' };
   }
 
-  // 2. Heavy Multi-Joint Free Weight Compounds (5 - 8 Reps for Squat/Deadlift/Bench, 6 - 10 for other free weights)
+  // 2. Standard Hypertrophy Isolations (checked BEFORE equipment-wide compound catch-alls so
+  //    machine/cable/barbell/dumbbell isolations like Leg Extension, Fly Machine, Rope Pushdown,
+  //    Incline Dumbbell Curl, Dumbbell Flye, or Triceps Press MCH never fall into 8-12 compounds)
   if (
-    (eq.includes('barbell') || eq.includes('serbest') || eq.includes('plate')) &&
-    (name.includes('deadlift') ||
-     name.includes('squat') ||
+    name.includes('curl') ||
+    name.includes('extension') ||
+    name.includes('pushdown') ||
+    name.includes('kickback') ||
+    name.includes('skullcrusher') ||
+    name.includes('fly') ||
+    name.includes('pec deck') ||
+    name.includes('crossover') ||
+    name.includes('pullover') ||
+    name.includes('straight-arm') ||
+    name.includes('straight arm') ||
+    name.includes('sissy squat') ||
+    name.includes('triceps press') ||
+    name.includes('abductor') ||
+    name.includes('adductor')
+  ) {
+    return { minReps: 10, maxReps: 15, archetype: 'Hipertrofi İzolasyonu (10-15 Reps)' };
+  }
+
+  const isFreeWeightBarbell =
+    eq.includes('barbell') || eq.includes('serbest') || eq.includes('plate');
+
+  // 3a. Moderate Multi-Joint Free-Weight Compounds (6 - 10 Reps)
+  // Checked BEFORE heavy SBD so Romanian Deadlift (RDL), Incline Barbell Bench Press,
+  // Front Squat, and Barbell Rows aren't shadowed by bare "deadlift" / "squat" / "bench press".
+  if (
+    isFreeWeightBarbell &&
+    (name.includes('romanian') ||
+     name.includes('rdl') ||
+     name.includes('stiff-leg') ||
+     name.includes('stiff leg') ||
+     name.includes('barbell row') ||
+     name.includes('bent-over') ||
+     name.includes('bent over') ||
+     name.includes('t-bar') ||
+     name.includes('incline') ||
+     name.includes('front squat') ||
+     name.includes('close-grip') ||
+     name.includes('close grip'))
+  ) {
+    return { minReps: 6, maxReps: 10, archetype: 'Ağır Serbest Bileşik (6-10 Reps)' };
+  }
+
+  // 3b. Heavy Multi-Joint Free-Weight Compounds (5 - 8 Reps for primary SBD / OHP)
+  if (
+    isFreeWeightBarbell &&
+    ((name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl')) ||
+     (name.includes('squat') && !name.includes('split') && !name.includes('goblet') && !name.includes('front') && !name.includes('sissy')) ||
      name.includes('bench press') ||
      name.includes('overhead press') ||
+     name.includes('overhead barbell press') ||
      name.includes('military'))
   ) {
     return { minReps: 5, maxReps: 8, archetype: 'Ağır Serbest Bileşik (5-8 Reps)' };
   }
 
-  if (
-    (eq.includes('barbell') || eq.includes('serbest') || eq.includes('plate')) &&
-    (name.includes('barbell row') ||
-     name.includes('bent over') ||
-     name.includes('incline press') ||
-     name.includes('romanian'))
-  ) {
-    return { minReps: 6, maxReps: 10, archetype: 'Ağır Serbest Bileşik (6-10 Reps)' };
-  }
-
-  // 3. Machine & Cable Multi-Joint Compounds (8 - 12 Reps)
+  // 4. Machine & Cable Multi-Joint Compounds (8 - 12 Reps)
   if (
     name.includes('press') ||
     name.includes('pulldown') ||
+    name.includes('pull-up') ||
+    name.includes('pullup') ||
+    name.includes('chin-up') ||
+    name.includes('chinup') ||
     name.includes('row') ||
     name.includes('hack') ||
     name.includes('leg press') ||
@@ -110,18 +155,8 @@ export const getHypertrophyRepBracket = (
     return { minReps: 8, maxReps: 12, archetype: 'Makine & Kablo Bileşik (8-12 Reps)' };
   }
 
-  // 4. Standard Hypertrophy Isolations (Arms, Quads, Hamstrings, Chest Flies) (10 - 15 Reps)
-  if (
-    name.includes('curl') ||
-    name.includes('extension') ||
-    name.includes('pushdown') ||
-    name.includes('fly') ||
-    name.includes('pec deck') ||
-    name.includes('abductor') ||
-    name.includes('adductor') ||
-    cat.includes('ön kol') ||
-    cat.includes('arka kol')
-  ) {
+  // 5. Remaining arm-category isolations (10 - 15 Reps)
+  if (cat.includes('ön kol') || cat.includes('arka kol')) {
     return { minReps: 10, maxReps: 15, archetype: 'Hipertrofi İzolasyonu (10-15 Reps)' };
   }
 
@@ -806,11 +841,24 @@ export const getBiomechanicalProfile = (
   // A. High Axial Free-Weight Compounds (Ai = 3)
   // Conventional/Sumo Deadlift, Back Squat, Good Mornings, Standing OHP, Barbell Bent-over Row
   if (
-    name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl') ||
-    (name.includes('squat') && !name.includes('split') && !name.includes('hack') && !name.includes('pendulum') && !name.includes('belt') && !name.includes('goblet') && !name.includes('sissy') && !name.includes('v-squat')) ||
+    (name.includes('deadlift') && !name.includes('romanian') && !name.includes('rdl')) ||
+    (name.includes('squat') &&
+      !name.includes('front') &&
+      !name.includes('split') &&
+      !name.includes('hack') &&
+      !name.includes('pendulum') &&
+      !name.includes('belt') &&
+      !name.includes('goblet') &&
+      !name.includes('sissy') &&
+      !name.includes('v-squat') &&
+      !name.includes('calf')) ||
     name.includes('good morning') ||
-    (name.includes('overhead') && eq.includes('barbell') && !name.includes('seated')) ||
-    (name.includes('bent-over') || name.includes('bent over')) && eq.includes('barbell')
+    (name.includes('overhead') &&
+      eq.includes('barbell') &&
+      !name.includes('seated') &&
+      !name.includes('triceps') &&
+      !name.includes('extension')) ||
+    ((name.includes('bent-over') || name.includes('bent over')) && eq.includes('barbell'))
   ) {
     return {
       axialLoadingIndex: 3,
@@ -840,42 +888,13 @@ export const getBiomechanicalProfile = (
     };
   }
 
-  // C. Low Axial / Non-Spinal Compound (Ai = 1)
-  // Leg Press, Hack Squat, Chest-Supported T-Bar Row, Seated DB OHP, Bench Press, Dips, Pulldowns
-  if (
-    name.includes('leg press') ||
-    name.includes('hack squat') ||
-    name.includes('pendulum') ||
-    name.includes('belt squat') ||
-    name.includes('t-bar') ||
-    name.includes('bench press') ||
-    name.includes('chest press') ||
-    name.includes('pulldown') ||
-    name.includes('pull-up') ||
-    name.includes('pullup') ||
-    name.includes('chin-up') ||
-    name.includes('chinup') ||
-    name.includes('dip') ||
-    name.includes('seated row') ||
-    name.includes('row') ||
-    (eq.includes('barbell') || eq.includes('dumbbell'))
-  ) {
-    const isLengthened = name.includes('incline') || name.includes('camber') || name.includes('deficit');
-    return {
-      axialLoadingIndex: 1,
-      resistanceProfile: isLengthened ? 'LENGTHENED' : 'UNIFORM',
-      stimulusMultiplier: isLengthened ? 1.25 : 1.15,
-      decayConstantLambda: 0.060,
-      standardRestSeconds: 120,
-    };
-  }
-
-  // D. Lengthened-Biased Pure Isolations (Ai = 0)
-  // Seated Leg Curl, Incline DB Curl, Overhead Triceps Extension, Bayesian Curl, Deep Flyes
+  // C1. Lengthened-Biased Pure Isolations (Ai = 0)
+  // Checked BEFORE low-axial compounds so Barbell/Dumbbell isolations (Incline Dumbbell Curl,
+  // Dumbbell Flye, Dumbbell Pullover, Overhead Dumbbell Triceps Extension) aren't shadowed.
   if (
     name.includes('seated leg curl') ||
-    name.includes('incline') && name.includes('curl') ||
-    name.includes('overhead') && (name.includes('triceps') || name.includes('extension')) ||
+    (name.includes('incline') && name.includes('curl')) ||
+    (name.includes('overhead') && (name.includes('triceps') || name.includes('extension'))) ||
     name.includes('bayesian') ||
     name.includes('fly') ||
     name.includes('pullover')
@@ -889,8 +908,8 @@ export const getBiomechanicalProfile = (
     };
   }
 
-  // E. Shortened-Biased Isolations (Ai = 0)
-  // Pec Deck peak, Cable Kickback, Hip Thrust lockout, Standing Calf Raise top
+  // C2. Shortened-Biased Isolations / Lockout-Dominant Moves (Ai = 0)
+  // Pec Deck peak, Cable Kickback, Barbell Hip Thrust lockout, Shrugs, Abductor/Adductor
   if (
     name.includes('pec deck') ||
     name.includes('kickback') ||
@@ -905,6 +924,60 @@ export const getBiomechanicalProfile = (
       stimulusMultiplier: 1.05,
       decayConstantLambda: 0.040,
       standardRestSeconds: 60,
+    };
+  }
+
+  const isPeripheralIsolationName =
+    name.includes('curl') ||
+    name.includes('extension') ||
+    name.includes('pushdown') ||
+    name.includes('skullcrusher') ||
+    name.includes('lateral raise') ||
+    name.includes('front raise') ||
+    name.includes('rear delt') ||
+    name.includes('face pull') ||
+    name.includes('upright row') ||
+    name.includes('straight-arm') ||
+    name.includes('straight arm') ||
+    name.includes('calf') ||
+    name.includes('kalf') ||
+    name.includes('crunch') ||
+    name.includes('sissy') ||
+    name.includes('triceps press') ||
+    name.includes('wrist') ||
+    name.includes('forearm');
+
+  // D. Low Axial / Non-Spinal Compounds (Ai = 1)
+  // Leg Press, Hack Squat, Chest-Supported T-Bar Row, Seated DB OHP, Bench Press, Dips, Pulldowns
+  if (
+    !isPeripheralIsolationName &&
+    (name.includes('leg press') ||
+      name.includes('hack squat') ||
+      name.includes('pendulum') ||
+      name.includes('belt squat') ||
+      name.includes('v-squat') ||
+      name.includes('t-bar') ||
+      name.includes('bench press') ||
+      name.includes('chest press') ||
+      name.includes('press') ||
+      name.includes('pulldown') ||
+      name.includes('pull-up') ||
+      name.includes('pullup') ||
+      name.includes('chin-up') ||
+      name.includes('chinup') ||
+      name.includes('dip') ||
+      name.includes('seated row') ||
+      name.includes('row') ||
+      eq.includes('barbell') ||
+      eq.includes('dumbbell'))
+  ) {
+    const isLengthened = name.includes('incline') || name.includes('camber') || name.includes('deficit');
+    return {
+      axialLoadingIndex: 1,
+      resistanceProfile: isLengthened ? 'LENGTHENED' : 'UNIFORM',
+      stimulusMultiplier: isLengthened ? 1.25 : 1.15,
+      decayConstantLambda: 0.060,
+      standardRestSeconds: 120,
     };
   }
 

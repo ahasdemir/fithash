@@ -17,7 +17,8 @@ export interface AppSettings {
   defaultRestSeconds: number; // e.g. 30, 60, 90, 120, 180
   autoStartRestTimer: boolean;
   defaultRir: number; // 0, 1, 2, 3
-  weightUnit: 'kg' | 'lbs';
+  /** @deprecated App is metric-only (kg). Kept optional for older backup compatibility. */
+  weightUnit?: 'kg' | 'lbs';
   healthConnectEnabled: boolean;
   workoutDays: number[]; // e.g. [1, 2, 3, 4]
   weeklyTargetHistory?: Record<string, number>; // 'YYYY-MM-DD' (Monday of week) -> target days (1-7)

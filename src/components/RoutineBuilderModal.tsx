@@ -17,6 +17,7 @@ import { ExerciseSwapModal } from './ExerciseSwapModal';
 import { CustomAlertModal, CustomAlertOptions } from './CustomAlertModal';
 import { DraggableList, DragGripHandle } from './DraggableList';
 import { getExercises } from '../services/storage';
+import { getAppSettings } from '../services/settings';
 
 interface RoutineBuilderModalProps {
   visible: boolean;
@@ -42,10 +43,12 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
   const [allAvailableExercises, setAllAvailableExercises] = useState<Exercise[]>([]);
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
   const [isDraggingExercise, setIsDraggingExercise] = useState(false);
+  const [defaultRir, setDefaultRir] = useState(1);
 
   useEffect(() => {
     if (visible) {
       getExercises().then(data => setAllAvailableExercises(data));
+      getAppSettings().then(s => setDefaultRir(s.defaultRir ?? 1));
     }
   }, [visible]);
 
@@ -110,7 +113,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
       targetReps: isCardio ? 1 : 10,
       targetDurationMinutes: isCardio ? 15 : undefined,
       targetDistanceKm: isCardio ? 2.5 : undefined,
-      targetRir: isCardio ? undefined : 1,
+      targetRir: isCardio ? undefined : defaultRir,
     };
     setSelectedExercises(prev => [...prev, newRoutineEx]);
   };
@@ -171,7 +174,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
         targetWeight: recommendedWeight > 0 ? recommendedWeight : old.targetWeight,
         targetSets: isCardio ? 1 : old.targetSets,
         targetReps: isCardio ? 1 : old.targetReps,
-        targetRir: isCardio ? undefined : old.targetRir ?? 1,
+        targetRir: isCardio ? undefined : old.targetRir ?? defaultRir,
       };
       return copy;
     });
@@ -459,7 +462,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                             >
                               <Ionicons name="remove" size={12} color={COLORS.primaryText} />
                             </TouchableOpacity>
-                            <Text style={styles.counterValue}>{ex.targetRir ?? 1}</Text>
+                            <Text style={styles.counterValue}>{ex.targetRir ?? defaultRir}</Text>
                             <TouchableOpacity
                               style={styles.counterBtn}
                               onPress={() => handleUpdateTarget(index, 'targetRir', 1)}
@@ -554,7 +557,7 @@ export const RoutineBuilderModal: React.FC<RoutineBuilderModalProps> = ({
                             >
                               <Ionicons name="remove" size={12} color={COLORS.primaryText} />
                             </TouchableOpacity>
-                            <Text style={styles.counterValue}>{ex.targetRir ?? 1}</Text>
+                            <Text style={styles.counterValue}>{ex.targetRir ?? defaultRir}</Text>
                             <TouchableOpacity
                               style={styles.counterBtn}
                               onPress={() => handleUpdateTarget(index, 'targetRir', 1)}

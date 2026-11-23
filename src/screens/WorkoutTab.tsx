@@ -14,6 +14,7 @@ import { Routine, WorkoutSession } from '../types/fitness';
 import { RoutineBuilderModal } from '../components/RoutineBuilderModal';
 import { DraggableList, DragGripHandle } from '../components/DraggableList';
 import { getLocalDateString } from '../services/storage';
+import { getAppSettings } from '../services/settings';
 import { isIsometricExerciseName } from '../utils/exerciseHelpers';
 
 interface WorkoutTabProps {
@@ -65,7 +66,9 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
     onStartSession(session);
   };
 
-  const handleStartRoutine = (routine: Routine) => {
+  const handleStartRoutine = async (routine: Routine) => {
+    const settings = await getAppSettings();
+    const defaultRir = settings.defaultRir ?? 1;
     const now = Date.now();
     const exercises = routine.exercises.map((rEx, idx) => {
       const isCardio = rEx.category === 'Kardiyo';
@@ -92,7 +95,7 @@ export const WorkoutTab: React.FC<WorkoutTabProps> = ({
         setNumber: i + 1,
         weight: rEx.targetWeight || 0,
         reps: isCardio || isIso ? 0 : rEx.targetReps || 10,
-        rir: isCardio ? undefined : rEx.targetRir ?? 1,
+        rir: isCardio ? undefined : rEx.targetRir ?? defaultRir,
         isWarmup: false,
         durationSeconds: isIso ? rEx.targetDurationSeconds || 60 : undefined,
         durationMinutes: isCardio ? rEx.targetDurationMinutes || 15 : undefined,
