@@ -1,4 +1,4 @@
-import React, { useState , useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { calculateStreakDays, getMondayOfWeek, getLocalDateString } from '../services/storage';
 
@@ -42,7 +42,9 @@ export const StreakModal: React.FC<StreakModalProps> = ({
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
   const [customAlert, setCustomAlert] = useState<CustomAlertOptions | null>(null);
 
-  const targetDays = Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4);
+  if (!visible) return null;
+
+  const targetDays = Math.max(1, Array.isArray(workoutDays) ? workoutDays.length : (workoutDays || 4));
   const streakCount = calculateStreakDays(workouts, targetDays, weeklyTargetHistory);
 
   const handleSelectTarget = (num: number) => {
@@ -135,7 +137,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
         cellStyle = styles.cellCompleted;
         textStyle = styles.cellTextCompleted;
         iconName = 'checkmark-circle';
-        iconColor = '#10B981';
+        iconColor = COLORS.pastel.green;
       } else {
         cellStyle = styles.cellRestDay;
         textStyle = styles.cellTextRestDay;
@@ -184,7 +186,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         {/* Modal Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={styles.modalTitle}>Streak & Haftalık Hedef</Text>
             <Text style={styles.modalSubTitle}>Haftalık spor hedefini tamamladıkça serin kesintisiz devam eder.</Text>
           </View>
@@ -213,7 +215,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
                 <Ionicons
                   name={isTargetMetThisWeek ? "checkmark-circle" : "flag"}
                   size={18}
-                  color={isTargetMetThisWeek ? "#10B981" : COLORS.primary}
+                  color={isTargetMetThisWeek ? COLORS.pastel.green : COLORS.primary}
                 />
                 <Text style={styles.weekProgressTitle}>Bu Haftanın Durumu</Text>
               </View>
@@ -228,7 +230,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({
                 style={[
                   styles.progressBarFill,
                   { width: `${progressPercent}%` },
-                  isTargetMetThisWeek && { backgroundColor: '#10B981' }
+                  isTargetMetThisWeek && { backgroundColor: COLORS.pastel.green }
                 ]}
               />
             </View>
@@ -322,8 +324,8 @@ export const StreakModal: React.FC<StreakModalProps> = ({
           {/* Legend Section */}
           <View style={styles.legendContainer}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: '#10B981' }]}>
-                <Ionicons name="checkmark" size={10} color="#10B981" />
+              <View style={[styles.legendDot, { backgroundColor: COLORS.pastel.greenBg, borderColor: COLORS.pastel.green }]}>
+                <Ionicons name="checkmark" size={10} color={COLORS.pastel.green} />
               </View>
               <Text style={styles.legendText}>Tamamlanan Antrenman Günü</Text>
             </View>
@@ -386,7 +388,6 @@ const createStyles = () => StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     gap: 4,
-    ...SHADOWS.soft,
   },
   heroTop: {
     flexDirection: 'row',
@@ -443,7 +444,7 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
   },
   weekProgressBadgeSuccess: {
-    color: '#10B981',
+    color: COLORS.pastel.green,
     borderColor: 'rgba(16, 185, 129, 0.3)',
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
   },
@@ -500,7 +501,6 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.soft,
   },
   stepperBtnDisabled: {
     opacity: 0.3,
@@ -601,7 +601,7 @@ const createStyles = () => StyleSheet.create({
     borderColor: 'rgba(16, 185, 129, 0.4)',
   },
   cellTextCompleted: {
-    color: '#10B981',
+    color: COLORS.pastel.green,
   },
   cellRestDay: {
     backgroundColor: 'rgba(107, 114, 128, 0.05)',

@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Exercise, WorkoutSession, Routine, PersonalRecord, UserStats, MuscleCategory, EquipmentType } from '../types/fitness';
 import { INITIAL_EXERCISES, DEFAULT_ROUTINES } from '../data/exerciseLibrary';
-import { calculateAutoregulatedE1RM, CoachAnalysisResult } from './progressionEngine';
+import { calculateAutoregulatedE1RM } from '../utils/e1rm';
+import type { CoachAnalysisResult } from './progressionEngine';
 
 const STORAGE_KEYS = {
   EXERCISES: '@fitness_exercises_v1',
@@ -80,6 +81,7 @@ export const getExercises = async (): Promise<Exercise[]> => {
 };
 
 export const saveCustomExercise = async (exercise: Exercise): Promise<Exercise[]> => {
+  return withStorageMutex(async () => {
   try {
     const json = await AsyncStorage.getItem(STORAGE_KEYS.EXERCISES);
     const existing: Exercise[] = json ? JSON.parse(json) : [];
@@ -90,9 +92,11 @@ export const saveCustomExercise = async (exercise: Exercise): Promise<Exercise[]
     console.error('Error saving custom exercise:', error);
     throw error;
   }
+  });
 };
 
 export const deleteCustomExercise = async (id: string): Promise<Exercise[]> => {
+  return withStorageMutex(async () => {
   try {
     const json = await AsyncStorage.getItem(STORAGE_KEYS.EXERCISES);
     const existing: Exercise[] = json ? JSON.parse(json) : [];
@@ -103,6 +107,7 @@ export const deleteCustomExercise = async (id: string): Promise<Exercise[]> => {
     console.error('Error deleting custom exercise:', error);
     throw error;
   }
+  });
 };
 
 // --- ROUTINES ---
@@ -156,6 +161,7 @@ export const saveRoutine = async (routine: Routine): Promise<Routine[]> => {
 };
 
 export const saveRoutinesOrder = async (routines: Routine[]): Promise<Routine[]> => {
+  return withStorageMutex(async () => {
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
     return getRoutines();
@@ -163,9 +169,11 @@ export const saveRoutinesOrder = async (routines: Routine[]): Promise<Routine[]>
     console.error('Error saving routines order:', error);
     throw error;
   }
+  });
 };
 
 export const deleteRoutine = async (id: string): Promise<Routine[]> => {
+  return withStorageMutex(async () => {
   try {
     const deletedJson = await AsyncStorage.getItem(DELETED_ROUTINES_KEY);
     const deletedIds: string[] = deletedJson ? JSON.parse(deletedJson) : [];
@@ -185,6 +193,7 @@ export const deleteRoutine = async (id: string): Promise<Routine[]> => {
     console.error('Error deleting routine:', error);
     throw error;
   }
+  });
 };
 
 // --- WORKOUTS ---
@@ -388,7 +397,12 @@ const updatePRsFromWorkoutInternal = async (workout: WorkoutSession): Promise<vo
             exerciseId: ex.exerciseId,
             exerciseName: ex.exerciseName,
             maxWeight: Math.max(maxW, existingPR?.maxWeight || 0),
-            maxReps: maxW >= (existingPR?.maxWeight || 0) ? maxR : (existingPR?.maxReps || 0),
+            maxReps:
+              maxW > (existingPR?.maxWeight || 0)
+                ? maxR
+                : maxW === (existingPR?.maxWeight || 0)
+                ? Math.max(maxR, existingPR?.maxReps || 0)
+                : (existingPR?.maxReps || 0),
             maxEstimatedOneRepMax: Math.max(max1RM, existingPR?.maxEstimatedOneRepMax || 0),
             maxVolume: Math.max(exVol, existingPR?.maxVolume || 0),
             maxSpeedKmh: Math.max(maxSpeed, existingPR?.maxSpeedKmh || 0),
@@ -472,6 +486,10 @@ export const recalculateAllPRs = async (
         if (maxW > 0 || maxDist > 0 || maxSpeed > 0) {
           const existing = prs[ex.exerciseId];
           const isBetterWeight = !existing || maxW > existing.maxWeight || (maxW === existing.maxWeight && maxR > existing.maxReps);
+          const isBetter1RM = !existing || max1RM > (existing.maxEstimatedOneRepMax || 0);
+          const isBetterSpeed = maxSpeed > (existing?.maxSpeedKmh || 0);
+          const isBetterDist = maxDist > (existing?.maxDistanceKm || 0);
+          const improved = isBetterWeight || isBetter1RM || isBetterSpeed || isBetterDist;
 
           prs[ex.exerciseId] = {
             exerciseId: ex.exerciseId,
@@ -483,8 +501,8 @@ export const recalculateAllPRs = async (
             maxSpeedKmh: Math.max(maxSpeed, existing?.maxSpeedKmh || 0),
             maxDistanceKm: Math.max(maxDist, existing?.maxDistanceKm || 0),
             maxDurationMinutes: Math.max(maxDur, existing?.maxDurationMinutes || 0),
-            lastUpdatedDate: workout.date,
-            date: workout.date,
+            lastUpdatedDate: improved ? workout.date : (existing?.lastUpdatedDate || workout.date),
+            date: improved ? workout.date : (existing?.date || workout.date),
           };
         }
       });

@@ -1,5 +1,7 @@
 import { WorkoutSession, PersonalRecord, UserStats, ExerciseSet, OverloadActionType, SetDynamicTarget, PlateauHistory, MuscleCategory, BiomechanicalProfile, MesocyclePhase, MesocycleState, IntraWorkoutBackOffRecommendation, ExerciseFeedback, HypertrophyFeedbackAdaptation } from '../types/fitness';
 import { calculateUserStats } from './storage';
+import { calculateAutoregulatedE1RM } from '../utils/e1rm';
+export { calculateAutoregulatedE1RM };
 
 export interface SetTargetRecommendation {
   setNumber: number;
@@ -37,27 +39,6 @@ export interface CoachAnalysisResult {
   timestamp: string;
   weeklyHardSetsByMuscle?: Record<string, { hardSets: number; status: 'BELOW_MEV' | 'MEV' | 'MAV' | 'MRV' | 'OVER_MRV'; label: string }>;
 }
-
-/**
- * RIR-Autoregulated Hybrid e1RM Calculation:
- * - Effective Reps = reps + (rir ?? 1)
- * - If Effective Reps <= 10: weight * (1 + Effective Reps / 30) (RIR-corrected Epley)
- * - If Effective Reps > 10: weight * (Effective Reps ** 0.10) (Lombardi model)
- */
-export const calculateAutoregulatedE1RM = (
-  weight: number,
-  reps: number,
-  rir: number = 1
-): number => {
-  if (weight <= 0 || reps <= 0) return 0;
-  const safeRir = Math.max(0, Math.min(rir, 5));
-  const effectiveReps = reps + safeRir;
-
-  if (effectiveReps <= 10) {
-    return weight * (1 + effectiveReps / 30);
-  }
-  return weight * Math.pow(effectiveReps, 0.10);
-};
 
 /**
  * Determines the scientifically validated hypertrophy rep bracket based on
@@ -287,6 +268,70 @@ export const detectPlateauAndDeload = (
  * 3. Multi-Session Stagnation & Deload: 3 consecutive stagnant sessions at RIR <= 1 trigger DELOAD (-10% load, 50% sets).
  * 4. RIR-Autoregulated e1RM evaluation for fatigue and plateau metrics.
  */
+/**
+ * Drops warm-up-like sets from a session's history.
+ * A working set that sits far below the session's top load is either an unmarked warm-up or a
+ * mistake; letting it through makes the engine prescribe it again as "set 1 target".
+ */
+const dropWarmupLikeSets = (sets: ExerciseSet[]): ExerciseSet[] => {
+  const valid = sets.filter(s => s.completed && !s.isWarmup && s.weight > 0);
+  if (valid.length < 2) return valid;
+  const topWeight = Math.max(...valid.map(s => s.weight));
+  return valid.filter(s => s.weight >= topWeight * 0.65);
+};
+
+/** Warm-up rows take a fraction of the working weight — they are never the working weight itself. */
+export const WARMUP_RAMP = [0.5, 0.7, 0.85] as const;
+
+export interface PlannedSetTarget {
+  weight: number;
+  reps: number;
+  rir?: number;
+}
+
+/**
+ * Maps a recommendation onto the sets that actually exist in the session.
+ * Warm-up rows get an explicit ramp off the working weight, and every working row gets the
+ * working weight itself — no warm-up weight can land in a non-warm-up set.
+ */
+export const buildSetTargetPlan = (
+  sets: ExerciseSet[],
+  rec: SmartOverloadRecommendation | null,
+  fallbackWeight = 0
+): Record<string, PlannedSetTarget> => {
+  const plan: Record<string, PlannedSetTarget> = {};
+  if (!sets.length) return plan;
+
+  const recWeights = (rec?.setTargets || []).map(t => t.weight).filter(w => w > 0);
+  const workingWeight =
+    recWeights.length > 0 ? Math.max(...recWeights) : rec && rec.recWeight > 0 ? rec.recWeight : fallbackWeight;
+
+  let warmupIdx = 0;
+  let workingIdx = 0;
+
+  for (const set of sets) {
+    if (set.isWarmup) {
+      const pct = WARMUP_RAMP[Math.min(warmupIdx, WARMUP_RAMP.length - 1)];
+      plan[set.id] = {
+        weight: Math.round(workingWeight * pct * 2) / 2,
+        reps: set.reps || 10,
+      };
+      warmupIdx += 1;
+      continue;
+    }
+
+    const target = rec?.setTargets?.[workingIdx];
+    plan[set.id] = {
+      weight: workingWeight,
+      reps: target?.reps ?? rec?.recReps ?? set.reps,
+      rir: target?.targetRir,
+    };
+    workingIdx += 1;
+  }
+
+  return plan;
+};
+
 export const calculateSmartAutoregulatedOverload = (
   exerciseName: string,
   equipment: string = '',
@@ -305,10 +350,10 @@ export const calculateSmartAutoregulatedOverload = (
   if (Array.isArray(pastCompletedSetsOrSessions) && pastCompletedSetsOrSessions.length > 0) {
     if (Array.isArray(pastCompletedSetsOrSessions[0])) {
       pastSessions = (pastCompletedSetsOrSessions as ExerciseSet[][])
-        .map(sList => sList.filter(s => s.completed && s.weight > 0))
+        .map(sList => dropWarmupLikeSets(sList))
         .filter(sList => sList.length > 0);
     } else {
-      const valid = (pastCompletedSetsOrSessions as ExerciseSet[]).filter(s => s.completed && s.weight > 0);
+      const valid = dropWarmupLikeSets(pastCompletedSetsOrSessions as ExerciseSet[]);
       if (valid.length > 0) pastSessions = [valid];
     }
   }

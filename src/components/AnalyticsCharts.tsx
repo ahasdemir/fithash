@@ -11,11 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 import { getMondayOfWeek } from '../services/storage';
+import { parseLocalDateString } from '../utils/exerciseHelpers';
 
-export interface VolumeBucket {
+interface VolumeBucket {
   id: string;
   label: string;
   fullLabel: string;
@@ -46,11 +47,6 @@ const MONTH_FULL_TR = [
 
 const DAY_SHORT_TR = ['Paz', 'Pzt', 'Sal', 'Çrş', 'Per', 'Cum', 'Cmt'];
 
-const parseISODate = (dateStr: string): Date => {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
 const formatISODate = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -58,15 +54,23 @@ const formatISODate = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
-const formatVolumeShort = (vol: number): string => {
+const formatBarVolume = (vol: number): string => {
   if (vol >= 1000000) return `${(vol / 1000000).toFixed(1)}M`;
-  if (vol >= 1000) return `${(vol / 1000).toFixed(1)}k`;
-  return vol.toString();
+  if (vol >= 1000) return `${(vol / 1000).toFixed(1)}t`;
+  return `${vol}`;
 };
 
-/**
- * Generates 7 Daily Buckets for the CURRENT CALENDAR WEEK (Pazartesi to Pazar)
- */
+const countWorkingSets = (sessions: WorkoutSession[]): number => {
+  let sets = 0;
+  sessions.forEach(w => {
+    w.exercises?.forEach(ex => {
+      if (ex.category === 'Kardiyo') return;
+      sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
+    });
+  });
+  return sets;
+};
+
 const getCalendarWeekBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
   const buckets: VolumeBucket[] = [];
   const now = new Date();
@@ -78,13 +82,7 @@ const getCalendarWeekBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
 
     const dayWorkouts = workouts.filter(w => w.date === dateStr && w.completed !== false);
     const vol = dayWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
-    let sets = 0;
-    dayWorkouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        if (ex.category === 'Kardiyo') return; // Exclude cardio from weightlifting sets
-        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-      });
-    });
+    const sets = countWorkingSets(dayWorkouts);
 
     const dayName = DAY_SHORT_TR[d.getDay()];
     const monthFull = MONTH_FULL_TR[d.getMonth()];
@@ -92,7 +90,7 @@ const getCalendarWeekBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
     buckets.push({
       id: dateStr,
       label: dayName,
-      fullLabel: `${d.getDate()} ${monthFull} ${d.getFullYear()}, ${dayName}`,
+      fullLabel: `${d.getDate()} ${monthFull}, ${dayName}`,
       volume: vol,
       sets,
       workoutCount: dayWorkouts.length,
@@ -104,9 +102,6 @@ const getCalendarWeekBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
   return buckets;
 };
 
-/**
- * Generates Weekly Buckets for the CURRENT CALENDAR MONTH (1st to last day of month)
- */
 const getCurrentMonthWeeklyBuckets = (workouts: WorkoutSession[]): VolumeBucket[] => {
   const buckets: VolumeBucket[] = [];
   const now = new Date();
@@ -125,20 +120,16 @@ const getCurrentMonthWeeklyBuckets = (workouts: WorkoutSession[]): VolumeBucket[
     const startStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(r.start).padStart(2, '0')}`;
     const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(r.end).padStart(2, '0')}`;
 
-    const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
+    const rangeWorkouts = workouts.filter(
+      w => w.date >= startStr && w.date <= endStr && w.completed !== false
+    );
     const vol = rangeWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
-    let sets = 0;
-    rangeWorkouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        if (ex.category === 'Kardiyo') return;
-        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-      });
-    });
+    const sets = countWorkingSets(rangeWorkouts);
 
     buckets.push({
       id: `${startStr}_${endStr}`,
       label: r.label,
-      fullLabel: `${r.start} - ${r.end} ${MONTH_FULL_TR[month]} ${year}`,
+      fullLabel: `${r.start}-${r.end} ${MONTH_FULL_TR[month]}`,
       volume: vol,
       sets,
       workoutCount: rangeWorkouts.length,
@@ -150,9 +141,6 @@ const getCurrentMonthWeeklyBuckets = (workouts: WorkoutSession[]): VolumeBucket[
   return buckets;
 };
 
-/**
- * Generates Daily Buckets for a given number of days ending today
- */
 const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): VolumeBucket[] => {
   const buckets: VolumeBucket[] = [];
   const now = new Date();
@@ -163,13 +151,7 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
 
     const dayWorkouts = workouts.filter(w => w.date === dateStr && w.completed !== false);
     const vol = dayWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
-    let sets = 0;
-    dayWorkouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        if (ex.category === 'Kardiyo') return;
-        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-      });
-    });
+    const sets = countWorkingSets(dayWorkouts);
 
     const dayName = DAY_SHORT_TR[d.getDay()];
     const monthShort = MONTH_SHORT_TR[d.getMonth()];
@@ -178,7 +160,7 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
     buckets.push({
       id: dateStr,
       label: daysCount <= 7 ? dayName : `${d.getDate()} ${monthShort}`,
-      fullLabel: `${d.getDate()} ${monthFull} ${d.getFullYear()}, ${dayName}`,
+      fullLabel: `${d.getDate()} ${monthFull}, ${dayName}`,
       volume: vol,
       sets,
       workoutCount: dayWorkouts.length,
@@ -190,9 +172,6 @@ const getDailyBuckets = (workouts: WorkoutSession[], daysCount: number = 7): Vol
   return buckets;
 };
 
-/**
- * Generates Weekly (7-day period) Buckets
- */
 const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): VolumeBucket[] => {
   const buckets: VolumeBucket[] = [];
   const now = new Date();
@@ -207,25 +186,18 @@ const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): V
     const startStr = formatISODate(startD);
     const endStr = formatISODate(endD);
 
-    const rangeWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
+    const rangeWorkouts = workouts.filter(
+      w => w.date >= startStr && w.date <= endStr && w.completed !== false
+    );
     const vol = rangeWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
-    let sets = 0;
-    rangeWorkouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        if (ex.category === 'Kardiyo') return;
-        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-      });
-    });
+    const sets = countWorkingSets(rangeWorkouts);
 
-    // Concise label for X-axis (e.g. "12-18 Oca") to avoid crowding
-    let label = '';
-    if (startD.getMonth() === endD.getMonth()) {
-      label = `${startD.getDate()}-${endD.getDate()} ${MONTH_SHORT_TR[startD.getMonth()]}`;
-    } else {
-      label = `${startD.getDate()} ${MONTH_SHORT_TR[startD.getMonth()]}-${endD.getDate()} ${MONTH_SHORT_TR[endD.getMonth()]}`;
-    }
+    const label =
+      startD.getMonth() === endD.getMonth()
+        ? `${startD.getDate()}-${endD.getDate()} ${MONTH_SHORT_TR[startD.getMonth()]}`
+        : `${startD.getDate()} ${MONTH_SHORT_TR[startD.getMonth()]}-${endD.getDate()} ${MONTH_SHORT_TR[endD.getMonth()]}`;
 
-    const fullLabel = `${startD.getDate()} ${MONTH_FULL_TR[startD.getMonth()]} - ${endD.getDate()} ${MONTH_FULL_TR[endD.getMonth()]} ${endD.getFullYear()}`;
+    const fullLabel = `${startD.getDate()} ${MONTH_FULL_TR[startD.getMonth()]} - ${endD.getDate()} ${MONTH_FULL_TR[endD.getMonth()]}`;
 
     buckets.push({
       id: `${startStr}_${endStr}`,
@@ -242,9 +214,6 @@ const getWeeklyBuckets = (workouts: WorkoutSession[], weeksCount: number = 4): V
   return buckets;
 };
 
-/**
- * Generates Monthly Buckets (by calendar month)
- */
 const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6): VolumeBucket[] => {
   const buckets: VolumeBucket[] = [];
   const now = new Date();
@@ -258,22 +227,18 @@ const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6):
     const startStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
     const endStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-    const monthWorkouts = workouts.filter(w => w.date >= startStr && w.date <= endStr && w.completed !== false);
+    const monthWorkouts = workouts.filter(
+      w => w.date >= startStr && w.date <= endStr && w.completed !== false
+    );
     const vol = monthWorkouts.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
-    let sets = 0;
-    monthWorkouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        if (ex.category === 'Kardiyo') return;
-        sets += ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-      });
-    });
+    const sets = countWorkingSets(monthWorkouts);
 
     const monthName = MONTH_FULL_TR[month];
     const monthShort = MONTH_SHORT_TR[month];
 
     buckets.push({
       id: `${year}_${month}`,
-      label: monthsCount > 6 ? `${monthShort} '${String(year).slice(-2)}` : monthName,
+      label: monthsCount > 6 ? `${monthShort} '${String(year).slice(-2)}` : monthShort,
       fullLabel: `${monthName} ${year}`,
       volume: vol,
       sets,
@@ -286,9 +251,6 @@ const getMonthlyBuckets = (workouts: WorkoutSession[], monthsCount: number = 6):
   return buckets;
 };
 
-/**
- * Smart Aggregator for filterMode ('weekly', 'monthly', 'all')
- */
 const getSmartAggregatedVolumeData = (
   workouts: WorkoutSession[],
   filterMode: 'weekly' | 'monthly' | 'all'
@@ -296,35 +258,35 @@ const getSmartAggregatedVolumeData = (
   let buckets: VolumeBucket[] = [];
 
   if (filterMode === 'weekly') {
-    // Current Calendar Week: Pazartesi -> Pazar (7 days)
     buckets = getCalendarWeekBuckets(workouts);
   } else if (filterMode === 'monthly') {
-    // Current Calendar Month: 1 -> last day in ~weekly chunks
     buckets = getCurrentMonthWeeklyBuckets(workouts);
   } else {
-    // 'all' Mode: Automatically group into Weekly or Monthly periods based on span
     if (!workouts.length) {
       buckets = getWeeklyBuckets(workouts, 8);
     } else {
       const dates = workouts.map(w => w.date).sort();
-      const minD = parseISODate(dates[0]);
-      const maxD = parseISODate(dates[dates.length - 1]);
-      const diffDays = Math.max(1, Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 3600 * 24)));
+      const minD = parseLocalDateString(dates[0]);
+      const now = new Date();
+      // Measure span back from today so older historical workouts are always included in the window
+      const spanFromNow = Math.max(
+        1,
+        Math.ceil((now.getTime() - minD.getTime()) / (1000 * 3600 * 24))
+      );
 
-      if (diffDays <= 45) {
-        const weeks = Math.max(4, Math.ceil(diffDays / 7));
+      if (spanFromNow <= 45) {
+        const weeks = Math.max(4, Math.ceil(spanFromNow / 7));
         buckets = getWeeklyBuckets(workouts, weeks);
-      } else if (diffDays <= 120) {
-        const weeks = Math.min(16, Math.max(8, Math.ceil(diffDays / 7)));
+      } else if (spanFromNow <= 120) {
+        const weeks = Math.min(16, Math.max(8, Math.ceil(spanFromNow / 7)));
         buckets = getWeeklyBuckets(workouts, weeks);
       } else {
-        const months = Math.min(12, Math.max(6, Math.ceil(diffDays / 30)));
+        const months = Math.min(12, Math.max(6, Math.ceil(spanFromNow / 30)));
         buckets = getMonthlyBuckets(workouts, months);
       }
     }
   }
 
-  // Mark Peak volume and Peak sets
   const maxVol = Math.max(...buckets.map(b => b.volume), 0);
   const maxSets = Math.max(...buckets.map(b => b.sets), 0);
   buckets.forEach(b => {
@@ -349,34 +311,35 @@ interface RenderSvgBarChartProps {
 const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   data,
   containerWidth,
-  height = 170,
-  valueKey = 'volume',
+  height = 148,
+  valueKey = 'sets',
   selectedIndex,
   onSelectIndex,
-  minBarWidth = 28,
+  minBarWidth = 26,
   barGap = 8,
 }) => {
+  useTheme();
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   if (!data.length) return null;
 
   const isSets = valueKey === 'sets';
-  const PADDING_HORIZ = 16;
-  const maxLabelLength = Math.max(...data.map(d => d.label.length), 4);
-  const minStepForLabel = maxLabelLength * 6.4 + 4;
+  const PADDING_HORIZ = 12;
+  const maxLabelLength = Math.max(...data.map(d => d.label.length), 3);
+  const minStepForLabel = maxLabelLength * 6.2 + 6;
   const dynamicMinStepWidth = Math.max(minBarWidth + barGap, minStepForLabel);
 
   const contentWidth = data.length * dynamicMinStepWidth + PADDING_HORIZ * 2;
-  const chartWidth = Math.max(containerWidth - 32, contentWidth);
+  const chartWidth = Math.max(containerWidth - 28, contentWidth);
   const stepWidth = chartWidth / data.length;
-  const barWidth = Math.max(minBarWidth, Math.min(52, stepWidth * 0.70));
+  const barWidth = Math.max(minBarWidth, Math.min(44, stepWidth * 0.64));
 
   const maxValue = isSets
     ? Math.max(...data.map(d => d.sets), 10)
     : Math.max(...data.map(d => d.volume), 1000);
 
-  const baselineY = height - 32;
-  const maxBarHeight = height - 55;
+  const baselineY = height - 26;
+  const maxBarHeight = height - 48;
 
   return (
     <ScrollView
@@ -389,15 +352,14 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
       }}
     >
       <Svg width={chartWidth} height={height}>
-        {/* Dash lines */}
-        <Line x1="0" y1="20" x2={chartWidth} y2="20" stroke={COLORS.border} strokeDasharray="4 4" />
+        <Line x1="0" y1="18" x2={chartWidth} y2="18" stroke={COLORS.border} strokeDasharray="3 4" />
         <Line
           x1="0"
-          y1={20 + maxBarHeight / 2}
+          y1={18 + maxBarHeight / 2}
           x2={chartWidth}
-          y2={20 + maxBarHeight / 2}
+          y2={18 + maxBarHeight / 2}
           stroke={COLORS.border}
-          strokeDasharray="4 4"
+          strokeDasharray="3 4"
         />
         <Line x1="0" y1={baselineY} x2={chartWidth} y2={baselineY} stroke={COLORS.border} />
 
@@ -407,74 +369,55 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
           const barHeight = val > 0 ? Math.max(6, (val / maxValue) * maxBarHeight) : 4;
           const y = baselineY - barHeight;
           const isSelected = selectedIndex === index;
-          const isPeak = isSets ? (item.isPeakSet && val > 0) : (item.isPeak && val > 0);
+          const isPeak = isSets ? item.isPeakSet && val > 0 : item.isPeak && val > 0;
 
-          let fillColor = COLORS.border;
+          let fillColor = COLORS.surfaceSubtle;
           if (isSelected) {
             fillColor = COLORS.primary;
           } else if (isPeak) {
-            fillColor = '#10B981';
+            fillColor = COLORS.pastel.green;
           } else if (val > 0) {
-                  fillColor = COLORS.textSecondary;
-                }
+            fillColor = COLORS.borderDark;
+          }
 
-          const valText = isSets
-            ? (val > 0 ? `${val}` : '')
-            : (val > 0 ? formatVolumeShort(val) : '');
+          const valText =
+            val > 0 ? (isSets ? `${val}` : formatBarVolume(val)) : '';
 
           return (
             <G key={item.id}>
-              {/* Bar Rect */}
               <Rect
                 x={x}
                 y={y}
                 width={barWidth}
                 height={barHeight}
-                rx={Math.min(6, barWidth / 2)}
+                rx={4}
                 fill={fillColor}
-                stroke={isSelected ? COLORS.borderDark : 'none'}
-                strokeWidth={isSelected ? 2 : 0}
               />
 
-              {/* Peak Indicator Dot above bar */}
-              {isPeak && !isSelected && (
-                <Rect
-                  x={x + barWidth / 2 - 3}
-                  y={y - 10}
-                  width={6}
-                  height={6}
-                  rx={3}
-                  fill="#10B981"
-                />
-              )}
-
-              {/* Value text above bar */}
               {valText !== '' && (
                 <SvgText
                   x={x + barWidth / 2}
-                  y={Math.max(12, y - (isPeak ? 12 : 6))}
+                  y={Math.max(12, y - 6)}
                   fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
-                  fontSize="9"
-                  fontWeight={isSelected ? '800' : '700'}
+                  fontSize="10"
+                  fontWeight={isSelected ? '800' : '600'}
                   textAnchor="middle"
                 >
                   {valText}
                 </SvgText>
               )}
 
-              {/* X-Axis Label */}
               <SvgText
                 x={x + barWidth / 2}
-                y={height - 10}
+                y={height - 8}
                 fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
                 fontSize="10"
-                fontWeight={isSelected ? '800' : '600'}
+                fontWeight={isSelected ? '700' : '500'}
                 textAnchor="middle"
               >
                 {item.label}
               </SvgText>
 
-              {/* Touch overlay */}
               <Rect
                 x={index * stepWidth}
                 y={0}
@@ -491,59 +434,7 @@ const RenderSvgBarChartBase: React.FC<RenderSvgBarChartProps> = ({
   );
 };
 
-// Memoized so that unrelated AnalyticsCharts state changes (the other chart's
-// selection, modal open/metric/resolution switches) don't re-render this
-// chart's full SVG bar tree — its props are stable between those changes.
 const RenderSvgBarChart = React.memo(RenderSvgBarChartBase);
-
-interface MuscleBreakdownRowProps {
-  item: { category: string; sets: number; volume: number; color: string };
-  targetBenchmark: number;
-  totalPeriodSets: number;
-}
-
-// Memoized legend/progress row for the muscle group breakdown: tapping a bar
-// in either chart re-renders AnalyticsCharts; these rows bail out because
-// their inputs (memoized breakdown, filterMode-derived benchmark) are unchanged.
-const MuscleBreakdownRow = React.memo(function MuscleBreakdownRow({
-  item,
-  targetBenchmark,
-  totalPeriodSets,
-}: MuscleBreakdownRowProps) {
-  const setPercentage = Math.min(100, Math.round((item.sets / targetBenchmark) * 100));
-
-  return (
-    <View style={styles.muscleRow}>
-      <View style={styles.muscleHeader}>
-        <View style={styles.muscleTitleLeft}>
-          <View style={[styles.dot, { backgroundColor: item.color }]} />
-          <Text style={styles.muscleName}>{item.category}</Text>
-        </View>
-
-        <View style={styles.muscleMetaRight}>
-          <Text style={styles.muscleSetsText}>{item.sets} Set</Text>
-          <Text style={styles.musclePercentText}>
-            (%{Math.round((item.sets / (totalPeriodSets || 1)) * 100)})
-          </Text>
-          {item.volume > 0 && (
-            <Text style={styles.muscleVolText}>
-              • {item.volume.toLocaleString('tr-TR')} kg
-            </Text>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${setPercentage}%`, backgroundColor: item.color },
-          ]}
-        />
-      </View>
-    </View>
-  );
-});
 
 export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   workouts,
@@ -552,8 +443,8 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
 }) => {
   useTheme();
   const [containerWidth, setContainerWidth] = useState(320);
-  const [selectedSetIndex, setSelectedSetIndex] = useState<number | null>(null);
-  const [selectedVolumeIndex, setSelectedVolumeIndex] = useState<number | null>(null);
+  const [activeMetric, setActiveMetric] = useState<'sets' | 'volume'>('sets');
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   // Expand Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -568,84 +459,29 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     }
   };
 
-  // 1. Calculate Main Aggregated Data (volume + sets)
   const volumeData = useMemo(() => {
     return getSmartAggregatedVolumeData(workouts, filterMode);
   }, [workouts, filterMode]);
 
-  // Active Set Bucket (defaults to peak sets or last bucket)
-  const activeSetIndex = useMemo(() => {
-    if (selectedSetIndex !== null && selectedSetIndex < volumeData.length) {
-      return selectedSetIndex;
+  const resolvedIndex = useMemo(() => {
+    if (selectedIndex !== null && selectedIndex < volumeData.length) {
+      return selectedIndex;
     }
-    const peakIdx = volumeData.findIndex(b => b.isPeakSet && b.sets > 0);
+    const peakIdx =
+      activeMetric === 'sets'
+        ? volumeData.findIndex(b => b.isPeakSet && b.sets > 0)
+        : volumeData.findIndex(b => b.isPeak && b.volume > 0);
     if (peakIdx >= 0) return peakIdx;
     return Math.max(0, volumeData.length - 1);
-  }, [selectedSetIndex, volumeData]);
+  }, [selectedIndex, volumeData, activeMetric]);
 
-  const selectedSetBucket = volumeData[activeSetIndex] || null;
+  const selectedBucket = volumeData[resolvedIndex] || null;
 
-  // Active Volume Bucket (defaults to peak volume or last bucket)
-  const activeVolumeIndex = useMemo(() => {
-    if (selectedVolumeIndex !== null && selectedVolumeIndex < volumeData.length) {
-      return selectedVolumeIndex;
-    }
-    const peakIdx = volumeData.findIndex(b => b.isPeak && b.volume > 0);
-    if (peakIdx >= 0) return peakIdx;
-    return Math.max(0, volumeData.length - 1);
-  }, [selectedVolumeIndex, volumeData]);
-
-  const selectedVolumeBucket = volumeData[activeVolumeIndex] || null;
-
-  // Total sets in the current filtered period
-  const totalPeriodSets = useMemo(() => {
-    return volumeData.reduce((acc, b) => acc + b.sets, 0);
-  }, [volumeData]);
-
-  // 2. Muscle Category Breakdown
-  const muscleBreakdown = useMemo(() => {
-    const categorySets: Record<string, number> = {};
-    const categoryVolume: Record<string, number> = {};
-    let grandTotalVol = 0;
-
-    workouts.forEach(w => {
-      w.exercises?.forEach(ex => {
-        const completedSetsCount = ex.sets?.filter(s => s.completed && !s.isWarmup).length || 0;
-        const vol = ex.sets?.reduce((acc, s) => (s.completed ? acc + s.weight * s.reps : acc), 0) || 0;
-
-        if (completedSetsCount > 0) {
-          categorySets[ex.category] = (categorySets[ex.category] || 0) + completedSetsCount;
-          categoryVolume[ex.category] = (categoryVolume[ex.category] || 0) + vol;
-          grandTotalVol += vol;
-        }
-      });
-    });
-
-    if (Object.keys(categorySets).length === 0) return [];
-
-    return Object.entries(categorySets)
-      .map(([category, sets]) => ({
-        category,
-        sets,
-        volume: categoryVolume[category] || 0,
-        color: COLORS.category[category as any] || COLORS.primaryText,
-      }))
-      .sort((a, b) => b.sets - a.sets);
-  }, [workouts]);
-
-  // Progress-bar benchmark (15 sets/week, 60 sets/month, or the period max in
-  // 'all' mode). Previously recomputed inside every row on every render.
-  const targetBenchmark =
-    filterMode === 'weekly'
-      ? 15
-      : filterMode === 'monthly'
-      ? 60
-      : Math.max(...muscleBreakdown.map(m => m.sets), 1);
-
-  // 3. Modal Aggregated Data Calculation
+  // Expanded Modal Data — skip computation while modal is closed
   const modalTargetWorkouts = allWorkouts && allWorkouts.length ? allWorkouts : workouts;
 
   const modalVolumeData = useMemo(() => {
+    if (!isModalOpen) return [];
     let buckets: VolumeBucket[] = [];
     if (modalResolution === 'daily') {
       buckets = getDailyBuckets(modalTargetWorkouts, 30);
@@ -663,290 +499,160 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
     });
 
     return buckets;
-  }, [modalTargetWorkouts, modalResolution]);
+  }, [isModalOpen, modalTargetWorkouts, modalResolution]);
 
   const modalActiveIndex = useMemo(() => {
     if (modalSelectedIndex !== null && modalSelectedIndex < modalVolumeData.length) {
       return modalSelectedIndex;
     }
-    const peakIdx = modalMetric === 'sets'
-      ? modalVolumeData.findIndex(b => b.isPeakSet && b.sets > 0)
-      : modalVolumeData.findIndex(b => b.isPeak && b.volume > 0);
+    const peakIdx =
+      modalMetric === 'sets'
+        ? modalVolumeData.findIndex(b => b.isPeakSet && b.sets > 0)
+        : modalVolumeData.findIndex(b => b.isPeak && b.volume > 0);
     if (peakIdx >= 0) return peakIdx;
     return Math.max(0, modalVolumeData.length - 1);
   }, [modalSelectedIndex, modalVolumeData, modalMetric]);
 
   const modalSelectedBucket = modalVolumeData[modalActiveIndex] || null;
 
-  // Modal overall summary metrics
-  const totalModalVol = useMemo(() => {
-    return modalVolumeData.reduce((acc, b) => acc + b.volume, 0);
-  }, [modalVolumeData]);
+  const totalModalVol = useMemo(
+    () => modalVolumeData.reduce((acc, b) => acc + b.volume, 0),
+    [modalVolumeData]
+  );
+  const totalModalSets = useMemo(
+    () => modalVolumeData.reduce((acc, b) => acc + b.sets, 0),
+    [modalVolumeData]
+  );
+  const totalPeriodWorkouts = useMemo(
+    () => modalVolumeData.reduce((acc, b) => acc + b.workoutCount, 0),
+    [modalVolumeData]
+  );
+  const modalMaxVol = useMemo(
+    () => Math.max(...modalVolumeData.map(b => b.volume), 0),
+    [modalVolumeData]
+  );
+  const modalMaxSets = useMemo(
+    () => Math.max(...modalVolumeData.map(b => b.sets), 0),
+    [modalVolumeData]
+  );
 
-  const totalModalSets = useMemo(() => {
-    return modalVolumeData.reduce((acc, b) => acc + b.sets, 0);
-  }, [modalVolumeData]);
-
-  const totalPeriodWorkouts = useMemo(() => {
-    return modalVolumeData.reduce((acc, b) => acc + b.workoutCount, 0);
-  }, [modalVolumeData]);
-
-  const modalMaxVol = useMemo(() => {
-    return Math.max(...modalVolumeData.map(b => b.volume), 0);
-  }, [modalVolumeData]);
-
-  const modalMaxSets = useMemo(() => {
-    return Math.max(...modalVolumeData.map(b => b.sets), 0);
-  }, [modalVolumeData]);
-
-  const avgPeriodVol = useMemo(() => {
-    return modalVolumeData.length ? totalModalVol / modalVolumeData.length : 0;
-  }, [modalVolumeData, totalModalVol]);
-
-  const avgSetsPerWorkout = useMemo(() => {
-    return totalPeriodWorkouts > 0 ? totalModalSets / totalPeriodWorkouts : 0;
-  }, [totalModalSets, totalPeriodWorkouts]);
+  const chartHeading =
+    filterMode === 'weekly'
+      ? 'Haftalık Trend'
+      : filterMode === 'monthly'
+      ? 'Aylık Trend'
+      : 'Genel Trend';
 
   return (
     <View style={styles.container}>
-      {/* 1. PRIMARY: Set Count Trend & Muscle Group Distribution Bento Card */}
-      <View style={styles.bentoCard} onLayout={handleLayout}>
-        {/* Card Header with Expand Button */}
+      {/* Single Unified Trend Card */}
+      <View style={styles.trendCard} onLayout={handleLayout}>
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.cardTitle}>
-                {filterMode === 'weekly'
-                  ? 'Haftalık Set Dağılımı'
-                  : filterMode === 'monthly'
-                  ? 'Aylık Set Dağılımı'
-                  : 'Tüm Zamanlar Set Dağılımı'}
-              </Text>
-              <View style={styles.badgePill}>
-                <Text style={styles.badgePillText}>
-                  {filterMode === 'weekly'
-                    ? 'Son 7 Gün'
-                    : filterMode === 'monthly'
-                    ? 'Son 30 Gün'
-                    : 'Tüm Zamanlar'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.cardSubtitle}>
-              {totalPeriodSets > 0
-                ? `Bu dönemde toplam ${totalPeriodSets} çalışma seti tamamlandı`
-                : 'Döneme ait çalışma seti trendi'}
-            </Text>
+            <Text style={styles.cardTitle}>{chartHeading}</Text>
+            <Text style={styles.cardSubtitle}>Detay için çubuklara dokun</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.expandBtn}
-            onPress={() => {
-              setModalMetric('sets');
-              setIsModalOpen(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="expand-outline" size={14} color={COLORS.primaryText} />
-            <Text style={styles.expandBtnText}>Büyüt</Text>
-          </TouchableOpacity>
+          <View style={styles.headerControls}>
+            <View style={styles.inlinePills}>
+              <TouchableOpacity
+                style={[styles.inlinePillBtn, activeMetric === 'sets' && styles.inlinePillBtnOn]}
+                onPress={() => {
+                  setActiveMetric('sets');
+                  setSelectedIndex(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.inlinePillText,
+                    activeMetric === 'sets' && styles.inlinePillTextOn,
+                  ]}
+                >
+                  Set
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inlinePillBtn, activeMetric === 'volume' && styles.inlinePillBtnOn]}
+                onPress={() => {
+                  setActiveMetric('volume');
+                  setSelectedIndex(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.inlinePillText,
+                    activeMetric === 'volume' && styles.inlinePillTextOn,
+                  ]}
+                >
+                  Hacim
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.expandIconBtn}
+              onPress={() => {
+                setModalMetric(activeMetric);
+                setModalSelectedIndex(null);
+                setIsModalOpen(true);
+              }}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="Grafiği büyüt"
+            >
+              <Ionicons name="expand-outline" size={14} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {volumeData.length > 0 ? (
-          <View style={styles.chartSection}>
-            {/* Interactive Tooltip Card for Sets */}
-            {selectedSetBucket && (
-              <View style={styles.tooltipCard}>
-                <View style={styles.tooltipHeader}>
-                  <View style={styles.tooltipLeft}>
-                    <Ionicons name="calendar" size={14} color={COLORS.primary} />
-                    <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
-                      {selectedSetBucket.fullLabel}
-                    </Text>
-                  </View>
-                  {selectedSetBucket.isPeakSet && (
-                    <View style={styles.peakBadge}>
-                      <Ionicons name="flame" size={10} color="#10B981" />
-                      <Text style={styles.peakBadgeText}>En Yoğun Gün</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.tooltipBody}>
-                  <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Çalışma Seti</Text>
-                    <Text style={styles.tooltipValText}>
-                      {selectedSetBucket.sets > 0 ? `${selectedSetBucket.sets} Set` : '0 Set'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tooltipDivider} />
-
-                  <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Tamamlanan Seans</Text>
-                    <Text style={styles.tooltipSubText}>
-                      {selectedSetBucket.workoutCount > 0
-                        ? `${selectedSetBucket.workoutCount} Antrenman`
-                        : 'Antrenman yok'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tooltipDivider} />
-
-                  <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Kaldırılan Hacim</Text>
-                    <Text style={styles.tooltipSubText}>
-                      {selectedSetBucket.volume > 0
-                        ? `${selectedSetBucket.volume.toLocaleString('tr-TR')} kg`
-                        : '0 kg'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Scrollable SVG Chart for Sets */}
+          <>
             <RenderSvgBarChart
               data={volumeData}
               containerWidth={containerWidth}
-              height={165}
-              valueKey="sets"
-              selectedIndex={activeSetIndex}
-              onSelectIndex={setSelectedSetIndex}
-              minBarWidth={28}
+              height={146}
+              valueKey={activeMetric}
+              selectedIndex={resolvedIndex}
+              onSelectIndex={setSelectedIndex}
+              minBarWidth={26}
               barGap={8}
             />
-          </View>
-        ) : (
-          <Text style={styles.noDataText}>Henüz antrenman verisi mevcut değil.</Text>
-        )}
 
-        {/* Inner Divider */}
-        <View style={styles.cardInnerDivider} />
-
-        {/* Kas Grubu Kırılımı (Muscle Group Breakdown) */}
-        <View style={styles.muscleSubHeader}>
-          <Text style={styles.muscleSubTitle}>Kas Grubu Dağılımı</Text>
-          <Text style={styles.muscleSubSubtitle}>
-            {filterMode === 'weekly'
-              ? 'RP Hipertrofi Hedefi (10-20 Set / Hafta)'
-              : filterMode === 'monthly'
-              ? 'Aylık Hipertrofi Dağılımı (40-80 Set / Ay)'
-              : 'Tüm Zamanlar Kas Grubu Oranları'}
-          </Text>
-        </View>
-
-        {muscleBreakdown.length > 0 ? (
-          <View style={styles.muscleList}>
-            {muscleBreakdown.map(item => (
-              <MuscleBreakdownRow
-                key={item.category}
-                item={item}
-                targetBenchmark={targetBenchmark}
-                totalPeriodSets={totalPeriodSets}
-              />
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.noDataText}>Analiz edilecek antrenman verisi henüz yok.</Text>
-        )}
-      </View>
-
-      {/* 2. SECONDARY: Volume Chart Card (Interactive & Expandable) */}
-      <View style={styles.bentoCard}>
-        {/* Card Header with Expand Button */}
-        <View style={styles.cardHeader}>
-          <View style={styles.headerLeft}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.cardTitle}>Toplam Yük Değişimi</Text>
-              <View style={styles.badgePill}>
-                <Text style={styles.badgePillText}>
-                  {filterMode === 'weekly'
-                    ? 'Son 7 Gün'
-                    : filterMode === 'monthly'
-                    ? 'Son 30 Gün'
-                    : 'Tüm Zamanlar'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.cardSubtitle}>Kaldırılan toplam tonaj trendi (kg)</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.expandBtn}
-            onPress={() => {
-              setModalMetric('volume');
-              setIsModalOpen(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="expand-outline" size={14} color={COLORS.primaryText} />
-            <Text style={styles.expandBtnText}>Büyüt</Text>
-          </TouchableOpacity>
-        </View>
-
-        {volumeData.length > 0 ? (
-          <View style={styles.chartSection}>
-            {/* Interactive Tooltip Card for Volume */}
-            {selectedVolumeBucket && (
-              <View style={styles.tooltipCard}>
-                <View style={styles.tooltipHeader}>
-                  <View style={styles.tooltipLeft}>
-                    <Ionicons name="calendar" size={14} color={COLORS.primary} />
-                    <Text style={styles.tooltipDateText} numberOfLines={1} ellipsizeMode="tail">
-                      {selectedVolumeBucket.fullLabel}
-                    </Text>
-                  </View>
-                  {selectedVolumeBucket.isPeak && (
-                    <View style={styles.peakBadge}>
-                      <Ionicons name="trophy" size={10} color="#10B981" />
-                      <Text style={styles.peakBadgeText}>Zirve Hacim</Text>
-                    </View>
-                  )}
+            {selectedBucket && (
+              <View style={styles.summaryStrip}>
+                <View style={styles.summaryLeft}>
+                  <Text style={styles.summaryDate} numberOfLines={1}>
+                    {selectedBucket.fullLabel}
+                  </Text>
+                  <Text style={styles.summarySessions}>
+                    {selectedBucket.workoutCount > 0
+                      ? `${selectedBucket.workoutCount} seans`
+                      : 'Dinlenme'}
+                  </Text>
                 </View>
 
-                <View style={styles.tooltipBody}>
-                  <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Kaldırılan Hacim</Text>
-                    <Text style={styles.tooltipValText}>
-                      {selectedVolumeBucket.volume > 0
-                        ? `${selectedVolumeBucket.volume.toLocaleString('tr-TR')} kg`
-                        : '0 kg'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.tooltipDivider} />
-
-                  <View style={styles.tooltipStat}>
-                    <Text style={styles.tooltipLabel}>Tamamlanan Seans</Text>
-                    <Text style={styles.tooltipSubText}>
-                      {selectedVolumeBucket.workoutCount > 0
-                        ? `${selectedVolumeBucket.workoutCount} Antrenman`
-                        : 'Antrenman yok'}
-                    </Text>
-                  </View>
+                <View style={styles.summaryRight}>
+                  {(activeMetric === 'sets'
+                    ? selectedBucket.isPeakSet
+                    : selectedBucket.isPeak) && (
+                    <View style={styles.peakChip}>
+                      <Text style={styles.peakChipText}>Zirve</Text>
+                    </View>
+                  )}
+                  <Text style={styles.summaryMetric}>
+                    {selectedBucket.sets > 0 || selectedBucket.volume > 0
+                      ? `${selectedBucket.sets} set · ${selectedBucket.volume.toLocaleString('tr-TR')} kg`
+                      : '0 set'}
+                  </Text>
                 </View>
               </View>
             )}
-
-            {/* Scrollable SVG Chart for Volume */}
-            <RenderSvgBarChart
-              data={volumeData}
-              containerWidth={containerWidth}
-              height={170}
-              valueKey="volume"
-              selectedIndex={activeVolumeIndex}
-              onSelectIndex={setSelectedVolumeIndex}
-              minBarWidth={28}
-              barGap={8}
-            />
-          </View>
+          </>
         ) : (
-          <Text style={styles.noDataText}>Henüz antrenman verisi mevcut değil.</Text>
+          <Text style={styles.noDataText}>Henüz antrenman verisi bulunmuyor.</Text>
         )}
       </View>
 
-      {/* 3. EXPAND / DETAIL MODAL */}
+      {/* Expand / Deep-Dive Modal */}
       <Modal
         visible={isModalOpen}
         animationType="slide"
@@ -954,85 +660,73 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
         onRequestClose={() => setIsModalOpen(false)}
       >
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom', 'left', 'right']}>
-          {/* Modal Header */}
           <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderTitleRow}>
-              <View style={styles.modalTitleIconBg}>
-                <Ionicons
-                  name={modalMetric === 'sets' ? 'layers-outline' : 'analytics'}
-                  size={20}
-                  color={COLORS.primaryText}
-                />
-              </View>
-              <View>
-                <Text style={styles.modalTitle}>
-                  {modalMetric === 'sets' ? 'Çalışma Seti Analizi' : 'Toplam Yük Analizi'}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {modalMetric === 'sets'
-                    ? 'Tamamlanan çalışma setleri & periyot trendi'
-                    : 'Kaldırılan tonaj & detaylı trend incelemesi'}
-                </Text>
-              </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitle}>Detaylı Trend İncelemesi</Text>
+              <Text style={styles.modalSubtitle}>
+                {modalMetric === 'sets'
+                  ? 'Tamamlanan çalışma seti trendi'
+                  : 'Kaldırılan toplam tonaj trendi (kg)'}
+              </Text>
             </View>
-
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setIsModalOpen(false)}
             >
-              <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
+              <Ionicons name="close" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
-            {/* Metric Switcher Segmented Pills */}
-            <View style={styles.metricSwitcherContainer}>
-              <Text style={styles.metricSwitcherLabel}>ANALİZ METRİĞİ</Text>
-              <View style={styles.metricSwitcherBar}>
-                <TouchableOpacity
-                  style={[styles.metricBtn, modalMetric === 'sets' && styles.metricBtnSelected]}
-                  onPress={() => {
-                    setModalMetric('sets');
-                    setModalSelectedIndex(null);
-                  }}
-                >
-                  <Text style={[styles.metricBtnText, modalMetric === 'sets' && styles.metricBtnTextSelected]}>
-                    Çalışma Seti
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.metricBtn, modalMetric === 'volume' && styles.metricBtnSelected]}
-                  onPress={() => {
-                    setModalMetric('volume');
-                    setModalSelectedIndex(null);
-                  }}
-                >
-                  <Text style={[styles.metricBtnText, modalMetric === 'volume' && styles.metricBtnTextSelected]}>
-                    Toplam Tonaj (kg)
-                  </Text>
-                </TouchableOpacity>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Metric & Resolution Controls */}
+            <View style={styles.modalControlsRow}>
+              <View style={styles.modalSeg}>
+                {(['sets', 'volume'] as const).map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.modalSegBtn, modalMetric === m && styles.modalSegBtnOn]}
+                    onPress={() => {
+                      setModalMetric(m);
+                      setModalSelectedIndex(null);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalSegText,
+                        modalMetric === m && styles.modalSegTextOn,
+                      ]}
+                    >
+                      {m === 'sets' ? 'Çalışma Seti' : 'Tonaj (kg)'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
 
-            {/* Resolution Selector Segmented Pills */}
-            <View style={styles.resSwitcherContainer}>
-              <Text style={styles.resSwitcherLabel}>GÖRÜNÜM PERİYODU</Text>
-              <View style={styles.resSwitcherBar}>
+              <View style={styles.modalSeg}>
                 {(['daily', 'weekly', 'monthly'] as const).map(res => {
-                  const isSelected = modalResolution === res;
-                  const resLabels = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
+                  const labels = { daily: 'Günlük', weekly: 'Haftalık', monthly: 'Aylık' };
                   return (
                     <TouchableOpacity
                       key={res}
-                      style={[styles.resBtn, isSelected && styles.resBtnSelected]}
+                      style={[
+                        styles.modalSegBtn,
+                        modalResolution === res && styles.modalSegBtnOn,
+                      ]}
                       onPress={() => {
                         setModalResolution(res);
                         setModalSelectedIndex(null);
                       }}
                     >
-                      <Text style={[styles.resBtnText, isSelected && styles.resBtnTextSelected]}>
-                        {resLabels[res]}
+                      <Text
+                        style={[
+                          styles.modalSegText,
+                          modalResolution === res && styles.modalSegTextOn,
+                        ]}
+                      >
+                        {labels[res]}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -1040,197 +734,97 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
               </View>
             </View>
 
-            {/* Expanded Large Chart (Height 220px) */}
-            <View style={styles.modalChartCard}>
-              <View style={styles.modalChartHeader}>
-                <Text style={styles.modalChartTitle}>
-                  {modalMetric === 'sets'
-                    ? modalResolution === 'daily'
-                      ? 'Son 30 Günlük Set Dağılımı'
-                      : modalResolution === 'weekly'
-                      ? 'Son 12 Haftalık Set Trendi'
-                      : 'Son 12 Aylık Set Trendi'
-                    : modalResolution === 'daily'
-                    ? 'Son 30 Günlük Yük Dağılımı'
-                    : modalResolution === 'weekly'
-                    ? 'Son 12 Haftalık Yük Trendi'
-                    : 'Son 12 Aylık Yük Trendi'}
-                </Text>
-              </View>
-
+            {/* Large Chart Card */}
+            <View style={styles.trendCard}>
+              <Text style={styles.cardTitle}>
+                {modalResolution === 'daily'
+                  ? 'Son 30 Gün'
+                  : modalResolution === 'weekly'
+                  ? 'Son 12 Hafta'
+                  : 'Son 12 Ay'}
+              </Text>
               <RenderSvgBarChart
                 data={modalVolumeData}
-                containerWidth={containerWidth + 40}
-                height={220}
+                containerWidth={containerWidth + 24}
+                height={210}
                 valueKey={modalMetric}
                 selectedIndex={modalActiveIndex}
                 onSelectIndex={setModalSelectedIndex}
-                minBarWidth={32}
+                minBarWidth={30}
                 barGap={8}
               />
             </View>
 
-            {/* Selected Period Detailed Breakdown Card */}
+            {/* Selected Period Detail */}
             {modalSelectedBucket && (
-              <View style={styles.modalDetailCard}>
-                <View style={styles.modalDetailHeader}>
-                  <View style={styles.modalDetailTitleRow}>
-                    <Ionicons name="calendar" size={16} color={COLORS.primary} />
-                    <Text style={styles.modalDetailDate} numberOfLines={1} ellipsizeMode="tail">
-                      {modalSelectedBucket.fullLabel}
-                    </Text>
-                  </View>
-                  {(modalMetric === 'sets' ? modalSelectedBucket.isPeakSet : modalSelectedBucket.isPeak) && (
-                    <View style={styles.peakPill}>
-                      <Ionicons name="trophy" size={12} color={COLORS.primaryText} />
-                      <Text style={styles.peakPillText}>Zirve Periyot</Text>
-                    </View>
-                  )}
+              <View style={styles.trendCard}>
+                <View style={styles.summaryLeft}>
+                  <Text style={styles.kicker}>SEÇİLİ PERİYOT</Text>
+                  <Text style={styles.cardTitle}>{modalSelectedBucket.fullLabel}</Text>
                 </View>
 
                 <View style={styles.modalMetricGrid}>
-                  {modalMetric === 'sets' ? (
-                    <>
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Çalışma Seti</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.sets} Set
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Tamamlanan Seans</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.workoutCount} Antrenman
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Seans Başı Ort.</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.workoutCount > 0
-                            ? `${(modalSelectedBucket.sets / modalSelectedBucket.workoutCount).toFixed(1)} Set`
-                            : '0 Set'}
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Zirveye Oranı</Text>
-                        <Text style={styles.modalMetricVal}>
-                          %{modalMaxSets > 0 ? Math.round((modalSelectedBucket.sets / modalMaxSets) * 100) : 0}
-                        </Text>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Toplam Kaldırılan</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.volume.toLocaleString('tr-TR')} kg
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Tamamlanan Seans</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.workoutCount} Antrenman
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Seans Başı Ort.</Text>
-                        <Text style={styles.modalMetricVal}>
-                          {modalSelectedBucket.workoutCount > 0
-                            ? `${Math.round(modalSelectedBucket.volume / modalSelectedBucket.workoutCount).toLocaleString('tr-TR')} kg`
-                            : '0 kg'}
-                        </Text>
-                      </View>
-
-                      <View style={styles.modalMetricBox}>
-                        <Text style={styles.modalMetricLabel}>Zirveye Oranı</Text>
-                        <Text style={styles.modalMetricVal}>
-                          %{modalMaxVol > 0 ? Math.round((modalSelectedBucket.volume / modalMaxVol) * 100) : 0}
-                        </Text>
-                      </View>
-                    </>
-                  )}
+                  <View style={styles.modalMetricBox}>
+                    <Text style={styles.modalMetricLabel}>Çalışma Seti</Text>
+                    <Text style={styles.modalMetricVal}>{modalSelectedBucket.sets} set</Text>
+                  </View>
+                  <View style={styles.modalMetricBox}>
+                    <Text style={styles.modalMetricLabel}>Toplam Hacim</Text>
+                    <Text style={styles.modalMetricVal}>
+                      {modalSelectedBucket.volume.toLocaleString('tr-TR')} kg
+                    </Text>
+                  </View>
+                  <View style={styles.modalMetricBox}>
+                    <Text style={styles.modalMetricLabel}>Seans</Text>
+                    <Text style={styles.modalMetricVal}>
+                      {modalSelectedBucket.workoutCount} antrenman
+                    </Text>
+                  </View>
+                  <View style={styles.modalMetricBox}>
+                    <Text style={styles.modalMetricLabel}>Zirve Oranı</Text>
+                    <Text style={styles.modalMetricVal}>
+                      %
+                      {modalMetric === 'sets'
+                        ? modalMaxSets > 0
+                          ? Math.round((modalSelectedBucket.sets / modalMaxSets) * 100)
+                          : 0
+                        : modalMaxVol > 0
+                        ? Math.round((modalSelectedBucket.volume / modalMaxVol) * 100)
+                        : 0}
+                    </Text>
+                  </View>
                 </View>
               </View>
             )}
 
-            {/* Period Aggregated Overall Summary Bento Grid */}
-            <View style={styles.modalSummarySection}>
-              <Text style={styles.modalSectionTitle}>PERFORMANS ÖZET METRİKLERİ</Text>
-              <View style={styles.modalSummaryGrid}>
-                {modalMetric === 'sets' ? (
-                  <>
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="layers-outline" size={18} color={COLORS.textPrimary} />
-                      <Text style={styles.modalSummaryVal}>
-                        {totalModalSets} <Text style={styles.modalSummaryUnit}>Set</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Toplam Çalışma Seti</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="flame-outline" size={18} color="#10B981" />
-                      <Text style={styles.modalSummaryVal}>
-                        {modalMaxSets} <Text style={styles.modalSummaryUnit}>Set</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>En Yüksek Periyot</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
-                      <Text style={styles.modalSummaryVal}>
-                        {avgSetsPerWorkout.toFixed(1)} <Text style={styles.modalSummaryUnit}>Set</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Seans Başı Ortalama</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="barbell-outline" size={18} color="#EF4444" />
-                      <Text style={styles.modalSummaryVal}>
-                        {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Toplam Antrenman</Text>
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="barbell-outline" size={18} color={COLORS.textPrimary} />
-                      <Text style={styles.modalSummaryVal}>
-                        {(totalModalVol / 1000).toFixed(1)} <Text style={styles.modalSummaryUnit}>Ton</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Toplam Kaldırılan Yük</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="trophy-outline" size={18} color="#10B981" />
-                      <Text style={styles.modalSummaryVal}>
-                        {formatVolumeShort(modalMaxVol)} <Text style={styles.modalSummaryUnit}>kg</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>En Yüksek Hacim</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="calculator-outline" size={18} color="#8B5CF6" />
-                      <Text style={styles.modalSummaryVal}>
-                        {formatVolumeShort(Math.round(avgPeriodVol))} <Text style={styles.modalSummaryUnit}>kg</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Ortalama Periyot Yükü</Text>
-                    </View>
-
-                    <View style={styles.modalSummarySquare}>
-                      <Ionicons name="flame-outline" size={18} color="#EF4444" />
-                      <Text style={styles.modalSummaryVal}>
-                        {totalPeriodWorkouts} <Text style={styles.modalSummaryUnit}>Seans</Text>
-                      </Text>
-                      <Text style={styles.modalSummarySub}>Toplam Antrenman</Text>
-                    </View>
-                  </>
-                )}
+            {/* Period Aggregate */}
+            <View style={styles.trendCard}>
+              <Text style={styles.kicker}>DÖNEM TOPLAMI</Text>
+              <View style={styles.modalMetricGrid}>
+                <View style={styles.modalMetricBox}>
+                  <Text style={styles.modalMetricLabel}>Toplam Set</Text>
+                  <Text style={styles.modalMetricVal}>{totalModalSets} set</Text>
+                </View>
+                <View style={styles.modalMetricBox}>
+                  <Text style={styles.modalMetricLabel}>Toplam Tonaj</Text>
+                  <Text style={styles.modalMetricVal}>
+                    {totalModalVol >= 1000
+                      ? `${(totalModalVol / 1000).toFixed(1)} t`
+                      : `${totalModalVol} kg`}
+                  </Text>
+                </View>
+                <View style={styles.modalMetricBox}>
+                  <Text style={styles.modalMetricLabel}>Antrenman</Text>
+                  <Text style={styles.modalMetricVal}>{totalPeriodWorkouts}</Text>
+                </View>
+                <View style={styles.modalMetricBox}>
+                  <Text style={styles.modalMetricLabel}>Seans Ort.</Text>
+                  <Text style={styles.modalMetricVal}>
+                    {totalPeriodWorkouts > 0
+                      ? `${(totalModalSets / totalPeriodWorkouts).toFixed(1)} set`
+                      : '0 set'}
+                  </Text>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -1240,490 +834,238 @@ export const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   );
 };
 
-const createStyles = () => StyleSheet.create({
-  container: {
-    gap: 14,
-  },
-  bentoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-    gap: 8,
-  },
-  headerLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  cardSubtitle: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  badgePill: {
-    backgroundColor: COLORS.surfaceSubtle,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  badgePillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  expandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    ...SHADOWS.soft,
-  },
-  expandBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.primaryText,
-  },
-  chartSection: {
-    gap: 12,
-  },
-  scrollChartContent: {
-    paddingVertical: 4,
-  },
-  tooltipCard: {
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 8,
-  },
-  tooltipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  tooltipLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  tooltipDateText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-  },
-  peakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  peakBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  tooltipBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingTop: 4,
-  },
-  tooltipStat: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  tooltipLabel: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  tooltipValText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  tooltipSubText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  tooltipDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: COLORS.border,
-  },
-  noDataText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  cardInnerDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 14,
-  },
-  muscleSubHeader: {
-    marginBottom: 12,
-    gap: 2,
-  },
-  muscleSubTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  muscleSubSubtitle: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  muscleList: {
-    gap: 14,
-  },
-  muscleRow: {
-    gap: 6,
-  },
-  muscleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  muscleTitleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  muscleName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  muscleMetaRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  muscleSetsText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  musclePercentText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '600',
-  },
-  muscleVolText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '600',
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  // Modal Styles
-  modalSafeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalHeaderTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  modalTitleIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  modalSubtitle: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  modalCloseBtn: {
-    padding: 2,
-  },
-  modalScrollContent: {
-    padding: 20,
-    gap: 16,
-    paddingBottom: 40,
-  },
-  metricSwitcherContainer: {
-    gap: 6,
-  },
-  metricSwitcherLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-  },
-  metricSwitcherBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 6,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  metricBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  metricBtnSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  metricBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  metricBtnTextSelected: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-  },
-  resSwitcherContainer: {
-    gap: 6,
-  },
-  resSwitcherLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-  },
-  resSwitcherBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 6,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  resBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  resBtnSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  resBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  resBtnTextSelected: {
-    color: COLORS.primaryText,
-    fontWeight: '700',
-  },
-  modalChartCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-    ...SHADOWS.soft,
-  },
-  modalChartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  modalChartTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  modalPeakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  modalPeakBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.primaryText,
-  },
-  modalDetailCard: {
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-  },
-  modalDetailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  modalDetailTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  modalDetailDate: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-  },
-  peakPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  peakPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.primaryText,
-  },
-  modalMetricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  modalMetricBox: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 6,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 2,
-  },
-  modalMetricLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  modalMetricVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  modalSummarySection: {
-    gap: 10,
-    marginTop: 4,
-  },
-  modalSectionTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-  },
-  modalSummaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  modalSummarySquare: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 4,
-    ...SHADOWS.soft,
-  },
-  modalSummaryVal: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    letterSpacing: -0.5,
-  },
-  modalSummaryUnit: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textMuted,
-  },
-  modalSummarySub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-});
+const createStyles = () =>
+  StyleSheet.create({
+    container: {
+      gap: 12,
+    },
+    trendCard: {
+      backgroundColor: COLORS.surface,
+      borderRadius: 10,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 10,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    headerLeft: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+      letterSpacing: -0.2,
+    },
+    cardSubtitle: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      marginTop: 1,
+    },
+    headerControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+    },
+    inlinePills: {
+      flexDirection: 'row',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 6,
+      padding: 2,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    inlinePillBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 4,
+    },
+    inlinePillBtnOn: {
+      backgroundColor: COLORS.primary,
+    },
+    inlinePillText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+    },
+    inlinePillTextOn: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+    },
+    expandIconBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 6,
+      backgroundColor: COLORS.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    scrollChartContent: {
+      paddingVertical: 2,
+    },
+    summaryStrip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      gap: 8,
+    },
+    summaryLeft: {
+      flex: 1,
+      minWidth: 0,
+      gap: 1,
+    },
+    summaryDate: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: COLORS.textPrimary,
+    },
+    summarySessions: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+    },
+    summaryRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 0,
+    },
+    peakChip: {
+      backgroundColor: COLORS.pastel.greenBg,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    peakChipText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: COLORS.pastel.green,
+    },
+    summaryMetric: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: COLORS.textPrimary,
+      fontVariant: ['tabular-nums'],
+    },
+    noDataText: {
+      fontSize: 12,
+      color: COLORS.textMuted,
+      textAlign: 'center',
+      paddingVertical: 16,
+    },
+    kicker: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.7,
+      color: COLORS.textMuted,
+    },
+    modalSafeArea: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: COLORS.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+      gap: 12,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+    },
+    modalSubtitle: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      marginTop: 2,
+    },
+    modalCloseBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 6,
+      backgroundColor: COLORS.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalScrollContent: {
+      padding: 16,
+      gap: 12,
+      paddingBottom: 40,
+    },
+    modalControlsRow: {
+      gap: 8,
+    },
+    modalSeg: {
+      flexDirection: 'row',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 7,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 3,
+    },
+    modalSegBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      borderRadius: 5,
+      alignItems: 'center',
+    },
+    modalSegBtnOn: {
+      backgroundColor: COLORS.primary,
+    },
+    modalSegText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: COLORS.textSecondary,
+    },
+    modalSegTextOn: {
+      color: COLORS.primaryText,
+      fontWeight: '700',
+    },
+    modalMetricGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    modalMetricBox: {
+      width: '48.5%',
+      backgroundColor: COLORS.surfaceSubtle,
+      borderRadius: 8,
+      padding: 11,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      gap: 3,
+    },
+    modalMetricLabel: {
+      fontSize: 11,
+      color: COLORS.textMuted,
+      fontWeight: '600',
+    },
+    modalMetricVal: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: COLORS.textPrimary,
+      fontVariant: ['tabular-nums'],
+    },
+  });
 
 let styles = createStyles();
 subscribeTheme(() => {

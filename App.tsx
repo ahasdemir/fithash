@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   StatusBar,
   StyleSheet,
@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, ThemeColors, ThemeMode, setThemeMode, useTheme } from './src/theme';
+import { ThemeColors, ThemeMode, ThemeProvider, setThemeMode, useTheme } from './src/theme';
 import { Header } from './src/components/Header';
 import { WorkoutTab } from './src/screens/WorkoutTab';
 import { AnalyticsTab } from './src/screens/AnalyticsTab';
@@ -58,7 +59,7 @@ import {
 import { Routine, WorkoutSession, PersonalRecord } from './src/types/fitness';
 import { updateStreakWidget } from './src/services/widgetService';
 
-export default function App() {
+function AppContent() {
   const { mode, colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -76,6 +77,9 @@ export default function App() {
   const [summarySession, setSummarySession] = useState<WorkoutSession | null>(null);
   // Saatten aynalanan son dinlenme zamanlayıcısı güncellemesi (her olay yeni nesne).
   const [remoteRestTimer, setRemoteRestTimer] = useState<WearRestTimerUpdate | null>(null);
+  const hasLoadedRef = useRef(false);
+  const activeSessionRef = useRef<WorkoutSession | null>(null);
+  activeSessionRef.current = activeSession;
 
   useEffect(() => {
     configureNotifications();
@@ -102,18 +106,22 @@ export default function App() {
       {
         onActiveSessionUpdated: session => {
           if (!session) {
-            // Saat seansı bitirdi veya vazgeçti; telefondaki aynayı da temizle.
+            // Saat seansı bitirdi veya vazgeçti; telefondaki aynayı ve dinlenme sayacını temizle.
             setActiveSession(null);
             setShowActiveModal(false);
             clearActiveSession();
             cancelSessionReminder();
+            saveActiveRestTimerEnd(null);
+            cancelRestTimerNotification();
             return;
           }
-          // Saatte başlatılan/düzenlenen seans, restoreActiveSession ile aynı UX'i sunar.
+          const isNewSession = !activeSessionRef.current || activeSessionRef.current.id !== session.id;
           setActiveSession(session);
           saveActiveSession(session);
-          setShowActiveModal(true);
-          scheduleSessionReminder(session.name);
+          if (isNewSession) {
+            setShowActiveModal(true);
+            scheduleSessionReminder(session.name);
+          }
         },
         onRestTimerUpdated: (endTimeMs, totalSeconds, revision) => {
           setRemoteRestTimer({ endTimeMs, totalSeconds, revision });
@@ -126,17 +134,19 @@ export default function App() {
     };
   }, []);
 
+  const stats = useMemo(
+    () => calculateUserStats(workouts, workoutDays, weeklyTargetHistory),
+    [workouts, workoutDays, weeklyTargetHistory]
+  );
+
   useEffect(() => {
-    if (workouts) {
-      const stats = calculateUserStats(workouts, workoutDays, weeklyTargetHistory);
-      const todayStr = getLocalDateString();
-      const todayCompleted = workouts.some(w => w.date === todayStr && w.completed !== false);
-      updateStreakWidget(stats.streakDays, todayCompleted);
-    }
-  }, [workouts, workoutDays, weeklyTargetHistory]);
+    if (!hasLoadedRef.current) return;
+    const todayStr = getLocalDateString();
+    const todayCompleted = workouts.some(w => w.date === todayStr && w.completed !== false);
+    updateStreakWidget(stats.streakDays, todayCompleted);
+  }, [workouts, stats.streakDays]);
 
   const restoreActiveSession = async () => {
-    configureNotifications();
     const saved = await getActiveSession();
     if (saved && !saved.completed) {
       setActiveSession(saved);
@@ -174,6 +184,11 @@ export default function App() {
     try {
       const pendingRest = await getPendingWearRestTimer();
       if (pendingRest && pendingRest.revision > 0) {
+        setRemoteRestTimer({
+          endTimeMs: pendingRest.endTimeMs,
+          totalSeconds: pendingRest.endTimeMs !== null ? Math.max(1, Math.ceil((pendingRest.endTimeMs - Date.now()) / 1000)) : 0,
+          revision: pendingRest.revision,
+        });
         if (pendingRest.endTimeMs !== null) {
           await saveActiveRestTimerEnd(pendingRest.endTimeMs);
           scheduleRestTimerNotification(pendingRest.endTimeMs);
@@ -188,10 +203,13 @@ export default function App() {
   };
 
   const loadAllData = async () => {
-    const wData = await getWorkouts();
-    const rData = await getRoutines();
-    const prData = await getPersonalRecords();
-    const appSettings = await getAppSettings();
+    const [wData, rData, prData, appSettings] = await Promise.all([
+      getWorkouts(),
+      getRoutines(),
+      getPersonalRecords(),
+      getAppSettings(),
+    ]);
+    hasLoadedRef.current = true;
     const resolvedTheme: ThemeMode = appSettings.themeMode === 'light' ? 'light' : 'dark';
     setThemeMode(resolvedTheme);
 
@@ -242,19 +260,29 @@ export default function App() {
     const updatedPrs = await getPersonalRecords();
     setPrs(updatedPrs);
 
-    // Bildirimler: PR Kontrolü
+    // Bildirimler: PR Kontrolü (kardiyo 0 kg hariç, egzersiz başına tek bildirim)
+    const notifiedExIds = new Set<string>();
     completedSession.exercises.forEach(ex => {
+      if (ex.category === 'Kardiyo' || notifiedExIds.has(ex.exerciseId)) return;
       const prevPR = previousPrs[ex.exerciseId];
       const newPR = updatedPrs[ex.exerciseId];
-      if (newPR && (!prevPR || newPR.maxWeight > prevPR.maxWeight || newPR.maxReps > prevPR.maxReps)) {
+      if (
+        newPR &&
+        newPR.maxWeight > 0 &&
+        (!prevPR ||
+          newPR.maxWeight > prevPR.maxWeight ||
+          (newPR.maxWeight === prevPR.maxWeight && newPR.maxReps > prevPR.maxReps) ||
+          (newPR.maxEstimatedOneRepMax || 0) > (prevPR.maxEstimatedOneRepMax || 0))
+      ) {
+        notifiedExIds.add(ex.exerciseId);
         triggerPRNotification(newPR.exerciseName, newPR.maxWeight, newPR.maxReps);
       }
     });
 
-    // Seri Bildirimi Kontrolü
+    // Seri Bildirimi Kontrolü (yalnızca seri arttığında)
     const newStats = calculateUserStats(updated, workoutDays, weeklyTargetHistory);
     const milestones = [3, 7, 14, 21, 30, 60, 90, 100, 365];
-    if (milestones.includes(newStats.streakDays)) {
+    if (newStats.streakDays > stats.streakDays && milestones.includes(newStats.streakDays)) {
       triggerStreakMilestoneNotification(newStats.streakDays);
     }
 
@@ -330,18 +358,20 @@ export default function App() {
       completed: false,
       exercises: pastSession.exercises.map(ex => ({
         ...ex,
-        id: `wex_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        id: `wex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        feedback: undefined,
+        notes: undefined,
         sets: ex.sets.map(s => ({
           ...s,
-          id: `set_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           completed: false,
+          isPR: undefined,
+          caloriesBurned: undefined,
         })),
       })),
     };
     handleStartSession(newSession);
   };
-
-  const stats = calculateUserStats(workouts, workoutDays, weeklyTargetHistory);
 
   return (
     <SafeAreaProvider>
@@ -371,9 +401,6 @@ export default function App() {
               onSaveRoutine={handleSaveRoutine}
               onReorderRoutines={handleReorderRoutines}
               onDeleteRoutine={handleDeleteRoutine}
-              workouts={workouts}
-              workoutDays={workoutDays}
-              onOpenStreak={() => setShowStreakModal(true)}
             />
           )}
 
@@ -400,6 +427,13 @@ export default function App() {
             <LibraryTab workouts={workouts} prs={prs} />
           )}
         </View>
+
+        {/* Bottom fade: masks content scrolling beneath the floating nav */}
+        <LinearGradient
+          colors={[`${colors.background}00`, `${colors.background}DB`, colors.background]}
+          locations={[0, 0.52, 1]}
+          style={[styles.bottomFade, { pointerEvents: 'none' }]}
+        />
 
         {/* Structured 4-Column Segmented Bottom Navigation Bar */}
         <View style={styles.bottomNavContainer}>
@@ -540,6 +574,14 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
@@ -548,6 +590,13 @@ const createStyles = (colors: ThemeColors) =>
     },
     mainContent: {
       flex: 1,
+    },
+    bottomFade: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 132,
     },
     bottomNavContainer: {
       position: 'absolute',
@@ -567,7 +616,6 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       gap: 4,
-      ...SHADOWS.soft,
     },
     navTab: {
       flex: 1,

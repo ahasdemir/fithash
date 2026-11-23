@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef , useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Vibration, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS , useTheme , subscribeTheme } from '../theme';
@@ -24,6 +24,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
 
   const onDeadlineChangeRef = useRef(onDeadlineChange);
   const onFinishRef = useRef(onFinish);
+  const hasFinishedRef = useRef(false);
 
   useEffect(() => {
     onDeadlineChangeRef.current = onDeadlineChange;
@@ -32,6 +33,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
 
   // Reset timer whenever initialSeconds prop changes or component remounts
   useEffect(() => {
+    hasFinishedRef.current = false;
     const end = Date.now() + initialSeconds * 1000;
     setTargetEndTime(end);
     setSecondsLeft(initialSeconds);
@@ -45,6 +47,8 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
       if (nextAppState === 'active' && isActive) {
         const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
         if (remaining <= 0) {
+          if (hasFinishedRef.current) return;
+          hasFinishedRef.current = true;
           setSecondsLeft(0);
           setIsActive(false);
           onDeadlineChangeRef.current?.(null);
@@ -67,6 +71,8 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
       const updateTimer = () => {
         const remaining = Math.ceil((targetEndTime - Date.now()) / 1000);
         if (remaining <= 0) {
+          if (hasFinishedRef.current) return;
+          hasFinishedRef.current = true;
           setSecondsLeft(0);
           setIsActive(false);
           onDeadlineChangeRef.current?.(null);
@@ -84,17 +90,27 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
   }, [isActive, targetEndTime]);
 
   const addTime = (secs: number) => {
-    const newTarget = targetEndTime + secs * 1000;
+    if (!isActive) {
+      const nextSecs = Math.max(0, secondsLeft + secs);
+      setSecondsLeft(nextSecs);
+      if (nextSecs > 0) hasFinishedRef.current = false;
+      onDeadlineChange?.(null);
+      return;
+    }
+    const base = Math.max(targetEndTime, Date.now());
+    const newTarget = base + secs * 1000;
     const remaining = Math.max(0, Math.ceil((newTarget - Date.now()) / 1000));
     setTargetEndTime(newTarget);
     setSecondsLeft(remaining);
-    onDeadlineChange?.(isActive && remaining > 0 ? newTarget : null);
+    if (remaining > 0) hasFinishedRef.current = false;
+    onDeadlineChange?.(remaining > 0 ? newTarget : null);
   };
 
   const toggleTimer = () => {
     const nextActive = !isActive;
     setIsActive(nextActive);
     if (nextActive) {
+      hasFinishedRef.current = false;
       const newTarget = Date.now() + secondsLeft * 1000;
       setTargetEndTime(newTarget);
       onDeadlineChange?.(newTarget);
@@ -135,7 +151,7 @@ export const RestTimerBar: React.FC<RestTimerProps> = ({
           </TouchableOpacity>
 
           {onClose && (
-            <TouchableOpacity style={styles.btnClose} onPress={onClose}>
+            <TouchableOpacity style={styles.btnClose} onPress={() => { onDeadlineChangeRef.current?.(null); onClose(); }}>
               <Ionicons name="close" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
           )}

@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { WorkoutSession } from '../types/fitness';
 
 interface WorkoutSummaryModalProps {
@@ -29,7 +29,6 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
   const calories = session.totalCaloriesBurned || 0;
   const volume = session.totalVolume || 0;
   const sets = session.totalSets || 0;
-  const avgRir = session.avgRir !== undefined ? session.avgRir : '-';
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -55,19 +54,19 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="flame-outline" size={18} color="#EF4444" />
+                <Ionicons name="flame-outline" size={18} color={COLORS.pastel.rose} />
                 <Text style={styles.statVal}>~{calories}</Text>
                 <Text style={styles.statLabel}>Yakılan kcal</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="barbell-outline" size={18} color="#3B82F6" />
+                <Ionicons name="barbell-outline" size={18} color={COLORS.pastel.blue} />
                 <Text style={styles.statVal}>{volume.toLocaleString('tr-TR')} kg</Text>
                 <Text style={styles.statLabel}>Hacim</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
+                <Ionicons name="checkmark-done-circle-outline" size={18} color={COLORS.pastel.green} />
                 <Text style={styles.statVal}>{sets} Set</Text>
                 <Text style={styles.statLabel}>Tamamlanan</Text>
               </View>
@@ -77,7 +76,7 @@ export const WorkoutSummaryModal: React.FC<WorkoutSummaryModalProps> = ({
             {session.avgRir !== undefined && (
               <View style={styles.rirBanner}>
                 <Ionicons name="speedometer-outline" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.rirBannerText}>Ortalama RIR (Tükeniş Mesafesi): <Text style={styles.rirVal}>{avgRir}</Text></Text>
+                <Text style={styles.rirBannerText}>Ortalama RIR (Tükeniş Mesafesi): <Text style={styles.rirVal}>{session.avgRir}</Text></Text>
               </View>
             )}
 
@@ -113,7 +112,6 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
     gap: 20,
-    ...SHADOWS.soft,
   },
   badgeWrapper: {
     alignItems: 'center',
@@ -127,7 +125,6 @@ const createStyles = () => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-    ...SHADOWS.soft,
   },
   congratsText: {
     fontSize: 13,

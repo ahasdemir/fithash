@@ -11,6 +11,7 @@ const SESSION_REMINDER_ID = 'fithash_session_reminder';
 const DAILY_REMINDER_ID = 'fithash_daily_reminder';
 
 export const configureNotifications = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     if (existingStatus !== 'granted') {
@@ -61,6 +62,7 @@ export const configureNotifications = async (): Promise<void> => {
   }
 };
 
+if (Platform.OS !== 'web') {
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -70,12 +72,14 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+}
 
 const scheduleNotification = async (
   identifier: string,
   content: Notifications.NotificationContentInput,
   trigger: Notifications.NotificationTriggerInput
 ): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.cancelScheduledNotificationAsync(identifier);
   } catch (error) {
@@ -99,6 +103,7 @@ const scheduleNotification = async (
 };
 
 export const scheduleRestTimerNotification = async (endTime: number): Promise<void> => {
+  if (Platform.OS === 'web') return;
   if (endTime <= Date.now()) return;
   const diffSeconds = Math.max(1, Math.round((endTime - Date.now()) / 1000));
 
@@ -133,6 +138,7 @@ export const scheduleRestTimerNotification = async (endTime: number): Promise<vo
 };
 
 export const cancelRestTimerNotification = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.cancelScheduledNotificationAsync(REST_TIMER_ID);
   } catch (error) {
@@ -153,6 +159,7 @@ export const scheduleSessionReminder = async (sessionName: string): Promise<void
 };
 
 export const cancelSessionReminder = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.cancelScheduledNotificationAsync(SESSION_REMINDER_ID);
   } catch (error) {
@@ -168,6 +175,7 @@ export const triggerPRNotification = async (
   weight: number,
   reps: number
 ): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -194,6 +202,7 @@ export const triggerPRNotification = async (
  * Seri (Streak) kilometre taşı kazanıldığında kutlama bildirimi tetikler.
  */
 export const triggerStreakMilestoneNotification = async (streakDays: number): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -220,6 +229,7 @@ export const triggerStreakMilestoneNotification = async (streakDays: number): Pr
  * Günlük sabit saatli antrenman hatırlatıcısı planlar.
  */
 export const scheduleDailyWorkoutReminder = async (hour: number = 18, minute: number = 0): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID);
     await Notifications.scheduleNotificationAsync({
@@ -244,6 +254,7 @@ export const scheduleDailyWorkoutReminder = async (hour: number = 18, minute: nu
 };
 
 export const cancelDailyWorkoutReminder = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
   try {
     await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID);
   } catch (error) {

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, EquipmentType } from '../types/fitness';
 import {
   getExerciseSubstitutes,
@@ -43,12 +43,12 @@ export const ExerciseSwapModal: React.FC<ExerciseSwapModalProps> = ({
   useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!sourceExercise) return null;
-
   const candidates: ExerciseSubstitutionCandidate[] = useMemo(() => {
     if (!sourceExercise) return [];
     return getExerciseSubstitutes(sourceExercise, allExercises);
   }, [sourceExercise, allExercises]);
+
+  if (!sourceExercise) return null;
 
   return (
     <Modal
@@ -271,7 +271,6 @@ const createStyles = () => StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -331,7 +330,7 @@ const createStyles = () => StyleSheet.create({
   zeroAxialText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#10B981',
+    color: COLORS.pastel.green,
   },
   scoreBadge: {
     alignItems: 'center',
@@ -352,10 +351,10 @@ const createStyles = () => StyleSheet.create({
     fontWeight: '800',
   },
   scoreTextHigh: {
-    color: '#10B981',
+    color: COLORS.pastel.green,
   },
   scoreTextMid: {
-    color: '#3B82F6',
+    color: COLORS.pastel.blue,
   },
   scoreSubLabel: {
     fontSize: 9,

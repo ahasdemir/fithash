@@ -1,4 +1,4 @@
-import React, { useState, useEffect , useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession, WorkoutExercise, ExerciseSet } from '../types/fitness';
 import { ExercisePickerModal } from './ExercisePickerModal';
+import { CustomAlertModal } from './CustomAlertModal';
+import { isIsometricExerciseName } from '../utils/exerciseHelpers';
 
 interface EditWorkoutModalProps {
   visible: boolean;
@@ -22,6 +23,13 @@ interface EditWorkoutModalProps {
   onSave: (updatedWorkout: WorkoutSession) => void;
 }
 
+const isValidISODate = (str: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const [y, m, d] = str.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+};
+
 export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   visible,
   workout,
@@ -29,20 +37,25 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   onSave,
 }) => {
   useTheme();
-  const [name, setName] = useState(workout?.name ?? '');
-  const [date, setDate] = useState(workout?.date ?? '');
-  const [durationMinutes, setDurationMinutes] = useState(
-    workout ? Math.round((workout.durationSeconds || 0) / 60).toString() : ''
-  );
-  const [notes, setNotes] = useState(workout?.notes ?? '');
-  const [exercises, setExercises] = useState<WorkoutExercise[]>(
-    workout ? JSON.parse(JSON.stringify(workout.exercises || [])) : []
-  );
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
+  const [notes, setNotes] = useState('');
+  const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [rawInputMap, setRawInputMap] = useState<Record<string, string>>({});
   const [showExercisePicker, setShowExercisePicker] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+    onConfirm?: () => void;
+  }>({ visible: false, title: '', message: '' });
 
   useEffect(() => {
-    if (workout) {
+    if (visible && workout) {
       setName(workout.name);
       setDate(workout.date);
       setDurationMinutes(Math.round((workout.durationSeconds || 0) / 60).toString());
@@ -50,16 +63,18 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
       setExercises(JSON.parse(JSON.stringify(workout.exercises || [])));
       setRawInputMap({});
     }
-  }, [workout]);
+  }, [workout, visible]);
 
-  // Erken dönüş hook'lardan SONRA yapılmalı: aksi halde workout null iken
-  // 0 hook çalışır, workout dolunca 8 hook çalışır ve React kilitlenir
-  // ("Rendered more hooks than during the previous render").
+  // Early return must happen AFTER hooks to preserve hook ordering
   if (!workout) return null;
 
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
+
   const handleAddExercise = (selectedEx: any) => {
+    const isCardio = selectedEx.category === 'Kardiyo';
+    const isIso = !isCardio && isIsometricExerciseName(selectedEx.name);
     const newEx: WorkoutExercise = {
-      id: `wex_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      id: `wex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       exerciseId: selectedEx.id,
       exerciseName: selectedEx.name,
       category: selectedEx.category,
@@ -69,7 +84,9 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
           id: `set_${Date.now()}_1`,
           setNumber: 1,
           weight: 0,
-          reps: 10,
+          reps: isCardio || isIso ? 0 : 10,
+          ...(isIso ? { durationSeconds: 60 } : {}),
+          ...(isCardio ? { durationMinutes: 20 } : {}),
           completed: true,
         },
       ],
@@ -79,20 +96,19 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   };
 
   const handleRemoveExercise = (exerciseIndex: number) => {
-    Alert.alert(
-      'Egzersizi Kaldır',
-      `"${exercises[exerciseIndex].exerciseName}" antrenmandan çıkarılsın mı?`,
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Kaldır',
-          style: 'destructive',
-          onPress: () => {
-            setExercises(prev => prev.filter((_, idx) => idx !== exerciseIndex));
-          },
-        },
-      ]
-    );
+    const targetName = exercises[exerciseIndex]?.exerciseName || 'Bu egzersiz';
+    setAlertConfig({
+      visible: true,
+      title: 'Egzersizi Kaldır',
+      message: `"${targetName}" antrenmandan çıkarılsın mı?`,
+      confirmText: 'Kaldır',
+      cancelText: 'İptal',
+      isDestructive: true,
+      onConfirm: () => {
+        setExercises(prev => prev.filter((_, idx) => idx !== exerciseIndex));
+        closeAlert();
+      },
+    });
   };
 
   const handleAddSet = (exerciseIndex: number) => {
@@ -107,8 +123,10 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
         setNumber: newSetNumber,
         weight: lastSet ? lastSet.weight : 0,
         reps: lastSet ? lastSet.reps : 10,
+        durationSeconds: lastSet?.durationSeconds,
         durationMinutes: lastSet?.durationMinutes,
         distanceKm: lastSet?.distanceKm,
+        caloriesBurned: lastSet?.caloriesBurned,
         completed: true,
       };
 
@@ -119,13 +137,21 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
   };
 
   const handleRemoveSet = (exerciseIndex: number, setIndex: number) => {
+    const currentSets = exercises[exerciseIndex]?.sets;
+    if (!currentSets || currentSets.length <= 1) {
+      setAlertConfig({
+        visible: true,
+        title: 'Uyarı',
+        message: 'Egzersizin en az bir seti olmalıdır veya egzersizi kaldırabilirsiniz.',
+        confirmText: 'Tamam',
+        onConfirm: closeAlert,
+      });
+      return;
+    }
     setExercises(prev => {
       const next = [...prev];
       const targetEx = { ...next[exerciseIndex] };
-      if (targetEx.sets.length <= 1) {
-        Alert.alert('Uyarı', 'Egzersizin en az bir seti olmalıdır veya egzersizi kaldırabilirsiniz.');
-        return prev;
-      }
+      if (targetEx.sets.length <= 1) return prev;
       targetEx.sets = targetEx.sets
         .filter((_, idx) => idx !== setIndex)
         .map((s, idx) => ({ ...s, setNumber: idx + 1 }));
@@ -169,7 +195,6 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
     let parsedVal: number = 0;
 
     if (isDecimalField) {
-      // Replace ALL commas with dots for Turkish/European keyboards
       cleanString = val.replace(/,/g, '.').replace(/[^0-9.]/g, '');
       const parts = cleanString.split('.');
       if (parts.length > 2) {
@@ -178,7 +203,13 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
       setRawInputMap(prev => ({ ...prev, [setKey]: cleanString }));
       const f = parseFloat(cleanString);
       parsedVal = isNaN(f) ? 0 : f;
-    } else if (field === 'reps' || field === 'durationMinutes' || field === 'caloriesBurned' || field === 'rir') {
+    } else if (
+      field === 'reps' ||
+      field === 'durationSeconds' ||
+      field === 'durationMinutes' ||
+      field === 'caloriesBurned' ||
+      field === 'rir'
+    ) {
       cleanString = val.replace(/[^0-9]/g, '');
       setRawInputMap(prev => ({ ...prev, [setKey]: cleanString }));
       if (field === 'rir' && cleanString === '') {
@@ -203,7 +234,25 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Hata', 'Lütfen antrenman adı girin.');
+      setAlertConfig({
+        visible: true,
+        title: 'Hata',
+        message: 'Lütfen antrenman adı girin.',
+        confirmText: 'Tamam',
+        onConfirm: closeAlert,
+      });
+      return;
+    }
+
+    const trimmedDate = date.trim();
+    if (!isValidISODate(trimmedDate)) {
+      setAlertConfig({
+        visible: true,
+        title: 'Geçersiz Tarih',
+        message: 'Tarih formatı YYYY-MM-DD (örn. 2026-10-11) olmalıdır.',
+        confirmText: 'Tamam',
+        onConfirm: closeAlert,
+      });
       return;
     }
 
@@ -213,35 +262,58 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
     let totSets = 0;
     let totCardioDist = 0;
     let totCardioMin = 0;
+    let totCalories = 0;
+    let rirSum = 0;
+    let rirCount = 0;
 
-    exercises.forEach(ex => {
-      ex.sets.forEach(s => {
-        if (s.completed) {
+    const normalizedExercises = exercises.map(ex => {
+      const isCardio = ex.category === 'Kardiyo';
+      const nextSets = ex.sets.map(s => {
+        let nextSet = s;
+        if (isCardio) {
+          const dist = s.distanceKm || 0;
+          const mins = s.durationMinutes || 0;
+          const computedSpeed =
+            dist > 0 && mins > 0 ? Math.round((dist / (mins / 60)) * 10) / 10 : undefined;
+          nextSet = { ...s, avgSpeedKmh: computedSpeed };
+        }
+        if (nextSet.completed) {
           totSets++;
-          if (s.weight && s.reps) {
-            totVol += s.weight * s.reps;
+          if (nextSet.weight && nextSet.reps) {
+            totVol += nextSet.weight * nextSet.reps;
           }
-          if (s.distanceKm) {
-            totCardioDist += s.distanceKm;
+          if (nextSet.distanceKm) {
+            totCardioDist += nextSet.distanceKm;
           }
-          if (s.durationMinutes) {
-            totCardioMin += s.durationMinutes;
+          if (nextSet.durationMinutes) {
+            totCardioMin += nextSet.durationMinutes;
+          }
+          if (nextSet.caloriesBurned) {
+            totCalories += nextSet.caloriesBurned;
+          }
+          if (!isCardio && !nextSet.isWarmup && nextSet.rir !== undefined) {
+            rirSum += nextSet.rir;
+            rirCount++;
           }
         }
+        return nextSet;
       });
+      return { ...ex, sets: nextSets };
     });
 
     const updatedWorkout: WorkoutSession = {
       ...workout,
       name: name.trim(),
-      date: date.trim() || workout.date,
+      date: trimmedDate,
       durationSeconds: durSecs > 0 ? durSecs : workout.durationSeconds,
       notes: notes.trim(),
-      exercises,
+      exercises: normalizedExercises,
       totalVolume: Math.round(totVol),
       totalSets: totSets,
       totalCardioDistanceKm: totCardioDist > 0 ? Math.round(totCardioDist * 10) / 10 : undefined,
       totalCardioMinutes: totCardioMin > 0 ? Math.round(totCardioMin) : undefined,
+      totalCaloriesBurned: totCalories > 0 ? Math.round(totCalories) : undefined,
+      avgRir: rirCount > 0 ? Math.round((rirSum / rirCount) * 10) / 10 : undefined,
     };
 
     onSave(updatedWorkout);
@@ -338,6 +410,7 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
 
           {exercises.map((ex, exIdx) => {
             const isCardio = ex.category === 'Kardiyo';
+            const isIso = !isCardio && isIsometricExerciseName(ex.exerciseName);
 
             return (
               <View key={ex.id || `ex_${exIdx}`} style={styles.exerciseCard}>
@@ -368,7 +441,9 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                   ) : (
                     <>
                       <Text style={[styles.colHead, styles.colInput]}>AĞIRLIK (KG)</Text>
-                      <Text style={[styles.colHead, styles.colInput]}>TEKRAR</Text>
+                      <Text style={[styles.colHead, styles.colInput]}>
+                        {isIso ? 'SÜRE (SN)' : 'TEKRAR'}
+                      </Text>
                       <Text style={[styles.colHead, styles.colInput]}>RIR</Text>
                     </>
                   )}
@@ -380,134 +455,173 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
                 {ex.sets.map((set, setIdx) => {
                   const setKeyPrefix = `${ex.id || exIdx}_${set.id || setIdx}`;
                   const weightKey = `${setKeyPrefix}_weight`;
-                  const weightDisplay = rawInputMap[weightKey] !== undefined
-                    ? rawInputMap[weightKey]
-                    : (set.weight !== undefined && set.weight !== 0 ? String(set.weight) : '');
+                  const weightDisplay =
+                    rawInputMap[weightKey] !== undefined
+                      ? rawInputMap[weightKey]
+                      : set.weight !== undefined && set.weight !== 0
+                      ? String(set.weight)
+                      : '';
 
                   const repsKey = `${setKeyPrefix}_reps`;
-                  const repsDisplay = rawInputMap[repsKey] !== undefined
-                    ? rawInputMap[repsKey]
-                    : (set.reps !== undefined && set.reps !== 0 ? String(set.reps) : '');
+                  const repsDisplay =
+                    rawInputMap[repsKey] !== undefined
+                      ? rawInputMap[repsKey]
+                      : set.reps !== undefined && set.reps !== 0
+                      ? String(set.reps)
+                      : '';
+
+                  const durSecKey = `${setKeyPrefix}_durationSeconds`;
+                  const durSecDisplay =
+                    rawInputMap[durSecKey] !== undefined
+                      ? rawInputMap[durSecKey]
+                      : set.durationSeconds !== undefined && set.durationSeconds !== 0
+                      ? String(set.durationSeconds)
+                      : '';
 
                   const rirKey = `${setKeyPrefix}_rir`;
-                  const rirDisplay = rawInputMap[rirKey] !== undefined
-                    ? rawInputMap[rirKey]
-                    : (set.rir !== undefined ? String(set.rir) : '');
+                  const rirDisplay =
+                    rawInputMap[rirKey] !== undefined
+                      ? rawInputMap[rirKey]
+                      : set.rir !== undefined
+                      ? String(set.rir)
+                      : '';
 
                   const durKey = `${setKeyPrefix}_durationMinutes`;
-                  const durDisplay = rawInputMap[durKey] !== undefined
-                    ? rawInputMap[durKey]
-                    : (set.durationMinutes !== undefined && set.durationMinutes !== 0 ? String(set.durationMinutes) : '');
+                  const durDisplay =
+                    rawInputMap[durKey] !== undefined
+                      ? rawInputMap[durKey]
+                      : set.durationMinutes !== undefined && set.durationMinutes !== 0
+                      ? String(set.durationMinutes)
+                      : '';
 
                   const distKey = `${setKeyPrefix}_distanceKm`;
-                  const distDisplay = rawInputMap[distKey] !== undefined
-                    ? rawInputMap[distKey]
-                    : (set.distanceKm !== undefined && set.distanceKm !== 0 ? String(set.distanceKm) : '');
+                  const distDisplay =
+                    rawInputMap[distKey] !== undefined
+                      ? rawInputMap[distKey]
+                      : set.distanceKm !== undefined && set.distanceKm !== 0
+                      ? String(set.distanceKm)
+                      : '';
 
                   const calKey = `${setKeyPrefix}_caloriesBurned`;
-                  const calDisplay = rawInputMap[calKey] !== undefined
-                    ? rawInputMap[calKey]
-                    : (set.caloriesBurned !== undefined && set.caloriesBurned !== 0 ? String(set.caloriesBurned) : '');
+                  const calDisplay =
+                    rawInputMap[calKey] !== undefined
+                      ? rawInputMap[calKey]
+                      : set.caloriesBurned !== undefined && set.caloriesBurned !== 0
+                      ? String(set.caloriesBurned)
+                      : '';
 
                   return (
-                  <View key={set.id || `s_${setIdx}`} style={styles.setRow}>
-                    <View style={styles.colSet}>
-                      <Text style={styles.setNumText}>{set.setNumber}</Text>
+                    <View key={set.id || `s_${setIdx}`} style={styles.setRow}>
+                      <View style={styles.colSet}>
+                        <Text style={styles.setNumText}>{set.setNumber}</Text>
+                      </View>
+
+                      {isCardio ? (
+                        <>
+                          <TextInput
+                            style={[styles.inputCell, styles.colInput]}
+                            keyboardType="numeric"
+                            value={durDisplay}
+                            onChangeText={txt =>
+                              handleSetInputChange(exIdx, setIdx, 'durationMinutes', txt)
+                            }
+                            placeholder="0"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                          <TextInput
+                            style={[styles.inputCell, styles.colInput]}
+                            keyboardType="decimal-pad"
+                            value={distDisplay}
+                            onChangeText={txt =>
+                              handleSetInputChange(exIdx, setIdx, 'distanceKm', txt)
+                            }
+                            onBlur={() => handleBlurDecimal(exIdx, setIdx, 'distanceKm')}
+                            placeholder="0"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                          <TextInput
+                            style={[styles.inputCell, styles.colInput]}
+                            keyboardType="numeric"
+                            value={calDisplay}
+                            onChangeText={txt =>
+                              handleSetInputChange(exIdx, setIdx, 'caloriesBurned', txt)
+                            }
+                            placeholder="0"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <TextInput
+                            style={[styles.inputCell, styles.colInput]}
+                            keyboardType="decimal-pad"
+                            value={weightDisplay}
+                            onChangeText={txt =>
+                              handleSetInputChange(exIdx, setIdx, 'weight', txt)
+                            }
+                            onBlur={() => handleBlurDecimal(exIdx, setIdx, 'weight')}
+                            placeholder="0"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                          {isIso ? (
+                            <TextInput
+                              style={[styles.inputCell, styles.colInput]}
+                              keyboardType="numeric"
+                              value={durSecDisplay}
+                              onChangeText={txt =>
+                                handleSetInputChange(exIdx, setIdx, 'durationSeconds', txt)
+                              }
+                              placeholder="60"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                          ) : (
+                            <TextInput
+                              style={[styles.inputCell, styles.colInput]}
+                              keyboardType="numeric"
+                              value={repsDisplay}
+                              onChangeText={txt =>
+                                handleSetInputChange(exIdx, setIdx, 'reps', txt)
+                              }
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                          )}
+                          <TextInput
+                            style={[styles.inputCell, styles.colInput]}
+                            keyboardType="numeric"
+                            value={rirDisplay}
+                            onChangeText={txt =>
+                              handleSetInputChange(exIdx, setIdx, 'rir', txt)
+                            }
+                            placeholder="-"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                        </>
+                      )}
+
+                      {/* Completed Checkbox */}
+                      <TouchableOpacity
+                        style={[styles.checkBtn, set.completed && styles.checkBtnActive]}
+                        onPress={() => handleUpdateSet(exIdx, setIdx, 'completed', !set.completed)}
+                      >
+                        <Ionicons
+                          name={set.completed ? 'checkmark' : 'close'}
+                          size={14}
+                          color={set.completed ? COLORS.primaryText : COLORS.textMuted}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Delete Set Button */}
+                      <TouchableOpacity
+                        style={styles.colDelete}
+                        onPress={() => handleRemoveSet(exIdx, setIdx)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
+                      </TouchableOpacity>
                     </View>
-
-                    {isCardio ? (
-                      <>
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="numeric"
-                          value={durDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'durationMinutes', txt)
-                          }
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="decimal-pad"
-                          value={distDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'distanceKm', txt)
-                          }
-                          onBlur={() => handleBlurDecimal(exIdx, setIdx, 'distanceKm')}
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="numeric"
-                          value={calDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'caloriesBurned', txt)
-                          }
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="decimal-pad"
-                          value={weightDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'weight', txt)
-                          }
-                          onBlur={() => handleBlurDecimal(exIdx, setIdx, 'weight')}
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="numeric"
-                          value={repsDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'reps', txt)
-                          }
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                        <TextInput
-                          style={[styles.inputCell, styles.colInput]}
-                          keyboardType="numeric"
-                          value={rirDisplay}
-                          onChangeText={txt =>
-                            handleSetInputChange(exIdx, setIdx, 'rir', txt)
-                          }
-                          placeholder="-"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                      </>
-                    )}
-
-                    {/* Completed Checkbox */}
-                    <TouchableOpacity
-                      style={[styles.checkBtn, set.completed && styles.checkBtnActive]}
-                      onPress={() => handleUpdateSet(exIdx, setIdx, 'completed', !set.completed)}
-                    >
-                      <Ionicons
-                        name={set.completed ? 'checkmark' : 'close'}
-                        size={14}
-                        color={set.completed ? COLORS.primaryText : COLORS.textMuted}
-                      />
-                    </TouchableOpacity>
-
-                    {/* Delete Set Button */}
-                    <TouchableOpacity
-                      style={styles.colDelete}
-                      onPress={() => handleRemoveSet(exIdx, setIdx)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
+                  );
+                })}
 
                 {/* Add Set Button */}
                 <TouchableOpacity
@@ -529,6 +643,23 @@ export const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({
             onSelectExercise={handleAddExercise}
           />
         )}
+
+        <CustomAlertModal
+          visible={alertConfig.visible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText={alertConfig.confirmText}
+          cancelText={alertConfig.cancelText}
+          type={alertConfig.isDestructive ? 'danger' : 'info'}
+          onConfirm={() => {
+            if (alertConfig.onConfirm) {
+              alertConfig.onConfirm();
+            } else {
+              closeAlert();
+            }
+          }}
+          onCancel={closeAlert}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -589,7 +720,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 12,
-    ...SHADOWS.soft,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -650,7 +780,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 10,
-    ...SHADOWS.soft,
   },
   exerciseHeader: {
     flexDirection: 'row',

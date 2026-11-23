@@ -2,6 +2,21 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 
 export type ThemeMode = 'dark' | 'light';
 
+export interface PastelTokens {
+  green: string;
+  greenBg: string;
+  amber: string;
+  amberBg: string;
+  rose: string;
+  roseBg: string;
+  blue: string;
+  blueBg: string;
+  lavender: string;
+  lavenderBg: string;
+  cyan: string;
+  cyanBg: string;
+}
+
 export interface ThemeColors {
   background: string;
   surface: string;
@@ -25,11 +40,12 @@ export interface ThemeColors {
   success: string;
   warning: string;
   danger: string;
+  pastel: PastelTokens;
   category: Record<string, string>;
 }
 
 /**
- * Scheme 1: Shadcn Zinc Monochrome (Dark Mode - Default)
+ * Scheme 1: Shadcn Zinc Monochrome + Soft Pastel Accents (Dark Mode - Default)
  */
 export const DARK_COLORS: ThemeColors = {
   background: '#09090B',      // Deep Obsidian Zinc-950
@@ -46,7 +62,7 @@ export const DARK_COLORS: ThemeColors = {
   primaryText: '#09090B',     // Dark text on light primary button
   textInverted: '#09090B',
 
-  secondary: '#3B82F6',       // Clinical Cobalt Blue
+  secondary: '#93C5FD',       // Soft Pastel Sky
   accent: '#A1A1AA',          // Zinc-400
 
   textPrimary: '#FAFAFA',     // Zinc-50
@@ -56,26 +72,41 @@ export const DARK_COLORS: ThemeColors = {
   border: '#27272A',          // Crisp 1px Hairline Border Zinc-800
   borderDark: '#3F3F46',      // Active / Hover Border Zinc-700
 
-  success: '#10B981',         // Emerald-500
-  warning: '#F59E0B',         // Amber-500
-  danger: '#EF4444',          // Red-500
+  success: '#86EFAC',         // Soft Pastel Mint / Sage
+  warning: '#FCD34D',         // Soft Pastel Butter Amber
+  danger: '#FCA5A5',          // Soft Pastel Coral Rose
+
+  pastel: {
+    green: '#86EFAC',
+    greenBg: 'rgba(134, 239, 172, 0.13)',
+    amber: '#FCD34D',
+    amberBg: 'rgba(252, 211, 77, 0.13)',
+    rose: '#FCA5A5',
+    roseBg: 'rgba(252, 165, 165, 0.13)',
+    blue: '#93C5FD',
+    blueBg: 'rgba(147, 197, 253, 0.13)',
+    lavender: '#C4B5FD',
+    lavenderBg: 'rgba(196, 181, 253, 0.13)',
+    cyan: '#A5F3FC',
+    cyanBg: 'rgba(165, 243, 252, 0.13)',
+  },
 
   category: {
-    'Göğüs': '#FAFAFA',
-    'Sırt': '#3B82F6',
-    'Bacak': '#10B981',
-    'Omuz': '#F59E0B',
-    'Kol': '#A855F7',
-    'Ön Kol': '#10B981',
-    'Arka Kol': '#A855F7',
-    'Karın': '#EC4899',
-    'Kardiyo': '#06B6D4',
-    'Tüm Vücut': '#E4E4E7',
+    'Göğüs': '#E4E4E7',
+    'Sırt': '#93C5FD',
+    'Bacak': '#86EFAC',
+    'Omuz': '#FCD34D',
+    'Kol': '#C4B5FD',
+    'Ön Kol': '#99F6E4',
+    'Arka Kol': '#D8B4FE',
+    'Karın': '#F9A8D4',
+    'Kardiyo': '#A5F3FC',
+    'Tüm Vücut': '#D4D4D8',
   },
 };
 
 /**
- * Scheme 2: Swiss Daylight / Editorial Paper (Light Mode)
+ * Scheme 2: Swiss Daylight / Editorial Paper + Soft Pastel Accents (Light Mode)
  */
 export const LIGHT_COLORS: ThemeColors = {
   background: '#F7F7F5',      // Warm Alabaster Paper
@@ -92,7 +123,7 @@ export const LIGHT_COLORS: ThemeColors = {
   primaryText: '#FFFFFF',     // White text on carbon ink button
   textInverted: '#FFFFFF',
 
-  secondary: '#2563EB',       // International Klein / Swiss Blue
+  secondary: '#4E79A7',       // Dusty Pastel Slate Blue
   accent: '#575754',          // Warm Graphite
 
   textPrimary: '#111110',     // Deep Carbon Ink
@@ -102,21 +133,36 @@ export const LIGHT_COLORS: ThemeColors = {
   border: '#E4E4E0',          // Exposed 1px Architectural Hairline Grid
   borderDark: '#C8C8C2',      // Stronger Structural Border
 
-  success: '#16A34A',         // Swiss Signal Green
-  warning: '#D97706',         // Industrial Amber
-  danger: '#DC2626',          // Swiss Signal Red
+  success: '#3F7D58',         // Soft Sage Forest (legible pastel ink on paper)
+  warning: '#A16E22',         // Soft Warm Ochre
+  danger: '#B85454',          // Dusty Rose Coral
+
+  pastel: {
+    green: '#3F7D58',
+    greenBg: '#E6F4EA',
+    amber: '#9A6B20',
+    amberBg: '#FEF3DC',
+    rose: '#B55353',
+    roseBg: '#FCE8E8',
+    blue: '#4B729E',
+    blueBg: '#E8F0FA',
+    lavender: '#76619E',
+    lavenderBg: '#F1ECFA',
+    cyan: '#3B7D86',
+    cyanBg: '#E5F4F6',
+  },
 
   category: {
-    'Göğüs': '#111110',
-    'Sırt': '#2563EB',
-    'Bacak': '#16A34A',
-    'Omuz': '#D97706',
-    'Kol': '#7C3AED',
-    'Ön Kol': '#16A34A',
-    'Arka Kol': '#7C3AED',
-    'Karın': '#DB2777',
-    'Kardiyo': '#0891B2',
-    'Tüm Vücut': '#575754',
+    'Göğüs': '#52525B',
+    'Sırt': '#4B729E',
+    'Bacak': '#3F7D58',
+    'Omuz': '#9A6B20',
+    'Kol': '#76619E',
+    'Ön Kol': '#3B7D86',
+    'Arka Kol': '#8565A3',
+    'Karın': '#A85C7B',
+    'Kardiyo': '#3B7D86',
+    'Tüm Vücut': '#6B6B68',
   },
 };
 
@@ -125,6 +171,7 @@ let currentThemeMode: ThemeMode = 'dark';
 // Mutable COLORS object so all existing `COLORS.*` imports reflect the active theme in real time
 export const COLORS: ThemeColors = {
   ...DARK_COLORS,
+  pastel: { ...DARK_COLORS.pastel },
   category: { ...DARK_COLORS.category },
 };
 
@@ -137,6 +184,7 @@ export const setThemeMode = (mode: ThemeMode): void => {
   const nextPalette = mode === 'light' ? LIGHT_COLORS : DARK_COLORS;
   currentThemeMode = mode;
   Object.assign(COLORS, nextPalette, {
+    pastel: { ...nextPalette.pastel },
     category: { ...nextPalette.category },
   });
   listeners.forEach(listener => listener(mode));
@@ -163,18 +211,17 @@ export const ThemeProvider: React.FC<{
   onModeChange?: (mode: ThemeMode) => void;
   children: React.ReactNode;
 }> = ({ initialMode = 'dark', onModeChange, children }) => {
-  const [mode, setModeState] = useState<ThemeMode>(() => {
+  const [mode, setModeState] = useState<ThemeMode>(currentThemeMode);
+
+  useEffect(() => {
     if (initialMode !== currentThemeMode) {
       setThemeMode(initialMode);
     }
-    return currentThemeMode;
-  });
-
-  useEffect(() => {
+    setModeState(currentThemeMode);
     return subscribeTheme(newMode => {
       setModeState(newMode);
     });
-  }, []);
+  }, [initialMode]);
 
   const handleSetMode = useCallback(
     (nextMode: ThemeMode) => {
@@ -213,6 +260,9 @@ export const useTheme = (): ThemeContextValue => {
 
   useEffect(() => {
     if (ctx) return;
+    if (mode !== currentThemeMode) {
+      setModeState(currentThemeMode);
+    }
     return subscribeTheme(newMode => {
       setModeState(newMode);
     });
@@ -238,30 +288,3 @@ export const useTheme = (): ThemeContextValue => {
   };
 };
 
-export const SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 14,
-  lg: 20,
-  xl: 28,
-};
-
-const ZERO_SHADOW = {
-  shadowColor: 'transparent',
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0,
-  shadowRadius: 0,
-  elevation: 0,
-};
-
-/**
- * Flat zero-elevation shadows — depth is achieved strictly via 1px hairline borders
- * and surface color contrast.
- */
-export const SHADOWS = {
-  soft: ZERO_SHADOW,
-  medium: ZERO_SHADOW,
-  floatingTab: ZERO_SHADOW,
-  lime: ZERO_SHADOW,
-  floating: ZERO_SHADOW,
-};

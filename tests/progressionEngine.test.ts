@@ -12,6 +12,7 @@ import {
   suggestBackOffWeightDrop,
   getMesocyclePhaseTarget,
   calculateHypertrophyVolumeAdaptation,
+  buildSetTargetPlan,
 } from '../src/services/progressionEngine';
 import { getLocalDateString } from '../src/services/storage';
 import { ExerciseSet, WorkoutSession, MuscleCategory } from '../src/types/fitness';
@@ -724,5 +725,52 @@ describe('calculateHypertrophyVolumeAdaptation', () => {
     });
     expect(rec.action).toBe('MAINTAIN');
     expect(rec.setDelta).toBe(0);
+  });
+});
+
+describe('warm-up exclusion and buildSetTargetPlan', () => {
+  it('drops unmarked light warm-up sets (<65% of top load) before prescribing targets', () => {
+    const sets = [
+      makeSet(60, 10, 3), // unmarked warm-up (60% of 100)
+      makeSet(100, 8, 2),
+      makeSet(100, 8, 1),
+    ];
+    const rec = calculateSmartAutoregulatedOverload('Barbell Bench Press', 'Barbell', sets, undefined, 'Göğüs');
+    expect(rec.recWeight).toBeGreaterThanOrEqual(100);
+    expect(rec.setTargets?.every(st => st.weight >= 100)).toBe(true);
+  });
+
+  it('drops explicitly marked isWarmup sets even when >=65% of top load', () => {
+    const sets = [
+      makeSet(50, 10, undefined, { isWarmup: true }),
+      makeSet(70, 5, undefined, { isWarmup: true }),
+      makeSet(85, 3, undefined, { isWarmup: true }),
+      makeSet(100, 8, 2),
+      makeSet(100, 8, 1),
+    ];
+    const rec = calculateSmartAutoregulatedOverload('Barbell Bench Press', 'Barbell', sets, undefined, 'Göğüs');
+    expect(rec.recWeight).toBeGreaterThanOrEqual(100);
+    expect(rec.setTargets?.length).toBe(3); // Math.max(2 working sets, 3) — 70/85kg warm-ups excluded
+    expect(rec.setTargets?.every(st => st.weight >= 100)).toBe(true);
+  });
+
+  it('maps warm-up ramp (50/70/85%) only onto isWarmup rows and full working weight onto working rows', () => {
+    const past = [makeSet(100, 8, 2), makeSet(100, 8, 1)];
+    const rec = calculateSmartAutoregulatedOverload('Barbell Bench Press', 'Barbell', past, undefined, 'Göğüs');
+    const sessionSets: ExerciseSet[] = [
+      makeSet(0, 10, undefined, { id: 'w1', completed: false, isWarmup: true }),
+      makeSet(0, 6, undefined, { id: 'w2', completed: false, isWarmup: true }),
+      makeSet(0, 3, undefined, { id: 'w3', completed: false, isWarmup: true }),
+      makeSet(0, 8, 1, { id: 's1', completed: false, isWarmup: false }),
+      makeSet(0, 8, 1, { id: 's2', completed: false, isWarmup: false }),
+    ];
+
+    const plan = buildSetTargetPlan(sessionSets, rec);
+    const working = plan['s1'].weight;
+    expect(working).toBeGreaterThanOrEqual(100);
+    expect(plan['s2'].weight).toBe(working);
+    expect(plan['w1'].weight).toBe(Math.round(working * 0.5 * 2) / 2);
+    expect(plan['w2'].weight).toBe(Math.round(working * 0.7 * 2) / 2);
+    expect(plan['w3'].weight).toBe(Math.round(working * 0.85 * 2) / 2);
   });
 });

@@ -1,4 +1,4 @@
-import React, { useState , useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory, EquipmentType } from '../types/fitness';
+import { EXERCISE_CATEGORIES } from '../utils/exerciseHelpers';
 
 interface AddExerciseModalProps {
   visible: boolean;
@@ -18,16 +19,7 @@ interface AddExerciseModalProps {
   onSave: (exercise: Exercise) => void;
 }
 
-const CATEGORIES: MuscleCategory[] = [
-  'Göğüs',
-  'Sırt',
-  'Bacak',
-  'Omuz',
-  'Ön Kol',
-  'Arka Kol',
-  'Karın',
-  'Kardiyo',
-];
+const CATEGORIES = EXERCISE_CATEGORIES;
 
 const EQUIPMENTS: EquipmentType[] = [
   'Barbell',
@@ -65,19 +57,25 @@ export const AddExerciseModal: React.FC<AddExerciseModalProps> = ({
     };
 
     onSave(newExercise);
+    handleClose();
+  };
+
+  const handleClose = () => {
     setName('');
+    setCategory('Göğüs');
+    setEquipment('Barbell');
     setTargetMuscle('');
     setInstructions('');
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Yeni Egzersiz Ekle</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={handleClose}>
               <Ionicons name="close-circle" size={26} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>

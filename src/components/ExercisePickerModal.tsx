@@ -1,4 +1,4 @@
-import React, { useState, useEffect , useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS , useTheme , subscribeTheme } from '../theme';
 import { Exercise, MuscleCategory } from '../types/fitness';
+import { FILTER_CATEGORIES } from '../utils/exerciseHelpers';
 import { getExercises, saveCustomExercise, deleteCustomExercise } from '../services/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddExerciseModal } from './AddExerciseModal';
@@ -22,17 +23,7 @@ interface ExercisePickerModalProps {
   onSelectExercise: (exercise: Exercise) => void;
 }
 
-const CATEGORIES: (MuscleCategory | 'Hepsi')[] = [
-  'Hepsi',
-  'Göğüs',
-  'Sırt',
-  'Bacak',
-  'Omuz',
-  'Ön Kol',
-  'Arka Kol',
-  'Karın',
-  'Kardiyo',
-];
+const CATEGORIES = FILTER_CATEGORIES;
 
 export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
   visible,
@@ -75,21 +66,27 @@ export const ExercisePickerModal: React.FC<ExercisePickerModalProps> = ({
     });
   };
 
-  const filteredExercises = exercises.filter(ex => {
-    const matchesCategory = selectedCategory === 'Hepsi' || ex.category === selectedCategory;
-    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (ex.targetMuscle && ex.targetMuscle.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCategory && matchesSearch;
-  });
+  const filteredExercises = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return exercises.filter(ex => {
+      const matchesCategory = selectedCategory === 'Hepsi' || ex.category === selectedCategory;
+      const matchesSearch =
+        !q ||
+        ex.name.toLowerCase().includes(q) ||
+        (ex.targetMuscle && ex.targetMuscle.toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }, [exercises, selectedCategory, searchQuery]);
 
-  const handleCustomExerciseSaved = (newEx: Exercise) => {
-    setExercises(prev => [newEx, ...prev]);
+  const handleCustomExerciseSaved = async (newEx: Exercise) => {
+    const updated = await saveCustomExercise(newEx);
+    setExercises(updated);
     onSelectExercise(newEx);
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           {/* Header */}

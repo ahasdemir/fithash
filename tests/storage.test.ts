@@ -401,6 +401,33 @@ describe('workout persistence (AsyncStorage-backed)', () => {
     const workouts = await getWorkouts();
     expect(workouts.map(w => w.id).sort()).toEqual(['w_c1', 'w_c2']);
   });
+
+  it('preserves original PR date and higher maxReps at equal maxWeight across recalculation', async () => {
+    await saveWorkout(benchSession('w_heavy', '2026-11-05')); // 100kg x 5 @ RIR 1
+    const equalWeightFewerReps: WorkoutSession = {
+      ...benchSession('w_equal', '2026-11-12'),
+      exercises: [
+        {
+          id: 'w_equal_x',
+          exerciseId: 'pr_test_bench',
+          exerciseName: 'Barbell Bench Press',
+          category: 'Göğüs',
+          equipment: 'Barbell',
+          sets: [{ id: 'w_equal_s', setNumber: 1, weight: 100, reps: 3, rir: 1, completed: true }],
+        },
+      ],
+      totalVolume: 300,
+    };
+    await saveWorkout(equalWeightFewerReps);
+
+    const prs = await getPersonalRecords();
+    expect(prs['pr_test_bench']).toMatchObject({
+      maxWeight: 100,
+      maxReps: 5,
+      date: '2026-11-05',
+      lastUpdatedDate: '2026-11-05',
+    });
+  });
 });
 
 describe('rest timer persistence (AsyncStorage-backed)', () => {

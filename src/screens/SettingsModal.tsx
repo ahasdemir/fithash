@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Modal,
   View,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, SHADOWS, ThemeColors, ThemeMode, setThemeMode, useTheme } from '../theme';
+import { ThemeColors, ThemeMode, setThemeMode, useTheme } from '../theme';
 import {
   getAppSettings,
   saveAppSettings,
@@ -23,7 +23,7 @@ import {
   syncAllWorkoutsToHealthConnect,
   checkHealthConnectPermissions,
 } from '../services/healthConnectService';
-import { getWorkouts, getRoutines, clearCachedAIAnalysis } from '../services/storage';
+import { getWorkouts, getRoutines, clearCachedAIAnalysis, getLocalDateString } from '../services/storage';
 import { syncRoutinesToWearable } from '../services/wearSyncService';
 import { CustomAlertModal, CustomAlertOptions } from '../components/CustomAlertModal';
 import { File, Paths } from 'expo-file-system';
@@ -56,6 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [healthConnectEnabled, setHealthConnectEnabled] = useState(false);
   const [isSyncingHC, setIsSyncingHC] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Export / Import Modals State
   const [showExportModal, setShowExportModal] = useState(false);
@@ -69,6 +70,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       loadSettings();
     }
   }, [visible]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadSettings = async () => {
     const s = await getAppSettings();
@@ -132,13 +141,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const workouts = await getWorkouts();
       const res = await syncAllWorkoutsToHealthConnect(workouts);
-      setCustomAlert({
-        visible: true,
-        type: 'success',
-        title: 'Senkronizasyon Tamamlandı',
-        message: `${res.success} antrenman ve yakılan kalori kaydı Health Connect'e başarıyla aktarıldı.`,
-        onConfirm: () => setCustomAlert(null),
-      });
+      if (res.success === 0 && res.failed > 0) {
+        setCustomAlert({
+          visible: true,
+          type: 'danger',
+          title: 'Aktarım Başarısız',
+          message: `${res.failed} antrenman Health Connect'e aktarılamadı.`,
+          onConfirm: () => setCustomAlert(null),
+        });
+      } else if (res.failed > 0) {
+        setCustomAlert({
+          visible: true,
+          type: 'warning',
+          title: 'Kısmi Senkronizasyon',
+          message: `${res.success} antrenman aktarıldı, ${res.failed} antrenman aktarılamadı.`,
+          onConfirm: () => setCustomAlert(null),
+        });
+      } else {
+        setCustomAlert({
+          visible: true,
+          type: 'success',
+          title: 'Senkronizasyon Tamamlandı',
+          message: `${res.success} antrenman ve yakılan kalori kaydı Health Connect'e başarıyla aktarıldı.`,
+          onConfirm: () => setCustomAlert(null),
+        });
+      }
     } catch (e) {
       setCustomAlert({
         visible: true,
@@ -164,7 +191,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     await clearCachedAIAnalysis();
     onDataReload();
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => setSaveSuccess(false), 2000);
   };
 
   const handleExportJSON = async () => {
@@ -183,29 +211,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleCopyClipboard = async () => {
     try {
+      let copied = false;
       if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(exportContent);
-      } else {
+        copied = true;
+      } else if (typeof document !== 'undefined') {
         const textArea = document.createElement('textarea');
         textArea.value = exportContent;
         document.body.appendChild(textArea);
         textArea.select();
-        document.execCommand('copy');
+        copied = document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      setCustomAlert({
-        visible: true,
-        type: 'success',
-        title: 'Kopyalandı!',
-        message: `${exportType} verisi panoya kopyalandı.`,
-        onConfirm: () => setCustomAlert(null),
-      });
-    } catch (err) {
+
+      if (copied) {
+        setCustomAlert({
+          visible: true,
+          type: 'success',
+          title: 'Kopyalandı!',
+          message: `${exportType} verisi panoya kopyalandı.`,
+          onConfirm: () => setCustomAlert(null),
+        });
+      } else {
+        setCustomAlert({
+          visible: true,
+          type: 'info',
+          title: 'Bilgi',
+          message: 'Metni aşağıdaki kutudan seçip kopyalayabilirsiniz.',
+          onConfirm: () => setCustomAlert(null),
+        });
+      }
+    } catch {
       setCustomAlert({
         visible: true,
         type: 'info',
-        title: 'Başarılı!',
-        message: 'Metni aşağıdaki kutudan kopyalayabilirsiniz.',
+        title: 'Bilgi',
+        message: 'Metni aşağıdaki kutudan seçip kopyalayabilirsiniz.',
         onConfirm: () => setCustomAlert(null),
       });
     }
@@ -215,7 +256,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const mimeType = exportType === 'JSON' ? 'application/json' : 'text/csv';
       const extension = exportType === 'JSON' ? 'json' : 'csv';
-      const filename = `fithash_backup_${new Date().toISOString().split('T')[0]}.${extension}`;
+      const filename = `fithash_backup_${getLocalDateString()}.${extension}`;
 
       if (typeof document !== 'undefined') {
         const blob = new Blob([exportContent], { type: mimeType });
@@ -276,8 +317,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
 
       const fileAsset = result.assets[0];
-      const selectedFile = new File(fileAsset.uri);
-      const text = await selectedFile.text();
+      const text = typeof document !== 'undefined'
+        ? await (await fetch(fileAsset.uri)).text()
+        : await new File(fileAsset.uri).text();
 
       if (!text || !text.trim()) {
         throw new Error('Seçilen dosya boş veya okunamadı.');
@@ -526,14 +568,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Ionicons
               name={saveSuccess ? 'checkmark-circle' : 'save-outline'}
               size={18}
-              color={saveSuccess ? '#FFFFFF' : colors.primaryText}
+              color={colors.primaryText}
             />
-            <Text
-              style={[
-                styles.saveSettingsBtnText,
-                saveSuccess && { color: '#FFFFFF' },
-              ]}
-            >
+            <Text style={styles.saveSettingsBtnText}>
               {saveSuccess ? 'Ayarlar Kaydedildi!' : 'Tüm Ayarları Kaydet'}
             </Text>
           </TouchableOpacity>
@@ -542,7 +579,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <View style={styles.bentoSection}>
             <View style={styles.sectionTitleRow}>
               <View style={[styles.iconCircle, { backgroundColor: colors.success }]}>
-                <Ionicons name="fitness-outline" size={16} color="#FFFFFF" />
+                <Ionicons name="fitness-outline" size={16} color={colors.primaryText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionTitle}>Health Connect Entegrasyonu</Text>
@@ -585,8 +622,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onPress={handleSyncAllHealthConnect}
               disabled={isSyncingHC}
             >
-              <Ionicons name="sync" size={16} color="#FFFFFF" />
-              <Text style={[styles.importBtnText, { color: '#FFFFFF' }]}>
+              <Ionicons name="sync" size={16} color={colors.primaryText} />
+              <Text style={styles.importBtnText}>
                 {isSyncingHC ? 'Aktarılıyor...' : "Tüm Geçmişi Health Connect'e Aktar"}
               </Text>
             </TouchableOpacity>
@@ -661,7 +698,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* EXPORT CONTENT DISPLAY MODAL */}
         {showExportModal && (
-          <Modal visible transparent animationType="slide">
+          <Modal visible transparent animationType="slide" onRequestClose={() => setShowExportModal(false)}>
             <View style={styles.overlay}>
               <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
@@ -707,7 +744,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* IMPORT JSON PASTE MODAL */}
         {showImportModal && (
-          <Modal visible transparent animationType="slide">
+          <Modal visible transparent animationType="slide" onRequestClose={() => setShowImportModal(false)}>
             <View style={styles.overlay}>
               <View style={[styles.modalContainer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
                 <View style={styles.modalHeader}>
@@ -818,7 +855,6 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
       gap: 12,
-      ...SHADOWS.soft,
     },
     sectionTitleRow: {
       flexDirection: 'row',
@@ -917,7 +953,6 @@ const createStyles = (colors: ThemeColors) =>
       paddingVertical: 13,
       borderRadius: 6,
       marginVertical: 2,
-      ...SHADOWS.soft,
     },
     saveSettingsSuccess: {
       backgroundColor: colors.success,

@@ -21,8 +21,10 @@ import Svg, {
   G,
 } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS , useTheme , subscribeTheme } from '../theme';
+import { COLORS, useTheme, subscribeTheme } from '../theme';
 import { WorkoutSession, Exercise } from '../types/fitness';
+import { calculateAutoregulatedE1RM } from '../utils/e1rm';
+import { parseLocalDateString } from '../utils/exerciseHelpers';
 
 export interface ExercisePRStats {
   exerciseName: string;
@@ -120,13 +122,14 @@ export const calculateExercisePRStats = (
 
   let detectedCategory = exercise.category || 'Göğüs';
   let detectedEquipment = exercise.equipment || 'Barbell';
+  let metaDetected = false;
 
   // 1. İlgili egzersizin geçtiği tüm seansları topla (kronolojik: en yeniden en eskiye)
   const matchingSessions: ExercisePRStats['sessionHistory'] = [];
 
   // Tarihe göre yeniden eskiye sıralı kopyala
   const sortedWorkouts = [...workouts].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => parseLocalDateString(b.date).getTime() - parseLocalDateString(a.date).getTime()
   );
 
   sortedWorkouts.forEach(workout => {
@@ -137,8 +140,11 @@ export const calculateExercisePRStats = (
       const matchById = targetId && ex.exerciseId === targetId;
 
       if (matchByName || matchById) {
-        if (ex.category) detectedCategory = ex.category;
-        if (ex.equipment) detectedEquipment = ex.equipment;
+        if (!metaDetected) {
+          if (ex.category) detectedCategory = ex.category;
+          if (ex.equipment) detectedEquipment = ex.equipment;
+          metaDetected = true;
+        }
 
         const completedSets = ex.sets.filter(s => s.completed);
         if (completedSets.length === 0) return;
@@ -150,8 +156,8 @@ export const calculateExercisePRStats = (
         const formattedSets = completedSets.map(s => {
           const w = s.weight || 0;
           const r = s.reps || 0;
-          if (w > 0 && r > 0) {
-            const e1rm = Math.round(w * (1 + r / 30));
+          if (w > 0 && r > 0 && !s.isWarmup) {
+            const e1rm = Math.round(calculateAutoregulatedE1RM(w, r, s.rir));
             if (w > sessionMaxW) sessionMaxW = w;
             if (e1rm > sessionMax1RM) sessionMax1RM = e1rm;
             sessionVol += w * r;
@@ -227,7 +233,7 @@ export const calculateExercisePRStats = (
   };
 
   matchingSessions.forEach(session => {
-    const sessionTime = new Date(session.date).getTime();
+    const sessionTime = parseLocalDateString(session.date).getTime();
     const diffDays = Math.floor((now - sessionTime) / (1000 * 3600 * 24));
     const isThisWeek = diffDays <= 7;
     const isThisMonth = diffDays <= 30;
@@ -237,9 +243,9 @@ export const calculateExercisePRStats = (
     }
 
     session.sets.forEach(set => {
-      // Ağırlık / Tekrar PR
-      if (set.weight > 0 && set.reps > 0) {
-        const e1rm = Math.round(set.weight * (1 + set.reps / 30));
+      // Ağırlık / Tekrar PR (ısınma setleri hariç)
+      if (!set.isWarmup && set.weight > 0 && set.reps > 0) {
+        const e1rm = Math.round(calculateAutoregulatedE1RM(set.weight, set.reps, set.rir));
 
         // All-Time
         allTime.totalLifetimeVolume += set.weight * set.reps;
@@ -700,8 +706,9 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
     chronological.forEach(s => {
       const existing = sessionMap.get(s.workoutId);
       if (!existing) {
-        sessionMap.set(s.workoutId, { ...s });
+        sessionMap.set(s.workoutId, { ...s, sets: [...s.sets] });
       } else {
+        existing.sets = [...existing.sets, ...s.sets];
         if (s.sessionMaxWeight > existing.sessionMaxWeight) {
           existing.sessionMaxWeight = s.sessionMaxWeight;
         }
@@ -856,6 +863,19 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
   // bu geometriyi değiştirmez; yalnızca chartSessions veya kart genişliği
   // değiştiğinde yeniden hesaplanır.
   const historyGeometry = useMemo(() => {
+    if (chartSessions.length === 0) {
+      return {
+        scrollableWidth: innerCardWidth,
+        plotWidth: innerCardWidth - paddingLeft - paddingRight,
+        minVal: 0,
+        valRange: 1,
+        guidelines: [],
+        historyPoints: [],
+        historyPathD: '',
+        historyAreaD: '',
+      };
+    }
+
     const scrollableWidth = Math.max(
       innerCardWidth,
       chartSessions.length * minPointSpacing + paddingLeft + paddingRight
@@ -1095,14 +1115,6 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
     );
   }
 
-  const firstSession = chartSessions[0];
-  const latestSession = chartSessions[chartSessions.length - 1];
-  const deltaValue = firstSession && latestSession ? latestSession.chartValue - firstSession.chartValue : 0;
-  const deltaPct =
-    firstSession && firstSession.chartValue > 0
-      ? Math.round((deltaValue / firstSession.chartValue) * 100)
-      : null;
-
   const activeIndex =
     selectedIndex !== null && selectedIndex >= 0 && selectedIndex < chartSessions.length
       ? selectedIndex
@@ -1134,13 +1146,13 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
           <View
             style={[
               styles.chartIconBox,
-              activeTab === 'prediction' && { backgroundColor: 'rgba(139, 92, 246, 0.15)' },
+              activeTab === 'prediction' && { backgroundColor: COLORS.pastel.lavenderBg },
             ]}
           >
             <Ionicons
               name={activeTab === 'prediction' ? 'analytics' : 'trending-up'}
               size={18}
-              color={activeTab === 'prediction' ? '#8B5CF6' : COLORS.primary}
+              color={activeTab === 'prediction' ? COLORS.pastel.lavender : COLORS.primary}
             />
           </View>
           <View style={styles.chartTitleWrapper}>
@@ -1188,7 +1200,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
             <Ionicons
               name="analytics"
               size={12}
-              color={activeTab === 'prediction' ? '#FFFFFF' : '#8B5CF6'}
+              color={activeTab === 'prediction' ? COLORS.primaryText : COLORS.pastel.lavender}
             />
             <Text
               style={[
@@ -1216,7 +1228,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                   </Text>
                   {selectedSession.isPeak && (
                     <View style={styles.chartPeakBadge}>
-                      <Ionicons name="trophy" size={10} color="#F59E0B" />
+                      <Ionicons name="trophy" size={10} color={COLORS.pastel.amber} />
                       <Text style={styles.chartPeakBadgeText}>ZİRVE</Text>
                     </View>
                   )}
@@ -1233,7 +1245,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                 </View>
                 <Text style={styles.chartDetailSub}>
                   {!stats.isCardio && selectedSession.repsAtMax > 0
-                    ? `${selectedSession.repsAtMax} tekrar • 1RM ~${selectedSession.sessionMax1RM}k`
+                    ? `${selectedSession.repsAtMax} tekrar • 1RM ~${selectedSession.sessionMax1RM} kg`
                     : selectedSession.metricLabel}
                 </Text>
               </View>
@@ -1370,7 +1382,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                         cx={pt.x}
                         cy={pt.y}
                         r={isSelected ? 6.5 : isPeak ? 6 : 4.5}
-                        fill={isPeak ? '#F59E0B' : COLORS.primary}
+                        fill={isPeak ? COLORS.pastel.amber : COLORS.primary}
                         stroke={COLORS.surface}
                         strokeWidth={2}
                       />
@@ -1391,7 +1403,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                           textAnchor="middle"
                           fontSize={isSelected ? 11 : 9.5}
                           fontWeight={isSelected ? '900' : '700'}
-                          fill={isPeak ? '#F59E0B' : isSelected ? COLORS.primary : COLORS.textPrimary}
+                          fill={isPeak ? COLORS.pastel.amber : isSelected ? COLORS.primary : COLORS.textPrimary}
                         >
                           {pt.session.chartValue}
                         </SvgText>
@@ -1446,7 +1458,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
           {!regression.hasEnoughData ? (
             <View style={styles.predEmptyCard}>
               <View style={styles.predEmptyIconBox}>
-                <Ionicons name="analytics-outline" size={30} color="#8B5CF6" />
+                <Ionicons name="analytics-outline" size={30} color={COLORS.pastel.lavender} />
               </View>
               <Text style={styles.predEmptyTitle}>Gelecek Tahmini İçin Veri Bekleniyor</Text>
               <Text style={styles.predEmptyText}>
@@ -1454,7 +1466,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
               </Text>
               <View style={styles.predEmptyPill}>
                 <Text style={styles.predEmptyPillText}>
-                  Mevcut Veri: {chartSessions.length} / 3 Seans
+                  Mevcut Veri: {regression.sessionCount} / 3 Seans
                 </Text>
               </View>
             </View>
@@ -1467,7 +1479,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                   <View style={styles.predDetailTop}>
                     <View style={styles.predDetailLeft}>
                       <View style={styles.predTargetPill}>
-                        <Ionicons name="analytics-outline" size={11} color="#8B5CF6" />
+                        <Ionicons name="analytics-outline" size={11} color={COLORS.pastel.lavender} />
                         <Text style={styles.predTargetPillText}>
                           +{selectedForecastPoint.step}. Seans Projeksiyonu
                         </Text>
@@ -1495,8 +1507,8 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                     </View>
 
                     <View style={[styles.predMetricBox, styles.predMetricBoxActive]}>
-                      <Text style={[styles.predMetricTag, { color: '#8B5CF6' }]}>BEKLENEN</Text>
-                      <Text style={[styles.predMetricVal, { color: '#8B5CF6', fontSize: 16 }]} numberOfLines={1}>
+                      <Text style={[styles.predMetricTag, { color: COLORS.pastel.lavender }]}>BEKLENEN</Text>
+                      <Text style={[styles.predMetricVal, { color: COLORS.pastel.lavender, fontSize: 16 }]} numberOfLines={1}>
                         {selectedForecastPoint.expectedValue} <Text style={styles.predMetricUnit}>{selectedForecastPoint.unit}</Text>
                       </Text>
                     </View>
@@ -1512,7 +1524,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                   {/* İstatistiksel Model & Güven Seviyesi Özeti */}
                   <View style={styles.predFooterRow}>
                     <View style={styles.predFooterTag}>
-                      <Ionicons name="shield-checkmark-outline" size={11} color="#8B5CF6" />
+                      <Ionicons name="shield-checkmark-outline" size={11} color={COLORS.pastel.lavender} />
                       <Text style={styles.predFooterTagText}>{regression.clLabel}</Text>
                     </View>
                     <Text style={styles.predFooterTrendText} numberOfLines={1}>
@@ -1544,9 +1556,9 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                   <Svg width={predScrollableWidth} height={chartHeight}>
                     <Defs>
                       <LinearGradient id="confidenceFunnelGrad" x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.30" />
-                        <Stop offset="50%" stopColor="#8B5CF6" stopOpacity="0.14" />
-                        <Stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.04" />
+                        <Stop offset="0%" stopColor={COLORS.pastel.lavender} stopOpacity="0.30" />
+                        <Stop offset="50%" stopColor={COLORS.pastel.lavender} stopOpacity="0.14" />
+                        <Stop offset="100%" stopColor={COLORS.pastel.lavender} stopOpacity="0.04" />
                       </LinearGradient>
                       <LinearGradient id="predPastGrad" x1="0" y1="0" x2="0" y2="1">
                         <Stop offset="0%" stopColor={COLORS.primary} stopOpacity="0.22" />
@@ -1616,7 +1628,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                         {/* Üst ve alt %2.5 sınır kesikli çizgileri */}
                         <Path
                           d={upperDashedD}
-                          stroke="#8B5CF6"
+                          stroke={COLORS.pastel.lavender}
                           strokeWidth={1.5}
                           strokeDasharray="3 3"
                           fill="none"
@@ -1624,7 +1636,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                         />
                         <Path
                           d={lowerDashedD}
-                          stroke="#8B5CF6"
+                          stroke={COLORS.pastel.lavender}
                           strokeWidth={1.5}
                           strokeDasharray="3 3"
                           fill="none"
@@ -1637,7 +1649,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                     {trendDashedD ? (
                       <Path
                         d={trendDashedD}
-                        stroke="#A855F7"
+                        stroke={COLORS.pastel.lavender}
                         strokeWidth={2.5}
                         strokeDasharray="5 3"
                         fill="none"
@@ -1703,7 +1715,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                               y1={paddingTop - 6}
                               x2={fp.x}
                               y2={chartHeight - paddingBottom}
-                              stroke="#8B5CF6"
+                              stroke={COLORS.pastel.lavender}
                               strokeWidth={1.5}
                               strokeDasharray="3 3"
                               opacity={0.7}
@@ -1715,7 +1727,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                               cx={fp.x}
                               cy={fp.yExpected}
                               r={11}
-                              fill="#8B5CF6"
+                              fill={COLORS.pastel.lavender}
                               opacity={0.22}
                             />
                           )}
@@ -1724,7 +1736,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                             cx={fp.x}
                             cy={fp.yExpected}
                             r={isSelected ? 6 : 4.5}
-                            fill="#8B5CF6"
+                            fill={COLORS.pastel.lavender}
                             stroke={COLORS.surface}
                             strokeWidth={2}
                           />
@@ -1745,7 +1757,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                             textAnchor="middle"
                             fontSize={isSelected ? 10.5 : 9}
                             fontWeight={isSelected ? '900' : '700'}
-                            fill={isSelected ? '#8B5CF6' : COLORS.textPrimary}
+                            fill={isSelected ? COLORS.pastel.lavender : COLORS.textPrimary}
                           >
                             {fp.fp.expectedValue}
                           </SvgText>
@@ -1757,7 +1769,7 @@ const ExerciseProgressionChart: React.FC<{ stats: ExercisePRStats }> = ({ stats 
                             textAnchor="middle"
                             fontSize={9.5}
                             fontWeight={isSelected ? '800' : '600'}
-                            fill={isSelected ? '#8B5CF6' : COLORS.textMuted}
+                            fill={isSelected ? COLORS.pastel.lavender : COLORS.textMuted}
                           >
                             +{fp.step}S
                           </SvgText>
@@ -1854,11 +1866,10 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
             <TouchableOpacity
               style={styles.sharePRBtn}
               onPress={() => {
-                const prWeight = stats.allTime.maxWeight;
-                const prReps = stats.allTime.maxReps;
-                const e1rm = stats.allTime.estimated1RM;
                 const date = stats.allTime.bestDate;
-                const msg = `FitHash PR Rekoru\nEgzersiz: ${stats.exerciseName} (${stats.category} • ${stats.equipment})\nMax Kaldırış: ${prWeight} kg × ${prReps} Tekrar\nTahmini 1RM: ${e1rm} kg\nTarih: ${date || 'Kayıtlı'}\n\n#FitHash #PersonalRecord #GymProgress`;
+                const msg = stats.isCardio
+                  ? `FitHash Kardiyo Rekoru\nEgzersiz: ${stats.exerciseName} (${stats.category} • ${stats.equipment})\nZirve Hız: ${stats.allTime.maxSpeedKmh || 0} km/h\nEn Uzun Mesafe: ${stats.allTime.maxDistanceKm || 0} km\n\n#FitHash #PersonalRecord #CardioProgress`
+                  : `FitHash PR Rekoru\nEgzersiz: ${stats.exerciseName} (${stats.category} • ${stats.equipment})\nMax Kaldırış: ${stats.allTime.maxWeight} kg × ${stats.allTime.maxReps} Tekrar\nTahmini 1RM: ${stats.allTime.estimated1RM} kg\nTarih: ${date || 'Kayıtlı'}\n\n#FitHash #PersonalRecord #GymProgress`;
                 Share.share({
                   title: `${stats.exerciseName} PR`,
                   message: msg,
@@ -1977,7 +1988,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                   <Text style={styles.windowSubtitle}>Son 30 günlük güç ve yoğunluk tepe noktası</Text>
                 </View>
               </View>
-              {stats.monthly.hasData && stats.allTime.hasData && stats.monthly.maxWeight >= stats.allTime.maxWeight && (
+              {!stats.isCardio && stats.monthly.hasData && stats.allTime.hasData && stats.monthly.maxWeight > 0 && stats.monthly.maxWeight >= stats.allTime.maxWeight && (
                 <View style={styles.freshBadge}>
                   <Text style={styles.freshBadgeText}>AYIN REKORU</Text>
                 </View>
@@ -2106,8 +2117,8 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
 
                 <View style={styles.windowFooterRow}>
                   <View style={styles.footerInfoItem}>
-                    <Ionicons name="checkmark-circle-outline" size={13} color="#10B981" />
-                    <Text style={[styles.footerInfoText, { color: '#10B981', fontWeight: '600' }]}>
+                    <Ionicons name="checkmark-circle-outline" size={13} color={COLORS.pastel.green} />
+                    <Text style={[styles.footerInfoText, { color: COLORS.pastel.green, fontWeight: '600' }]}>
                       Bu Hafta: {stats.weekly.totalSets} Set Tamamlandı
                     </Text>
                   </View>
@@ -2176,7 +2187,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                         <View style={styles.sessionPill}>
                           <Text style={styles.sessionPillLabel}>MAX</Text>
                           <Text style={styles.sessionPillVal}>
-                            {s.sessionMaxWeight} kg{s.sessionMax1RM > 0 ? ` • 1RM ${s.sessionMax1RM}k` : ''}
+                            {s.sessionMaxWeight} kg{s.sessionMax1RM > 0 ? ` • 1RM ${s.sessionMax1RM} kg` : ''}
                           </Text>
                         </View>
                       ) : stats.isCardio ? (
@@ -2214,7 +2225,7 @@ export const ExercisePRDetailModal: React.FC<ExercisePRDetailModalProps> = ({
                               </Text>
                             )}
                             {set.isWarmup ? (
-                              <Text style={[styles.setChipRir, { backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#F97316' }]}>W</Text>
+                              <Text style={[styles.setChipRir, { backgroundColor: COLORS.pastel.amberBg, color: COLORS.pastel.amber }]}>W</Text>
                             ) : set.rir !== undefined ? (
                               <Text style={styles.setChipRir}>RIR {set.rir}</Text>
                             ) : null}
@@ -2328,7 +2339,6 @@ const createStyles = () => StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
   },
   windowCardAllTime: {
     borderColor: COLORS.primary,
@@ -2490,7 +2500,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 12,
-    ...SHADOWS.soft,
   },
   repTableHeader: {
     gap: 3,
@@ -2641,7 +2650,7 @@ const createStyles = () => StyleSheet.create({
   },
   setChipRir: {
     fontSize: 9,
-    color: '#8B5CF6',
+    color: COLORS.pastel.lavender,
     fontWeight: '700',
     marginTop: 1,
   },
@@ -2667,7 +2676,6 @@ const createStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     gap: 12,
-    ...SHADOWS.soft,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -2704,19 +2712,6 @@ const createStyles = () => StyleSheet.create({
     fontSize: 11,
     color: COLORS.textMuted,
     marginTop: 2,
-  },
-  progressionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    flexShrink: 0,
-  },
-  progressionText: {
-    fontSize: 11,
-    fontWeight: '800',
   },
   chartDetailCard: {
     backgroundColor: COLORS.surfaceSubtle,
@@ -2756,7 +2751,7 @@ const createStyles = () => StyleSheet.create({
   chartPeakBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: COLORS.pastel.amber,
   },
   chartDetailWorkoutText: {
     fontSize: 11,
@@ -2862,7 +2857,7 @@ const createStyles = () => StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   tabToggleBtnActivePurple: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: COLORS.pastel.lavender,
   },
   tabToggleText: {
     fontSize: 10,
@@ -2874,7 +2869,7 @@ const createStyles = () => StyleSheet.create({
     fontWeight: '800',
   },
   tabToggleTextActivePurple: {
-    color: '#FFFFFF',
+    color: COLORS.primaryText,
     fontWeight: '800',
   },
   predDetailCard: {
@@ -2900,7 +2895,7 @@ const createStyles = () => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    backgroundColor: COLORS.pastel.lavenderBg,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2909,7 +2904,7 @@ const createStyles = () => StyleSheet.create({
   predTargetPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#8B5CF6',
+    color: COLORS.pastel.lavender,
   },
   predDateText: {
     fontSize: 12,
@@ -2952,8 +2947,8 @@ const createStyles = () => StyleSheet.create({
     borderColor: COLORS.border,
   },
   predMetricBoxActive: {
-    borderColor: '#8B5CF6',
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+    borderColor: COLORS.pastel.lavender,
+    backgroundColor: COLORS.pastel.lavenderBg,
   },
   predMetricTag: {
     fontSize: 9,
@@ -2988,7 +2983,7 @@ const createStyles = () => StyleSheet.create({
   predFooterTagText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#8B5CF6',
+    color: COLORS.pastel.lavender,
   },
   predFooterTrendText: {
     fontSize: 10,
@@ -3011,7 +3006,7 @@ const createStyles = () => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 6,
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    backgroundColor: COLORS.pastel.lavenderBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
@@ -3040,7 +3035,7 @@ const createStyles = () => StyleSheet.create({
   predEmptyPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#8B5CF6',
+    color: COLORS.pastel.lavender,
   },
 });
 
