@@ -39,6 +39,62 @@ import {
 } from '../services/progressionEngine';
 import { getAppSettings } from '../services/settings';
 
+
+/** Warm-up rows take a fraction of the working weight — they are never the working weight itself. */
+const WARMUP_RAMP = [0.5, 0.7, 0.85];
+
+interface PlannedSetTarget {
+  weight: number;
+  reps: number;
+  rir?: number;
+}
+
+/**
+ * Maps a recommendation onto the sets that actually exist in the session.
+ *
+ * The overload engine derives its per-set targets from the previous session set-by-set, so a
+ * light first set from history (an unmarked warm-up) comes back as a "target" for set 1. Warm-up
+ * rows therefore get an explicit ramp off the working weight, and every working row gets the
+ * working weight itself — no warm-up weight can land in a non-warm-up set.
+ */
+const buildSetTargetPlan = (
+  sets: ExerciseSet[],
+  rec: SmartOverloadRecommendation | null,
+  fallbackWeight = 0
+): Record<string, PlannedSetTarget> => {
+  const plan: Record<string, PlannedSetTarget> = {};
+  if (!sets.length) return plan;
+
+  const recWeights = (rec?.setTargets || []).map(t => t.weight).filter(w => w > 0);
+  const workingWeight =
+    recWeights.length > 0 ? Math.max(...recWeights) : rec && rec.recWeight > 0 ? rec.recWeight : fallbackWeight;
+
+  let warmupIdx = 0;
+  let workingIdx = 0;
+
+  for (const set of sets) {
+    if (set.isWarmup) {
+      const pct = WARMUP_RAMP[Math.min(warmupIdx, WARMUP_RAMP.length - 1)];
+      plan[set.id] = {
+        weight: Math.round(workingWeight * pct * 2) / 2,
+        reps: set.reps || 10,
+      };
+      warmupIdx += 1;
+      continue;
+    }
+
+    const target = rec?.setTargets?.[workingIdx];
+    plan[set.id] = {
+      weight: workingWeight,
+      reps: target?.reps ?? rec?.recReps ?? set.reps,
+      rir: target?.targetRir,
+    };
+    workingIdx += 1;
+  }
+
+  return plan;
+};
+
 interface ActiveWorkoutModalProps {
   visible: boolean;
   activeSession: WorkoutSession | null;
@@ -354,13 +410,14 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
         setsToApply = ex.sets.slice(0, rec.setTargets.length);
       }
 
-      const copySets = setsToApply.map((s, idx) => {
-        const setTarget = rec.setTargets && rec.setTargets[idx];
+      const plan = buildSetTargetPlan(setsToApply, rec);
+      const copySets = setsToApply.map(s => {
+        const planned = plan[s.id];
         return {
           ...s,
-          weight: setTarget ? setTarget.weight : (rec.recWeight > 0 ? rec.recWeight : s.weight),
-          reps: setTarget ? setTarget.reps : (rec.recReps > 0 ? rec.recReps : s.reps),
-          rir: setTarget ? setTarget.targetRir : (s.rir ?? 1),
+          weight: planned ? planned.weight : s.weight,
+          reps: planned ? planned.reps : s.reps,
+          rir: s.isWarmup ? s.rir : planned?.rir ?? s.rir ?? 1,
         };
       });
       return { ...ex, sets: copySets };
@@ -954,6 +1011,7 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
             const isCardio = ex.category === 'Kardiyo';
             const exVolume = ex.sets.reduce((acc, s) => s.completed ? acc + (s.weight * s.reps) : acc, 0);
             const recommendation = !isCardio ? calculateRecommendation(ex.exerciseName, ex.exerciseId, ex.equipment, ex.category) : null;
+            const setPlan = !isCardio ? buildSetTargetPlan(ex.sets, recommendation) : null;
 
             return (
               <View style={[styles.exCard, isDragging && styles.exCardDragging]}>
@@ -1253,8 +1311,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           placeholder={
                             isBodyweight
                               ? "+0"
-                              : recommendation?.setTargets?.[setIdx]
-                              ? `${recommendation.setTargets[setIdx].weight}`
+                              : setPlan?.[set.id]
+                              ? `${setPlan[set.id].weight}`
                               : (recommendation ? `${recommendation.recWeight}` : "0")
                           }
                           placeholderTextColor={COLORS.textMuted}
@@ -1275,8 +1333,8 @@ export const ActiveWorkoutModal: React.FC<ActiveWorkoutModalProps> = ({
                           style={[styles.setNumInput, set.completed && styles.inputCompleted]}
                           keyboardType="number-pad"
                           placeholder={
-                            recommendation?.setTargets?.[setIdx]
-                              ? `${recommendation.setTargets[setIdx].reps}`
+                            setPlan?.[set.id]
+                              ? `${setPlan[set.id].reps}`
                               : recommendation
                               ? `${recommendation.recReps}`
                               : "0"

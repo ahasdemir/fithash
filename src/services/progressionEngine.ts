@@ -287,6 +287,18 @@ export const detectPlateauAndDeload = (
  * 3. Multi-Session Stagnation & Deload: 3 consecutive stagnant sessions at RIR <= 1 trigger DELOAD (-10% load, 50% sets).
  * 4. RIR-Autoregulated e1RM evaluation for fatigue and plateau metrics.
  */
+/**
+ * Drops warm-up-like sets from a session's history.
+ * A working set that sits far below the session's top load is either an unmarked warm-up or a
+ * mistake; letting it through makes the engine prescribe it again as "set 1 target".
+ */
+const dropWarmupLikeSets = (sets: ExerciseSet[]): ExerciseSet[] => {
+  const valid = sets.filter(s => s.completed && s.weight > 0);
+  if (valid.length < 2) return valid;
+  const topWeight = Math.max(...valid.map(s => s.weight));
+  return valid.filter(s => s.weight >= topWeight * 0.65);
+};
+
 export const calculateSmartAutoregulatedOverload = (
   exerciseName: string,
   equipment: string = '',
@@ -305,10 +317,10 @@ export const calculateSmartAutoregulatedOverload = (
   if (Array.isArray(pastCompletedSetsOrSessions) && pastCompletedSetsOrSessions.length > 0) {
     if (Array.isArray(pastCompletedSetsOrSessions[0])) {
       pastSessions = (pastCompletedSetsOrSessions as ExerciseSet[][])
-        .map(sList => sList.filter(s => s.completed && s.weight > 0))
+        .map(sList => dropWarmupLikeSets(sList))
         .filter(sList => sList.length > 0);
     } else {
-      const valid = (pastCompletedSetsOrSessions as ExerciseSet[]).filter(s => s.completed && s.weight > 0);
+      const valid = dropWarmupLikeSets(pastCompletedSetsOrSessions as ExerciseSet[]);
       if (valid.length > 0) pastSessions = [valid];
     }
   }
