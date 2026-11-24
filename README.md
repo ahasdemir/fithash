@@ -142,7 +142,7 @@ fithash/
 ├── android/
 │   ├── app/                   # React Native host
 │   └── wear/                  # Wear OS companion module
-├── docs/                      # Specs: wear sync, biomechanics, taxonomy, audits
+├── docs/                      # Specs + evidence base: wear sync, biomechanics, taxonomy, audits
 └── tests/                     # Vitest suites
 ```
 
@@ -153,6 +153,7 @@ fithash/
 * **One source of truth for training maths.** Progression, deload and volume logic live in `services/progressionEngine.ts` as pure functions, so they are testable and shared by the UI and the coach summary.
 * **The UI is Turkish.** Exercise names stay in their original form; the chrome is localised for the target user.
 * **Specs before code.** `docs/` holds the wear-sync protocol, the hypertrophy/autoregulation model and the muscle taxonomy the services implement.
+* **Evidence before claims.** `docs/EXERCISE_SCIENCE_RESEARCH.md` grades the evidence behind every training rule the app encodes (A–D), audits the shipped implementation against it, and lists where the product asserts more precision than the literature supports.
 * **No chart library.** Charts are hand-built SVG components using theme tokens, which keeps the bundle small and the visual language consistent.
 
 ---
